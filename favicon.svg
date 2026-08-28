@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="PinLog">
+  <!--
+    PinLog 파비콘 — 워드마크의 'i' 를 대신하는 핀과 같은 그림.
+
+    다만 비례는 탭 아이콘용으로 다시 잡았다.
+    워드마크 쪽은 글자 자리에 들어가야 해서 10:20 으로 홀쭉한데,
+    그대로 16px 로 줄이면 기둥이 2px 아래로 내려가 흐릿해진다.
+    그래서 여기서는 머리를 키우고 기둥을 두툼하게(약 18:28) 다시 그렸다.
+
+    기둥을 먼저 깔고 머리를 덮어야 기둥 윗부분이 공 뒤로 숨는다.
+  -->
+  <rect x="13.3" y="17" width="5.4" height="13" rx="2.7" fill="#64748B"/>
+  <circle cx="16" cy="11" r="9" fill="#2E9BE6"/>
+  <circle cx="12.6" cy="7.6" r="2.8" fill="#FFFFFF" fill-opacity=".3"/>
+</svg>
