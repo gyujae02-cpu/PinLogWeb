@@ -851,7 +851,11 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 
 .pin {
+  /* 오버레이가 재는 크기를 0 으로 고정한다.
+     본체는 아래에서 CSS 로 좌표 위에 얹으므로, 이름표가 접히거나
+     길이가 바뀌어도 앵커 오프셋이 흔들리지 않는다. */
   position: relative;
+  width: 0; height: 0;
   cursor: pointer;
   transform-origin: 50% 100%;
   animation: pinIn .38s var(--ease) both;
@@ -868,7 +872,11 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 
 .pin__body {
-  position: relative;
+  /* 좌표(0,0) 기준 가로 중앙 정렬.
+     bottom 4.32px 은 예전 yAnchor 1.12 × 높이 36px 과 같은 위치다. */
+  position: absolute;
+  left: 0; bottom: 4.32px;
+  transform: translateX(-50%);
   display: flex; align-items: center; gap: 8px;
   height: 36px;
   padding: 0 14px 0 3px;
@@ -877,7 +885,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   white-space: nowrap;
   transition: transform .2s var(--ease);
 }
-.pin:hover .pin__body { transform: translateY(-2px); }
+.pin:hover .pin__body { transform: translate(-50%, -2px); }
 
 .pin__medal {
   position: relative;
@@ -920,7 +928,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 
 .pin.is-active { z-index: 5; }
-.pin.is-active .pin__body { transform: translateY(-3px) scale(1.06); }
+.pin.is-active .pin__body { transform: translate(-50%, -3px) scale(1.06); }
 .pin.is-active .pin__medal { border-width: 2.5px; }
 .pin[data-cat="visited"].is-active { filter: drop-shadow(0 2px 2px rgba(var(--brand-rgb), .35)) drop-shadow(0 8px 16px rgba(var(--brand-rgb), .40)); }
 .pin[data-cat="wish"].is-active    { filter: drop-shadow(0 2px 2px rgba(var(--wish-rgb), .35))  drop-shadow(0 8px 16px rgba(var(--wish-rgb), .40)); }

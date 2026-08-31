@@ -255,11 +255,16 @@ export function renderPins(pins) {
     }
 
     const el = createPinElement(pin);
+    el.classList.toggle('is-compact', isCompact());
+
     const z = baseZIndex(pin);
+    // 내용은 0×0 이고 실제 핀 모양은 CSS 가 좌표 위에 얹는다.
+    // 그래서 앵커는 좌표 그 자체(0, 0)로 두면 된다.
     const overlay = new kakao.maps.CustomOverlay({
       position: new kakao.maps.LatLng(pin.lat, pin.lng),
       content: el,
-      yAnchor: 1.12,
+      xAnchor: 0,
+      yAnchor: 0,
       clickable: true,
       zIndex: z
     });
@@ -275,8 +280,12 @@ function baseZIndex(pin) {
   return Math.round((90 - pin.lat) * 100);
 }
 
+function isCompact() {
+  return getLevel() >= COMPACT_FROM_LEVEL;
+}
+
 function applyCompactPins() {
-  const compact = getLevel() >= COMPACT_FROM_LEVEL;
+  const compact = isCompact();
   overlays.forEach((entry) => entry.el.classList.toggle('is-compact', compact));
 }
 
