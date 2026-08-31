@@ -4,6 +4,15 @@ import * as UI from './ui.js';
 import { makeCover } from './photo.js';
 import { collectUsers, normalizeId, displayName } from './users.js';
 
+function blockPageZoom(e) {
+  if (e.target && e.target.closest && e.target.closest('#map')) return;
+  e.preventDefault();
+}
+
+['gesturestart', 'gesturechange', 'gestureend'].forEach((type) => {
+  document.addEventListener(type, blockPageZoom, { passive: false });
+});
+
 const state = {
   pins: [],
   users: [],

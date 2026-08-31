@@ -60,6 +60,19 @@ body { position: fixed; inset: 0; }
 
 input, textarea, select { user-select: text; -webkit-user-select: text; }
 
+#screen-login,
+.top-bar,
+.bottom-controls,
+.picker__bar,
+.sheet,
+.sheet-backdrop,
+.timeline,
+.confirm,
+.lightbox,
+.toast {
+  touch-action: pan-x pan-y;
+}
+
 @media (max-width: 767px) {
   input, textarea, select { font-size: 16px !important; }
 }

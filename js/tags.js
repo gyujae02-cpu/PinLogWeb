@@ -8,7 +8,9 @@ export const TAGS = [
   { id: 'date',    label: '놀거리', emoji: '🎡' },
   { id: 'culture', label: '문화',   emoji: '🎬' },
   { id: 'nature',  label: '산책',   emoji: '🚶' },
+  { id: 'spot',    label: '명소',   emoji: '🗼' },
   { id: 'shop',    label: '쇼핑',   emoji: '🛍️' },
+  { id: 'stay',    label: '숙소',   emoji: '🛏️' },
   { id: 'etc',     label: '기타',   emoji: '📌' }
 ];
 
