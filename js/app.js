@@ -36,6 +36,7 @@ const state = {
 
 UI.initUI({
   onLogin,
+  onBrandClick,
   onLogout,
   onLocate,
   onAddClick,
@@ -120,6 +121,21 @@ function saveSavedId(id) {
     if (id) localStorage.setItem(SAVED_ID_KEY, id);
     else    localStorage.removeItem(SAVED_ID_KEY);
   } catch (_) {  }
+}
+
+// 상단 PinLog 타이틀 → 페이지 새로고침
+// 시트가 열려 있으면 작성 중인 내용이 날아가므로 한 번 물어본다.
+async function onBrandClick() {
+  if (UI.isSheetOpen()) {
+    const ok = await UI.confirmDialog({
+      title: '새로고침할까요?',
+      desc: '작성 중인 내용은 저장되지 않아요.',
+      okText: '새로고침'
+    });
+    if (!ok) return;
+  }
+
+  location.reload();
 }
 
 async function onLogout() {

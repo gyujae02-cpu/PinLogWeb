@@ -112,6 +112,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .brand {
   display: inline-flex; align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow .18s var(--ease), transform .18s var(--ease);
   height: 46px;
   padding: 0 16px;
   border-radius: 15px;
@@ -121,6 +124,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   flex-shrink: 0;
   user-select: none;
 }
+
+.brand:hover { box-shadow: var(--sh-card), 0 0 0 1.5px var(--brand-200) inset; }
+.brand:active { transform: scale(.97); }
 
 .brand__text {
   font-size: 17px; font-weight: 800; letter-spacing: -.035em;
@@ -1562,7 +1568,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 24px;
 }
 
-.tl-month {
+.tl-group {
   position: sticky; top: 0;
   z-index: 1;
   margin: 16px 0 8px;
@@ -1571,7 +1577,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 12px; font-weight: 750; letter-spacing: -.01em;
   color: var(--ink-400);
 }
-.tl-month:first-child { margin-top: 0; }
+.tl-group:first-child { margin-top: 0; }
 
 .tl-item {
   display: flex; align-items: flex-start; gap: 12px;

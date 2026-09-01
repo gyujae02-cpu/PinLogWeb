@@ -36,6 +36,7 @@ export const el = {
   mePillDot:     $('#me-pill-dot'),
   mePillName:    $('#me-pill-name'),
 
+  brand:         $('#brand'),
   btnLogout:     $('#btn-logout'),
   btnTimeline:   $('#btn-timeline'),
   btnLocate:     $('#btn-locate'),
@@ -173,6 +174,7 @@ export function initUI(handlers) {
 
   initCardTilt();
 
+  el.brand.addEventListener('click', () => cb.onBrandClick && cb.onBrandClick());
   el.btnLogout.addEventListener('click', () => cb.onLogout && cb.onLogout());
   el.btnLocate.addEventListener('click', () => cb.onLocate && cb.onLocate());
   el.btnAdd.addEventListener('click', () => cb.onAddClick && cb.onAddClick());
@@ -1095,19 +1097,35 @@ export function renderTimeline(pins, origin) {
   el.timelineEmpty.hidden = list.length > 0;
   if (!list.length) { paintTimelineEmpty(); return; }
 
-  const grouped = timelineSort === 'recent' || timelineSort === 'oldest';
+  const byMonth  = timelineSort === 'recent' || timelineSort === 'oldest';
+  const byRegion = timelineSort === 'region';
+
+  // 지역 헤더에 개수를 같이 보여주려면 미리 세어둔다.
+  const regionCount = new Map();
+  if (byRegion) {
+    list.forEach((p) => {
+      const r = regionOf(p);
+      regionCount.set(r, (regionCount.get(r) || 0) + 1);
+    });
+  }
 
   const frag = document.createDocumentFragment();
-  let lastMonth = '';
+  let lastGroup = '';
 
   list.forEach((pin) => {
     const d = effectiveDate(pin);
 
-    if (grouped) {
-      const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
-      if (monthKey !== lastMonth) {
-        lastMonth = monthKey;
-        frag.appendChild(h('div', 'tl-month', `${d.getFullYear()}년 ${d.getMonth() + 1}월`));
+    if (byMonth) {
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (key !== lastGroup) {
+        lastGroup = key;
+        frag.appendChild(h('div', 'tl-group', `${d.getFullYear()}년 ${d.getMonth() + 1}월`));
+      }
+    } else if (byRegion) {
+      const key = regionOf(pin);
+      if (key !== lastGroup) {
+        lastGroup = key;
+        frag.appendChild(h('div', 'tl-group', `${key} · ${regionCount.get(key)}곳`));
       }
     }
 
@@ -1142,6 +1160,21 @@ function timelineSorter() {
       if (!timelineOrigin) return (a, b) => effectiveDate(b) - effectiveDate(a);
       return (a, b) => distanceOf(a) - distanceOf(b);
 
+    case 'region':
+      return (a, b) => {
+        const ra = regionOf(a);
+        const rb = regionOf(b);
+
+        if (ra !== rb) {
+          // 주소를 못 받은 핀은 항상 맨 뒤로 모은다.
+          if (ra === REGION_UNKNOWN) return 1;
+          if (rb === REGION_UNKNOWN) return -1;
+          return ra.localeCompare(rb, 'ko');
+        }
+
+        return effectiveDate(b) - effectiveDate(a);
+      };
+
     default:
       return (a, b) => effectiveDate(b) - effectiveDate(a);
   }
@@ -1150,6 +1183,30 @@ function timelineSorter() {
 function distanceOf(pin) {
   if (!timelineOrigin) return Infinity;
   return distanceMeters(timelineOrigin.lat, timelineOrigin.lng, pin.lat, pin.lng);
+}
+
+const REGION_UNKNOWN = '지역 미확인';
+
+// 카카오는 같은 시/도를 '서울' 로 줄여 주기도 하고 '서울특별시' 로 다 쓰기도 한다.
+// 둘이 다른 그룹으로 갈리지 않도록 짧은 쪽으로 맞춘다.
+const REGION_ALIAS = {
+  '서울특별시': '서울',   '부산광역시': '부산',   '대구광역시': '대구',
+  '인천광역시': '인천',   '광주광역시': '광주',   '대전광역시': '대전',
+  '울산광역시': '울산',   '세종특별자치시': '세종',
+  '경기도': '경기',
+  '강원도': '강원',       '강원특별자치도': '강원',
+  '충청북도': '충북',     '충청남도': '충남',
+  '전라북도': '전북',     '전북특별자치도': '전북',
+  '전라남도': '전남',
+  '경상북도': '경북',     '경상남도': '경남',
+  '제주도': '제주',       '제주특별자치도': '제주'
+};
+
+// 주소의 첫 토큰이 시/도다. ('서울 성동구 연무장길 5' → '서울')
+function regionOf(pin) {
+  const first = String(pin.address || '').trim().split(/\s+/)[0];
+  if (!first) return REGION_UNKNOWN;
+  return REGION_ALIAS[first] || first;
 }
 
 function paintTimelineEmpty() {
