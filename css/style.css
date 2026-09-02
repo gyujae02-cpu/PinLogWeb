@@ -627,6 +627,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   box-shadow: var(--sh-card), 0 0 0 1.5px var(--brand-200) inset;
 }
 
+.chip--reset {
+  color: var(--brand-600);
+  font-weight: 700;
+  box-shadow: var(--sh-card), 0 0 0 1.5px var(--brand-200) inset;
+}
+.chip--reset:hover { background: #fff; }
+
 .chip--more {
   min-width: 42px;
   justify-content: center;
@@ -1091,12 +1098,39 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .sheet__address span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .memo-box {
-  padding: 15px 16px;
+  position: relative;
+  padding: 15px 46px 15px 16px;
   border-radius: 16px;
   background: var(--surface-sunken);
   font-size: 14px; line-height: 1.65; letter-spacing: -.01em;
   color: var(--ink-700);
 }
+
+/* 메모 안의 링크 */
+.memo-link {
+  color: var(--brand-600);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1.5px;
+  word-break: break-all;
+}
+.memo-link:hover { color: var(--brand-700); }
+
+.memo-copy {
+  position: absolute;
+  top: 8px; right: 8px;
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  color: var(--ink-400);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
+}
+.memo-copy:hover { color: var(--brand-600); background: #fff; }
+.memo-copy:active { transform: scale(.94); }
+.memo-copy.is-done { color: var(--brand-600); }
 
 .badge {
   display: inline-flex; align-items: center;

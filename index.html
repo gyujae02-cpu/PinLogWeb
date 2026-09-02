@@ -173,6 +173,13 @@
       </div>
 
       <div id="filter-row" class="filter-row">
+        <button id="filter-reset" type="button" class="chip chip--reset" hidden>
+          <svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]">
+            <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M19.5 3.5v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          필터 초기화
+        </button>
         <button type="button" class="chip chip--visited is-on" data-filter="visited">
           <span class="chip__dot"></span>
           가본 곳
@@ -451,6 +458,17 @@
 
       <div id="detail-memo-wrap" class="memo-box mt-4">
         <p id="detail-memo" class="whitespace-pre-wrap break-words"></p>
+        <button id="detail-memo-copy" type="button" class="memo-copy" aria-label="메모 복사" title="메모 복사">
+          <svg id="memo-copy-icon" viewBox="0 0 24 24" fill="none" class="w-[15px] h-[15px]">
+            <rect x="9" y="9" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M15 6.2V5.6A2.6 2.6 0 0 0 12.4 3H6.6A2.6 2.6 0 0 0 4 5.6v5.8A2.6 2.6 0 0 0 6.6 14h.6"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <svg id="memo-copy-done" viewBox="0 0 24 24" fill="none" class="w-[15px] h-[15px]" hidden>
+            <path d="m5 12.5 4.4 4.4L19 7.6" stroke="currentColor" stroke-width="2.4"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       <p id="detail-meta" class="mt-3.5 text-[11.5px] text-ink-400"></p>

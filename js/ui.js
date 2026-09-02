@@ -29,6 +29,7 @@ export const el = {
   searchEmpty:   $('#search-empty'),
 
   filterRow:     $('#filter-row'),
+  filterReset:   $('#filter-reset'),
   countVisited:  $('#count-visited'),
   countWish:     $('#count-wish'),
 
@@ -93,6 +94,9 @@ export const el = {
   galleryNext:   $('#gallery-next'),
   detailMemoWrap:$('#detail-memo-wrap'),
   detailMemo:    $('#detail-memo'),
+  detailMemoCopy:$('#detail-memo-copy'),
+  memoCopyIcon:  $('#memo-copy-icon'),
+  memoCopyDone:  $('#memo-copy-done'),
   detailMeta:    $('#detail-meta'),
   detailEdit:    $('#detail-edit'),
   detailDelete:  $('#detail-delete'),
@@ -136,6 +140,7 @@ let photoBusy = false;
 
 let cb = {};
 let toastTimer = null;
+let copyTimer = null;
 let toastActionFn = null;
 let hintTimer = null;
 let locatingTimer = null;
@@ -174,6 +179,8 @@ export function initUI(handlers) {
 
   initCardTilt();
 
+  el.detailMemoCopy.addEventListener('click', copyMemo);
+
   el.brand.addEventListener('click', () => cb.onBrandClick && cb.onBrandClick());
   el.btnLogout.addEventListener('click', () => cb.onLogout && cb.onLogout());
   el.btnLocate.addEventListener('click', () => cb.onLocate && cb.onLocate());
@@ -187,11 +194,15 @@ export function initUI(handlers) {
       const key = chip.dataset.filter;
       filters[key] = !filters[key];
       chip.classList.toggle('is-on', filters[key]);
+      updateFilterReset();
       cb.onFilterChange && cb.onFilterChange(filters);
     });
   });
 
   buildTagFilter();
+
+  el.filterReset.addEventListener('click', resetFilters);
+  updateFilterReset();
 
   let searchTimer = null;
   el.searchInput.addEventListener('input', () => {
@@ -437,6 +448,7 @@ function buildTagFilter() {
         : filters.tags.concat(tag.id);
       chip.classList.toggle('is-on', !on);
       updateTagFilterVisibility();
+      updateFilterReset();
       cb.onFilterChange && cb.onFilterChange(filters);
     });
 
@@ -453,6 +465,35 @@ function buildTagFilter() {
 
   el.filterRow.appendChild(frag);
   updateTagFilterVisibility();
+}
+
+// 기본값에서 하나라도 벗어나 있으면 '필터 걸린 상태'로 본다.
+function isFiltered() {
+  return !filters.visited
+      || !filters.wish
+      || filters.tags.length > 0
+      || filters.users.length !== userIds.length;
+}
+
+// 초기화 버튼은 실제로 걸러지고 있을 때만 보인다.
+// 핀이 안 보이는 이유가 필터라는 걸 눈에 띄게 하려는 목적이다.
+function updateFilterReset() {
+  el.filterReset.hidden = !isFiltered();
+}
+
+function resetFilters() {
+  filters.visited = true;
+  filters.wish = true;
+  filters.tags = [];
+  filters.users = userIds.slice();
+
+  document.querySelectorAll('[data-filter]').forEach((c) => c.classList.add('is-on'));
+  el.filterRow.querySelectorAll('[data-tag-filter]').forEach((c) => c.classList.remove('is-on'));
+  el.filterRow.querySelectorAll('[data-user-filter]').forEach((c) => c.classList.add('is-on'));
+
+  updateTagFilterVisibility();
+  updateFilterReset();
+  cb.onFilterChange && cb.onFilterChange(filters);
 }
 
 function updateTagFilterVisibility() {
@@ -482,6 +523,7 @@ export function setUsers(ids) {
   userIds = next.slice();
 
   filters.users = userIds.slice();
+  updateFilterReset();
 
   el.filterRow.querySelectorAll('[data-user-filter]').forEach((n) => n.remove());
   if (!el.userDiv) {
@@ -517,6 +559,7 @@ export function setUsers(ids) {
         ? filters.users.filter((u) => u !== id)
         : filters.users.concat(id);
       chip.classList.toggle('is-on', !on);
+      updateFilterReset();
       cb.onFilterChange && cb.onFilterChange(filters);
     });
 
@@ -865,7 +908,8 @@ export function openDetail(pin) {
 
   if (pin.memo) {
     el.detailMemoWrap.hidden = false;
-    el.detailMemo.textContent = pin.memo;
+    renderMemo(pin.memo);
+    setCopied(false);
   } else {
     el.detailMemoWrap.hidden = true;
   }
@@ -873,6 +917,93 @@ export function openDetail(pin) {
   renderMeta(pin);
 
   openSheet('detail');
+}
+
+// http(s):// 로 시작하거나 www. 로 시작하는 주소만 링크로 만든다.
+// 다른 스킴(javascript: 같은)은 아예 걸리지 않는다.
+const MEMO_URL = /(https?:\/\/[^\s<>()[\]{}"']+|www\.[^\s<>()[\]{}"']+)/gi;
+
+function renderMemo(text) {
+  const node = el.detailMemo;
+  node.textContent = '';
+
+  const src = String(text || '');
+  let last = 0;
+  let m;
+
+  MEMO_URL.lastIndex = 0;
+
+  while ((m = MEMO_URL.exec(src)) !== null) {
+    let raw = m[0];
+
+    // '...했어요(https://a.com).' 처럼 뒤에 붙은 문장부호는 링크에서 뺀다.
+    const tail = raw.match(/[.,!?;:)\]}]+$/);
+    if (tail) raw = raw.slice(0, -tail[0].length);
+
+    if (!raw) { MEMO_URL.lastIndex = m.index + m[0].length; continue; }
+
+    if (m.index > last) node.appendChild(document.createTextNode(src.slice(last, m.index)));
+
+    const a = document.createElement('a');
+    a.className = 'memo-link';
+    a.href = /^www\./i.test(raw) ? `https://${raw}` : raw;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = raw;
+    node.appendChild(a);
+
+    last = m.index + raw.length;
+    MEMO_URL.lastIndex = last;
+  }
+
+  if (last < src.length) node.appendChild(document.createTextNode(src.slice(last)));
+}
+
+async function copyMemo() {
+  // 링크의 글자는 원래 주소 그대로라, 이어 붙이면 저장된 메모와 같다.
+  const text = el.detailMemo.textContent;
+  if (!text) return;
+
+  if (!(await writeClipboard(text))) {
+    toast('복사하지 못했어요. 메모를 길게 눌러 직접 복사해주세요.');
+    return;
+  }
+
+  toast('메모를 복사했어요.');
+  setCopied(true);
+
+  clearTimeout(copyTimer);
+  copyTimer = setTimeout(() => setCopied(false), 1600);
+}
+
+function setCopied(on) {
+  el.detailMemoCopy.classList.toggle('is-done', on);
+  el.memoCopyIcon.hidden = on;
+  el.memoCopyDone.hidden = !on;
+}
+
+async function writeClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {  }
+
+  // https 가 아닌 곳에서는 클립보드 API 를 못 쓰니 예전 방식으로 대신한다.
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 function renderTagRow(container, tags) {

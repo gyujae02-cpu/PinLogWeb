@@ -25,6 +25,9 @@ let meCircle = null;
 let places = null;
 let geocoder = null;
 let activeId = null;
+let resizeObs = null;
+let resizeRaf = 0;
+let lastSize = '';
 
 let handlers = {
   onMapClick: null,
@@ -135,7 +138,56 @@ export function createMap(el, center, cbs = {}) {
 
   on(map, 'zoom_changed', applyCompactPins);
 
+  watchContainerSize();
+
   return map;
+}
+
+// 모바일 브라우저는 주소창이 접히면 화면이 세로로 커지고, 화면을 돌려도 크기가 바뀐다.
+// 카카오맵은 만들어질 때 잰 컨테이너 크기를 계속 쓰기 때문에,
+// 바뀐 걸 알려주지 않으면 지도가 생각하는 중심과 화면의 실제 중심이 어긋난다.
+// 그러면 CSS 로 화면 정중앙에 그리는 위치 선택 핀과 실제 좌표가 따로 놀게 된다.
+function watchContainerSize() {
+  lastSize = sizeKey();
+
+  if (typeof ResizeObserver === 'function') {
+    resizeObs = new ResizeObserver(scheduleRelayout);
+    resizeObs.observe(container);
+    return;
+  }
+
+  window.addEventListener('resize', scheduleRelayout);
+  window.addEventListener('orientationchange', scheduleRelayout);
+}
+
+function sizeKey() {
+  return container ? `${container.clientWidth}x${container.clientHeight}` : '';
+}
+
+function scheduleRelayout() {
+  if (resizeRaf) return;
+
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    if (!map || !container) return;
+
+    // 크기가 실제로 달라졌을 때만 다시 그린다.
+    const key = sizeKey();
+    if (key === lastSize) return;
+    lastSize = key;
+
+    map.relayout();
+  });
+}
+
+function unwatchContainerSize() {
+  if (resizeObs) { resizeObs.disconnect(); resizeObs = null; }
+
+  window.removeEventListener('resize', scheduleRelayout);
+  window.removeEventListener('orientationchange', scheduleRelayout);
+
+  if (resizeRaf) { cancelAnimationFrame(resizeRaf); resizeRaf = 0; }
+  lastSize = '';
 }
 
 function clampCenter() {
@@ -155,6 +207,7 @@ function clampCenter() {
 
 export function destroyMap() {
 
+  unwatchContainerSize();
   clearPins();
 
   if (meOverlay) { meOverlay.setMap(null); meOverlay = null; }
