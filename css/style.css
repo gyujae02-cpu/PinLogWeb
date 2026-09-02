@@ -577,6 +577,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .filter-row::-webkit-scrollbar { display: none; }
 .filter-row > * { flex: 0 0 auto; }
+.filter-row > .is-folded { display: none; }
 
 .filter-div {
   width: 1px;
@@ -1575,21 +1576,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .timeline__sort:hover { background-color: var(--ink-200); }
 .timeline__sort:focus-visible { outline: none; border-color: var(--brand-300); background-color: #fff; }
 
-.timeline__seg {
-  display: flex; gap: 7px;
-  margin-top: 10px;
+/* 지도와 같은 필터 줄을 핀 모아보기에도 쓴다.
+   .filter-row 의 음수 여백은 그대로 두고 위쪽 간격만 더한다. */
+.timeline__filter {
+  margin-top: 5px;
   flex-shrink: 0;
 }
-.seg-pill {
-  height: 34px; padding: 0 14px;
-  border-radius: 11px;
-  background: var(--surface-sunken);
-  font-size: 12.5px; font-weight: 650; letter-spacing: -.015em;
-  color: var(--ink-400);
-  transition: all .18s var(--ease);
-}
-.seg-pill:active { transform: scale(.96); }
-.seg-pill.is-on { background: var(--brand-500); color: #fff; box-shadow: 0 6px 16px rgba(var(--brand-rgb), .30); }
 
 .timeline__list {
   flex: 1; min-height: 0;

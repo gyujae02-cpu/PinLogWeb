@@ -272,8 +272,6 @@ function subscribePins() {
 
       refreshMarkers();
 
-      if (UI.isTimelineOpen()) UI.renderTimeline(state.pins);
-
       if (state.selectedId) {
         const cur = findPin(state.selectedId);
         if (!cur) {
@@ -321,7 +319,10 @@ function passesUserFilter(f, pin) {
 }
 
 function refreshMarkers() {
-  MapCtl.renderPins(visiblePins());
+  const list = visiblePins();
+
+  MapCtl.renderPins(list);
+  if (UI.isTimelineOpen()) UI.renderTimeline(list);
 
   const visited = state.pins.filter((p) => p.category === 'visited').length;
   const wish    = state.pins.length - visited;
@@ -438,7 +439,7 @@ function onOpenTimeline() {
   UI.closeSheet();
   UI.hideSearchPanel();
 
-  UI.openTimeline(state.pins, MapCtl.getCenter());
+  UI.openTimeline(visiblePins(), MapCtl.getCenter());
 }
 
 function onTimelineSelect(id) {

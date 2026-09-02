@@ -172,26 +172,7 @@
         </div>
       </div>
 
-      <div id="filter-row" class="filter-row">
-        <button id="filter-reset" type="button" class="chip chip--reset" hidden>
-          <svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]">
-            <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M19.5 3.5v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          필터 초기화
-        </button>
-        <button type="button" class="chip chip--visited is-on" data-filter="visited">
-          <span class="chip__dot"></span>
-          가본 곳
-          <span class="chip__count" id="count-visited">0</span>
-        </button>
-        <button type="button" class="chip chip--wish is-on" data-filter="wish">
-          <span class="chip__dot"></span>
-          가볼 곳
-          <span class="chip__count" id="count-wish">0</span>
-        </button>
-        <span class="filter-div" aria-hidden="true"></span>
-      </div>
+      <div id="filter-row" class="filter-row"></div>
     </header>
 
     <div id="locating-pill" class="status-pill" hidden>
@@ -313,11 +294,7 @@
         </select>
       </div>
 
-      <div class="timeline__seg">
-        <button type="button" class="seg-pill is-on" data-tl="all">전체</button>
-        <button type="button" class="seg-pill" data-tl="visited">가본 곳</button>
-        <button type="button" class="seg-pill" data-tl="wish">가볼 곳</button>
-      </div>
+      <div id="timeline-filter" class="filter-row timeline__filter"></div>
 
       <div id="timeline-list" class="timeline__list scroll-y"></div>
       <div id="timeline-empty" class="timeline__empty" hidden>

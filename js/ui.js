@@ -29,9 +29,7 @@ export const el = {
   searchEmpty:   $('#search-empty'),
 
   filterRow:     $('#filter-row'),
-  filterReset:   $('#filter-reset'),
-  countVisited:  $('#count-visited'),
-  countWish:     $('#count-wish'),
+  timelineFilter:$('#timeline-filter'),
 
   mePill:        $('#me-pill'),
   mePillDot:     $('#me-pill-dot'),
@@ -149,7 +147,6 @@ let toastActionFn = null;
 let hintTimer = null;
 let locatingTimer = null;
 
-let timelineMode = 'all';
 let timelinePins = [];
 let timelineOpen = false;
 let timelineQuery = '';
@@ -162,6 +159,7 @@ let lightboxIndex = 0;
 let myId = '';
 let userIds = [];
 let tagFilterOpen = false;
+let filterRows = [];
 
 const TAG_FILTER_VISIBLE = 3;
 
@@ -197,20 +195,10 @@ export function initUI(handlers) {
   el.btnZoomIn.addEventListener('click', () => cb.onZoomIn && cb.onZoomIn());
   el.btnZoomOut.addEventListener('click', () => cb.onZoomOut && cb.onZoomOut());
 
-  document.querySelectorAll('[data-filter]').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const key = chip.dataset.filter;
-      filters[key] = !filters[key];
-      chip.classList.toggle('is-on', filters[key]);
-      updateFilterReset();
-      cb.onFilterChange && cb.onFilterChange(filters);
-    });
-  });
-
-  buildTagFilter();
-
-  el.filterReset.addEventListener('click', resetFilters);
-  updateFilterReset();
+  // 지도와 핀 모아보기가 같은 filters 를 보고, 같은 모양의 줄을 각각 그린다.
+  buildFilterRow(el.filterRow);
+  buildFilterRow(el.timelineFilter);
+  paintFilters();
 
   let searchTimer = null;
   el.searchInput.addEventListener('input', () => {
@@ -305,16 +293,6 @@ export function initUI(handlers) {
     n.addEventListener('click', () => closeTimeline());
   });
   $('#btn-export').addEventListener('click', () => cb.onExport && cb.onExport());
-  document.querySelectorAll('[data-tl]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      timelineMode = btn.dataset.tl;
-      document.querySelectorAll('[data-tl]').forEach((b) => {
-        b.classList.toggle('is-on', b === btn);
-      });
-      renderTimeline(timelinePins);
-    });
-  });
-
   el.timelineSearch.addEventListener('input', () => {
     timelineQuery = el.timelineSearch.value.trim().toLowerCase();
     el.timelineSearchClear.hidden = el.timelineSearch.value.length === 0;
@@ -455,12 +433,62 @@ export function prefillLogin(id) {
 }
 
 export function setCounts(visited, wish) {
-  el.countVisited.textContent = visited;
-  el.countWish.textContent = wish;
+  filterRows.forEach((row) => {
+    row.counts.visited.textContent = visited;
+    row.counts.wish.textContent = wish;
+  });
 }
 
-function buildTagFilter() {
-  const frag = document.createDocumentFragment();
+const CATEGORY_CHIPS = [
+  { key: 'visited', label: '가본 곳', mod: 'chip--visited' },
+  { key: 'wish',    label: '가볼 곳', mod: 'chip--wish' }
+];
+
+const RESET_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true">' +
+    '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+    '<path d="M19.5 3.5v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '</svg>';
+
+// 필터 줄 한 벌을 만들어 root 에 채운다.
+// 칩을 누르면 filters 만 고치고 칠하기는 paintFilters 가 전담한다.
+// 그래야 지도와 모아보기가 어긋날 수 없다.
+function buildFilterRow(root) {
+  const row = { root, reset: null, counts: {}, userDiv: null, tagDiv: null, tagMore: null };
+
+  row.reset = h('button', 'chip chip--reset');
+  row.reset.type = 'button';
+  row.reset.classList.add('is-folded');
+  row.reset.innerHTML = RESET_ICON;
+  row.reset.append(document.createTextNode('필터 초기화'));
+  row.reset.addEventListener('click', resetFilters);
+  root.appendChild(row.reset);
+
+  CATEGORY_CHIPS.forEach(({ key, label, mod }) => {
+    const chip = h('button', `chip ${mod}`);
+    chip.type = 'button';
+    chip.dataset.filter = key;
+
+    const count = h('span', 'chip__count', '0');
+    chip.append(h('span', 'chip__dot'), document.createTextNode(label), count);
+    row.counts[key] = count;
+
+    chip.addEventListener('click', () => {
+      filters[key] = !filters[key];
+      paintFilters();
+      cb.onFilterChange && cb.onFilterChange(filters);
+    });
+
+    root.appendChild(chip);
+  });
+
+  // 사람 칩은 이 구분선과 다음 구분선 사이에 들어간다.
+  row.userDiv = divider();
+  row.userDiv.classList.add('is-folded');
+  root.appendChild(row.userDiv);
+
+  row.tagDiv = divider();
+  root.appendChild(row.tagDiv);
 
   TAGS.forEach((tag) => {
     const chip = h('button', 'chip chip--tag');
@@ -473,25 +501,29 @@ function buildTagFilter() {
       filters.tags = on
         ? filters.tags.filter((t) => t !== tag.id)
         : filters.tags.concat(tag.id);
-      chip.classList.toggle('is-on', !on);
-      updateTagFilterVisibility();
-      updateFilterReset();
+      paintFilters();
       cb.onFilterChange && cb.onFilterChange(filters);
     });
 
-    frag.appendChild(chip);
+    root.appendChild(chip);
   });
 
-  el.tagMore = h('button', 'chip chip--more');
-  el.tagMore.type = 'button';
-  el.tagMore.addEventListener('click', () => {
+  row.tagMore = h('button', 'chip chip--more');
+  row.tagMore.type = 'button';
+  row.tagMore.addEventListener('click', () => {
     tagFilterOpen = !tagFilterOpen;
-    updateTagFilterVisibility();
+    paintFilters();
   });
-  frag.appendChild(el.tagMore);
+  root.appendChild(row.tagMore);
 
-  el.filterRow.appendChild(frag);
-  updateTagFilterVisibility();
+  filterRows.push(row);
+  return row;
+}
+
+function divider() {
+  const d = h('span', 'filter-div');
+  d.setAttribute('aria-hidden', 'true');
+  return d;
 }
 
 // 기본값에서 하나라도 벗어나 있으면 '필터 걸린 상태'로 본다.
@@ -502,10 +534,39 @@ function isFiltered() {
       || filters.users.length !== userIds.length;
 }
 
-// 초기화 버튼은 실제로 걸러지고 있을 때만 보인다.
-// 핀이 안 보이는 이유가 필터라는 걸 눈에 띄게 하려는 목적이다.
-function updateFilterReset() {
-  el.filterReset.hidden = !isFiltered();
+// 모든 필터 줄을 현재 filters 대로 다시 칠한다.
+function paintFilters() {
+  const filtered = isFiltered();
+
+  filterRows.forEach((row) => {
+    row.root.querySelectorAll('[data-filter]').forEach((c) => {
+      c.classList.toggle('is-on', !!filters[c.dataset.filter]);
+    });
+
+    row.root.querySelectorAll('[data-user-filter]').forEach((c) => {
+      c.classList.toggle('is-on', filters.users.includes(c.dataset.userFilter));
+    });
+
+    // 태그는 앞 몇 개만 두고 접는다. 켜져 있는 건 접힌 자리에서도 보여준다.
+    let hidden = 0;
+    [...row.root.querySelectorAll('[data-tag-filter]')].forEach((chip, i) => {
+      const on = filters.tags.includes(chip.dataset.tagFilter);
+      chip.classList.toggle('is-on', on);
+
+      const show = tagFilterOpen || i < TAG_FILTER_VISIBLE || on;
+      chip.classList.toggle('is-folded', !show);
+      if (!show) hidden++;
+    });
+
+    row.tagMore.classList.toggle('is-folded', !tagFilterOpen && hidden === 0);
+    row.tagMore.textContent = tagFilterOpen ? '접기' : `+${hidden}`;
+    row.tagMore.setAttribute('aria-expanded', String(tagFilterOpen));
+    row.tagMore.setAttribute('aria-label', tagFilterOpen ? '태그 접기' : '태그 더 보기');
+
+    // 초기화 버튼은 실제로 걸러지고 있을 때만 보인다.
+    // 핀이 안 보이는 이유가 필터라는 걸 눈에 띄게 하려는 목적이다.
+    row.reset.classList.toggle('is-folded', !filtered);
+  });
 }
 
 function resetFilters() {
@@ -514,31 +575,8 @@ function resetFilters() {
   filters.tags = [];
   filters.users = userIds.slice();
 
-  document.querySelectorAll('[data-filter]').forEach((c) => c.classList.add('is-on'));
-  el.filterRow.querySelectorAll('[data-tag-filter]').forEach((c) => c.classList.remove('is-on'));
-  el.filterRow.querySelectorAll('[data-user-filter]').forEach((c) => c.classList.add('is-on'));
-
-  updateTagFilterVisibility();
-  updateFilterReset();
+  paintFilters();
   cb.onFilterChange && cb.onFilterChange(filters);
-}
-
-function updateTagFilterVisibility() {
-  const chips = [...el.filterRow.querySelectorAll('[data-tag-filter]')];
-  let hidden = 0;
-
-  chips.forEach((chip, i) => {
-    const on = filters.tags.includes(chip.dataset.tagFilter);
-    const show = tagFilterOpen || i < TAG_FILTER_VISIBLE || on;
-    chip.hidden = !show;
-    if (!show) hidden++;
-  });
-
-  if (!el.tagMore) return;
-  el.tagMore.hidden = !tagFilterOpen && hidden === 0;
-  el.tagMore.textContent = tagFilterOpen ? '접기' : `+${hidden}`;
-  el.tagMore.setAttribute('aria-expanded', String(tagFilterOpen));
-  el.tagMore.setAttribute('aria-label', tagFilterOpen ? '태그 접기' : '태그 더 보기');
 }
 
 export function setUsers(ids) {
@@ -550,53 +588,48 @@ export function setUsers(ids) {
   userIds = next.slice();
 
   filters.users = userIds.slice();
-  updateFilterReset();
 
-  el.filterRow.querySelectorAll('[data-user-filter]').forEach((n) => n.remove());
-  if (!el.userDiv) {
-    el.userDiv = h('span', 'filter-div');
-    el.userDiv.setAttribute('aria-hidden', 'true');
-  }
-  el.userDiv.remove();
-  if (userIds.length < 2) return;
-
-  const frag = document.createDocumentFragment();
-  frag.appendChild(el.userDiv);
-
+  // 혼자 쓰는 동안에는 사람 칩을 띄우지 않는다.
+  const show = userIds.length >= 2;
   const ordered = userIds.slice().sort((a, b) => (a === myId ? -1 : b === myId ? 1 : 0));
 
-  ordered.forEach((id) => {
-    const color = userColor(id);
-    const chip = h('button', 'chip chip--user');
-    chip.type = 'button';
-    chip.dataset.userFilter = id;
-    chip.style.setProperty('--user-dot', color.dot);
-    chip.style.setProperty('--user-soft', color.soft);
-    chip.style.setProperty('--user-text', color.text);
+  filterRows.forEach((row) => {
+    row.root.querySelectorAll('[data-user-filter]').forEach((n) => n.remove());
+    row.userDiv.classList.toggle('is-folded', !show);
+    if (!show) return;
 
-    chip.append(
-      h('span', 'chip__dot chip__dot--user'),
-      document.createTextNode(id === myId ? `${displayName(id)} (나)` : displayName(id))
-    );
-    chip.classList.toggle('is-on', filters.users.includes(id));
+    const frag = document.createDocumentFragment();
 
-    chip.addEventListener('click', () => {
-      const on = filters.users.includes(id);
-      filters.users = on
-        ? filters.users.filter((u) => u !== id)
-        : filters.users.concat(id);
-      chip.classList.toggle('is-on', !on);
-      updateFilterReset();
-      cb.onFilterChange && cb.onFilterChange(filters);
+    ordered.forEach((id) => {
+      const color = userColor(id);
+      const chip = h('button', 'chip chip--user');
+      chip.type = 'button';
+      chip.dataset.userFilter = id;
+      chip.style.setProperty('--user-dot', color.dot);
+      chip.style.setProperty('--user-soft', color.soft);
+      chip.style.setProperty('--user-text', color.text);
+
+      chip.append(
+        h('span', 'chip__dot chip__dot--user'),
+        document.createTextNode(id === myId ? `${displayName(id)} (나)` : displayName(id))
+      );
+
+      chip.addEventListener('click', () => {
+        const on = filters.users.includes(id);
+        filters.users = on
+          ? filters.users.filter((u) => u !== id)
+          : filters.users.concat(id);
+        paintFilters();
+        cb.onFilterChange && cb.onFilterChange(filters);
+      });
+
+      frag.appendChild(chip);
     });
 
-    frag.appendChild(chip);
+    row.root.insertBefore(frag, row.tagDiv);
   });
 
-  const firstTag = el.filterRow.querySelector('[data-tag-filter]');
-  const anchor = firstTag ? firstTag.previousElementSibling || firstTag : null;
-  if (anchor) el.filterRow.insertBefore(frag, anchor);
-  else el.filterRow.appendChild(frag);
+  paintFilters();
 }
 
 function paintMePill() {
@@ -618,10 +651,12 @@ export function resetTagFilter() {
   tagFilterOpen = false;
   userIds = [];
 
-  el.filterRow.querySelectorAll('[data-tag-filter]').forEach((c) => c.classList.remove('is-on'));
-  el.filterRow.querySelectorAll('[data-user-filter]').forEach((n) => n.remove());
-  if (el.userDiv) el.userDiv.remove();
-  updateTagFilterVisibility();
+  filterRows.forEach((row) => {
+    row.root.querySelectorAll('[data-user-filter]').forEach((n) => n.remove());
+    row.userDiv.classList.add('is-folded');
+  });
+
+  paintFilters();
 }
 
 export function renderSearchResults(list) {
@@ -1237,7 +1272,6 @@ export function renderTimeline(pins, origin) {
   if (origin) timelineOrigin = origin;
 
   const list = timelinePins
-    .filter((p) => timelineMode === 'all' || p.category === timelineMode)
     .filter((p) => matchesTimelineQuery(p))
     .slice()
     .sort(timelineSorter());
@@ -1375,6 +1409,9 @@ function paintTimelineEmpty() {
   if (hasAny) {
     title.textContent = '찾는 핀이 없어요';
     desc.textContent = timelineQuery ? '다른 말로 검색해 보세요' : '다른 조건으로 골라보세요';
+  } else if (isFiltered()) {
+    title.textContent = '조건에 맞는 핀이 없어요';
+    desc.textContent = '필터를 초기화해 보세요';
   } else {
     title.textContent = '아직 기록이 없어요';
     desc.textContent = '지도에서 핀을 추가하면 여기에 쌓여요';
