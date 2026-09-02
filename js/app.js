@@ -25,6 +25,7 @@ const state = {
   zoomOff: null,
   userMoved: false,
   mapReady: false,
+  skyview: false,
   entering: false,
   selectedId: null,
   detailSig: '',
@@ -42,6 +43,7 @@ UI.initUI({
   onAddClick,
   onZoomIn,
   onZoomOut,
+  onToggleMapType,
   onFilterChange,
   onSearch,
   onSelectPlace,
@@ -246,6 +248,8 @@ function leaveMap() {
   state.users = [];
   state.mapReady = false;
   state.selectedId = null;
+  state.skyview = false;
+  UI.setMapTypeState(false);
   state.editingId = null;
   state.draft = null;
   state.detailPhotos = null;
@@ -420,6 +424,14 @@ async function onLocate() {
   if (pos.accuracy > 5000) {
     UI.toast(`대략적인 위치예요 (오차 약 ${Math.round(pos.accuracy / 1000)}km)`, 3000);
   }
+}
+
+function onToggleMapType() {
+  if (!state.mapReady) return;
+
+  state.skyview = !state.skyview;
+  MapCtl.setSkyview(state.skyview);
+  UI.setMapTypeState(state.skyview);
 }
 
 function onZoomIn() {

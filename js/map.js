@@ -454,6 +454,13 @@ export function moveTo(lat, lng, level) {
   map.setCenter(new kakao.maps.LatLng(lat, lng));
 }
 
+// 위성은 HYBRID(위성 + 도로 · 지명 라벨)를 쓴다.
+// 순수 SKYVIEW 는 지명이 사라져서 어디인지 읽을 수가 없다.
+export function setSkyview(on) {
+  if (!map) return;
+  map.setMapTypeId(on ? kakao.maps.MapTypeId.HYBRID : kakao.maps.MapTypeId.ROADMAP);
+}
+
 export function getCenter() {
   if (!map) return { ...DEFAULT_CENTER };
   syncSize();

@@ -770,6 +770,14 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   transition: transform .18s var(--ease), color .18s var(--ease);
 }
 .round-btn:hover { color: var(--brand-600); }
+
+/* 아이콘을 바꾸지 않고 색으로 켜짐을 알린다. */
+.round-btn.is-on {
+  background: linear-gradient(180deg, var(--brand-500), var(--brand-600));
+  color: #fff;
+  box-shadow: var(--sh-glow);
+}
+.round-btn.is-on:hover { color: #fff; filter: brightness(1.06); }
 .round-btn:active { transform: scale(.93); }
 .round-btn.is-busy svg { animation: spin 1s linear infinite; }
 

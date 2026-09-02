@@ -39,6 +39,7 @@ export const el = {
   btnLogout:     $('#btn-logout'),
   btnTimeline:   $('#btn-timeline'),
   btnLocate:     $('#btn-locate'),
+  btnMapType:    $('#btn-maptype'),
   btnAdd:        $('#btn-add'),
   btnZoomIn:     $('#btn-zoom-in'),
   btnZoomOut:    $('#btn-zoom-out'),
@@ -204,6 +205,7 @@ export function initUI(handlers) {
   el.brand.addEventListener('click', () => cb.onBrandClick && cb.onBrandClick());
   el.btnLogout.addEventListener('click', () => cb.onLogout && cb.onLogout());
   el.btnLocate.addEventListener('click', () => cb.onLocate && cb.onLocate());
+  el.btnMapType.addEventListener('click', () => cb.onToggleMapType && cb.onToggleMapType());
   el.btnAdd.addEventListener('click', () => cb.onAddClick && cb.onAddClick());
   el.btnTimeline.addEventListener('click', () => cb.onOpenTimeline && cb.onOpenTimeline());
   el.btnZoomIn.addEventListener('click', () => cb.onZoomIn && cb.onZoomIn());
@@ -1660,6 +1662,15 @@ export function setLocating(on) {
   } else {
     el.locatingPill.hidden = true;
   }
+}
+
+export function setMapTypeState(sky) {
+  el.btnMapType.classList.toggle('is-on', sky);
+  el.btnMapType.setAttribute('aria-pressed', sky ? 'true' : 'false');
+
+  const label = sky ? '일반 지도' : '위성 지도';
+  el.btnMapType.setAttribute('aria-label', label);
+  el.btnMapType.title = label;
 }
 
 export function setZoomState(state) {
