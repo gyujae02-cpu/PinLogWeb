@@ -117,6 +117,7 @@ export const el = {
   btnAbout:      $('#btn-about'),
   about:         $('#about'),
   aboutDays:     $('#about-days'),
+  aboutNotice:   $('#about-notice'),
   aboutClose:    $('#about-close'),
 
   export:        $('#export'),
@@ -393,6 +394,9 @@ function daysTogether() {
 function openAbout() {
   // 앱을 켜둔 채 자정을 넘길 수 있어서 열 때마다 다시 센다.
   el.aboutDays.textContent = daysTogether();
+
+  // 항상 접힌 상태로 열리게 한다.
+  el.aboutNotice.open = false;
 
   el.about.hidden = false;
   requestAnimationFrame(() => el.about.classList.add('is-on'));

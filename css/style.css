@@ -1740,7 +1740,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .confirm.is-on .confirm__box { transform: none; }
 
-.about { text-align: center; }
+.about {
+  text-align: center;
+  /* 무단수집 거부 문구를 펼치면 길어진다. 작은 화면에서 잘리지 않도록. */
+  max-height: 100%;
+  overflow-y: auto;
+}
 
 .about__mark {
   font-size: 30px; font-weight: 800; letter-spacing: -.035em; line-height: 1;
@@ -1781,6 +1786,48 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   color: var(--ink-400);
   opacity: .8;
 }
+
+.about__mail {
+  width: 100%; height: 44px;
+  margin-top: 18px;
+  gap: 7px;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--ink-700);
+}
+.about__mail svg { width: 16px; height: 16px; color: var(--ink-400); }
+.about__mail:hover svg { color: var(--brand-500); }
+
+.about__notice {
+  margin-top: 10px;
+  text-align: left;
+}
+.about__notice-head {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 6px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 11.5px; font-weight: 500; letter-spacing: -.01em;
+  color: var(--ink-400);
+  transition: color .18s var(--ease);
+}
+.about__notice-head::-webkit-details-marker { display: none; }
+.about__notice-head:hover { color: var(--ink-500); }
+
+.about__chev {
+  width: 13px; height: 13px;
+  transition: transform .22s var(--ease);
+}
+.about__notice[open] .about__chev { transform: rotate(180deg); }
+
+.about__notice-body {
+  margin-top: 4px;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: var(--surface-sunken);
+  font-size: 10.5px; font-weight: 500; line-height: 1.65; letter-spacing: -.01em;
+  color: var(--ink-400);
+}
+.about__notice-body p + p { margin-top: 6px; }
 
 .about__by {
   margin-top: 22px;
