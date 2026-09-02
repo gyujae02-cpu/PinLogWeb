@@ -435,88 +435,44 @@ export function moveTo(lat, lng, level) {
   map.setCenter(new kakao.maps.LatLng(lat, lng));
 }
 
-// 컨테이너 크기와 지도가 어긋난 채 남아 있을 수 있다.
-// 크기가 '변하는' 순간만 잡는 감시로는 처음부터 어긋난 경우를 못 잡으므로,
-// 위치를 고르기 직전처럼 정확도가 중요한 순간에는 조건 없이 맞춘다.
-export function syncSize() {
-  if (!map || !container) return;
+// 임시 추적용 · 원인 확인 후 제거.
+// 목표 좌표로 옮긴 뒤 지도가 스스로 또 움직이는지, 움직인다면
+// 그때 지도 영역 높이가 얼마였는지를 기록한다.
+let trace = [];
+let traceOff = null;
+let traceTarget = null;
 
-  lastSize = sizeKey();
-  map.relayout();
+export function traceCenter(lat, lng) {
+  if (!map) return;
+
+  if (traceOff) { traceOff(); traceOff = null; }
+
+  trace = [];
+  traceTarget = { lat, lng };
+
+  traceOff = on(map, 'center_changed', () => {
+    const c = map.getCenter();
+    trace.push(
+      Math.round(distanceMeters(lat, lng, c.getLat(), c.getLng())) + 'm/' +
+      (container ? container.clientHeight : -1)
+    );
+    if (trace.length > 6) trace.shift();
+  });
+
+  setTimeout(() => { if (traceOff) { traceOff(); traceOff = null; } }, 8000);
 }
 
-// 화면 정중앙 — 크로스헤어가 실제로 그려지는 자리 — 에 놓인 좌표.
-//
-// map.getCenter() 는 지도가 '기억하는' 중심이라, 컨테이너 크기와 어긋나 있으면
-// 화면 한가운데가 아닐 수 있다. 그래서 눈에 보이는 지점을 지도에게 되물어본다.
-// 이렇게 하면 어긋남이 남아 있어도 '보이는 자리 = 찍히는 자리' 가 보장된다.
-export function getCrosshairCoords() {
-  if (!map) return { ...DEFAULT_CENTER };
+export function traceText() {
+  if (!map || !traceTarget) return '';
 
-  const proj = map.getProjection();
+  const c = map.getCenter();
+  const now = Math.round(
+    distanceMeters(traceTarget.lat, traceTarget.lng, c.getLat(), c.getLng())
+  );
 
-  // Point 를 직접 만들지 않고 기존 것의 좌표만 바꿔 쓴다.
-  const point = proj.containerPointFromCoords(map.getCenter());
-  point.x = container.clientWidth / 2;
-  point.y = container.clientHeight / 2;
-
-  const ll = proj.coordsFromContainerPoint(point);
-  return { lat: ll.getLat(), lng: ll.getLng() };
-}
-
-// 장소를 화면 정중앙 — 크로스헤어가 그려지는 자리 — 에 정확히 놓는다.
-//
-// setCenter 만으로는 부족하다. 지도가 기억하는 영역 크기가 실제와 어긋나 있으면
-// '지도의 중심' 이 화면 한가운데가 아니기 때문이다. 모바일에서 주소창이나
-// 하단 바가 나타났다 사라지면 이 상태가 된다.
-//
-// 그래서 놓은 뒤에 실제로 몇 픽셀에 그려졌는지 지도에게 되물어보고,
-// 화면 한가운데와 어긋난 만큼 다시 밀어준다.
-// 어긋난 원인이 무엇이든 결과는 맞게 된다.
-export function moveToCrosshair(lat, lng, level) {
-  if (!map || !container) return;
-
-  if (typeof level === 'number') map.setLevel(level);
-
-  const target = new kakao.maps.LatLng(lat, lng);
-  map.setCenter(target);
-
-  const proj = map.getProjection();
-  const drawn = proj.containerPointFromCoords(target);
-
-  const dx = drawn.x - container.clientWidth / 2;
-  const dy = drawn.y - container.clientHeight / 2;
-
-  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-
-  // 장소를 화면 가운데로 끌어오려면 중심을 그 차이만큼 반대로 옮긴다.
-  const center = proj.containerPointFromCoords(map.getCenter());
-  center.x += dx;
-  center.y += dy;
-
-  map.setCenter(proj.coordsFromContainerPoint(center));
-}
-
-// 임시 진단용 · 원인 확인 후 제거.
-// 지도가 믿는 영역과 실제 화면이 어디서 갈라지는지 숫자로 보기 위한 것.
-export function debugGeometry() {
-  if (!map || !container) return null;
-
-  const rect = container.getBoundingClientRect();
-  const proj = map.getProjection();
-  const drawnCenter = proj.containerPointFromCoords(map.getCenter());
-  const vv = window.visualViewport;
-
-  return {
-    clientH:  Math.round(container.clientHeight),   // 지도 영역의 레이아웃 높이
-    rectTop:  Math.round(rect.top),                 // 화면 기준 지도 영역 시작점
-    rectH:    Math.round(rect.height),
-    innerH:   Math.round(window.innerHeight),
-    vvH:      vv ? Math.round(vv.height) : -1,      // 실제로 보이는 높이
-    vvTop:    vv ? Math.round(vv.offsetTop) : -1,
-    drawnY:   Math.round(drawnCenter.y),            // 지도가 중심을 그린 y (영역 기준)
-    level:    map.getLevel()
-  };
+  return `어긋남=${now}m  h=${container ? container.clientHeight : -1}
+` +
+         `기록: ${trace.join('  ') || '(움직임 없음)'}`;
 }
 
 export function getCenter() {

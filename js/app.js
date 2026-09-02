@@ -554,12 +554,9 @@ function startPicking(opts = {}) {
   UI.closeSheet();
   UI.hideSearchPanel();
 
-  // 검색창을 쓰면 키보드가 오르내리면서 지도 영역 크기가 바뀐다.
-  // 옮기기 전에 맞춰둬야 검색한 장소가 크로스헤어 자리에 온다.
-  MapCtl.syncSize();
-
   if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
-    MapCtl.moveToCrosshair(opts.lat, opts.lng, opts.level);
+    MapCtl.traceCenter(opts.lat, opts.lng);   // 임시 추적용 · 원인 확인 후 제거
+    MapCtl.moveTo(opts.lat, opts.lng, opts.level);
   }
 
   state.pickerName = opts.name || '';
@@ -571,34 +568,15 @@ function startPicking(opts = {}) {
 
   if (state.pickerIdleOff) state.pickerIdleOff();
   state.pickerIdleOff = MapCtl.onIdle(refreshPickerAddress);
-
-  paintPickerDebug();   // 임시 진단용 · 원인 확인 후 제거
 }
 
 function refreshPickerAddress() {
-  const c = MapCtl.getCrosshairCoords();
+  const c = MapCtl.getCenter();
   fillAddress(c.lat, c.lng, (t) => UI.setPickerAddress(t));
-  paintPickerDebug();
-}
 
-// 임시 진단용 · 원인 확인 후 제거
-function paintPickerDebug() {
+  // 임시 추적용 · 원인 확인 후 제거
   const box = document.getElementById('picker-debug');
-  const g = MapCtl.debugGeometry();
-  if (!box || !g) return;
-
-  const cross = document.querySelector('.picker__crosshair');
-  const crossY = cross ? Math.round(cross.getBoundingClientRect().top) : -1;
-
-  // 지도가 중심을 그린 자리를 화면 기준으로 환산
-  const drawnScreenY = g.rectTop + g.drawnY;
-
-  box.textContent =
-    `십자Y=${crossY}  중심Y=${drawnScreenY}  차이=${drawnScreenY - crossY}
-` +
-    `clientH=${g.clientH} rectTop=${g.rectTop} rectH=${g.rectH}
-` +
-    `innerH=${g.innerH} vvH=${g.vvH} vvTop=${g.vvTop} L=${g.level}`;
+  if (box) box.textContent = MapCtl.traceText();
 }
 
 function onPickerCancel() {
@@ -608,7 +586,7 @@ function onPickerCancel() {
 }
 
 function onPickerConfirm() {
-  const c = MapCtl.getCrosshairCoords();
+  const c = MapCtl.getCenter();
   const address = UI.el.pickerAddress.textContent;
   const name = state.pickerName;
 
