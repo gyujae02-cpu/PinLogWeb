@@ -555,7 +555,6 @@ function startPicking(opts = {}) {
   UI.hideSearchPanel();
 
   if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
-    MapCtl.traceCenter(opts.lat, opts.lng);   // 임시 추적용 · 원인 확인 후 제거
     MapCtl.moveTo(opts.lat, opts.lng, opts.level);
   }
 
@@ -573,10 +572,6 @@ function startPicking(opts = {}) {
 function refreshPickerAddress() {
   const c = MapCtl.getCenter();
   fillAddress(c.lat, c.lng, (t) => UI.setPickerAddress(t));
-
-  // 임시 추적용 · 원인 확인 후 제거
-  const box = document.getElementById('picker-debug');
-  if (box) box.textContent = MapCtl.traceText();
 }
 
 function onPickerCancel() {

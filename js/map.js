@@ -176,7 +176,12 @@ function scheduleRelayout() {
     if (key === lastSize) return;
     lastSize = key;
 
+    // relayout() 은 왼쪽 위를 기준으로 영역을 다시 잡는다.
+    // 그래서 주소창이 나타나 높이가 h 만큼 줄면 중심이 h/2 만큼 밀린다.
+    // 보고 있던 자리가 그대로 남도록 중심을 기억했다가 되돌린다.
+    const center = map.getCenter();
     map.relayout();
+    map.setCenter(center);
   });
 }
 
@@ -433,46 +438,6 @@ export function moveTo(lat, lng, level) {
   if (!map) return;
   if (typeof level === 'number') map.setLevel(level);
   map.setCenter(new kakao.maps.LatLng(lat, lng));
-}
-
-// 임시 추적용 · 원인 확인 후 제거.
-// 목표 좌표로 옮긴 뒤 지도가 스스로 또 움직이는지, 움직인다면
-// 그때 지도 영역 높이가 얼마였는지를 기록한다.
-let trace = [];
-let traceOff = null;
-let traceTarget = null;
-
-export function traceCenter(lat, lng) {
-  if (!map) return;
-
-  if (traceOff) { traceOff(); traceOff = null; }
-
-  trace = [];
-  traceTarget = { lat, lng };
-
-  traceOff = on(map, 'center_changed', () => {
-    const c = map.getCenter();
-    trace.push(
-      Math.round(distanceMeters(lat, lng, c.getLat(), c.getLng())) + 'm/' +
-      (container ? container.clientHeight : -1)
-    );
-    if (trace.length > 6) trace.shift();
-  });
-
-  setTimeout(() => { if (traceOff) { traceOff(); traceOff = null; } }, 8000);
-}
-
-export function traceText() {
-  if (!map || !traceTarget) return '';
-
-  const c = map.getCenter();
-  const now = Math.round(
-    distanceMeters(traceTarget.lat, traceTarget.lng, c.getLat(), c.getLng())
-  );
-
-  return `어긋남=${now}m  h=${container ? container.clientHeight : -1}
-` +
-         `기록: ${trace.join('  ') || '(움직임 없음)'}`;
 }
 
 export function getCenter() {
