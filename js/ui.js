@@ -118,6 +118,11 @@ export const el = {
   about:         $('#about'),
   aboutClose:    $('#about-close'),
 
+  export:        $('#export'),
+  exportPhotos:  $('#export-photos'),
+  exportList:    $('#export-list'),
+  exportCancel:  $('#export-cancel'),
+
   confirm:       $('#confirm'),
   confirmTitle:  $('#confirm-title'),
   confirmDesc:   $('#confirm-desc'),
@@ -143,6 +148,7 @@ let photoBusy = false;
 let cb = {};
 let toastTimer = null;
 let copyTimer = null;
+let exportResolve = null;
 let toastActionFn = null;
 let hintTimer = null;
 let locatingTimer = null;
@@ -182,6 +188,11 @@ export function initUI(handlers) {
   initCardTilt();
 
   el.detailMemoCopy.addEventListener('click', copyMemo);
+
+  el.exportPhotos.addEventListener('click', () => finishExport('photos'));
+  el.exportList.addEventListener('click', () => finishExport('list'));
+  el.exportCancel.addEventListener('click', () => finishExport(null));
+  el.export.addEventListener('click', (e) => { if (e.target === el.export) finishExport(null); });
 
   el.btnAbout.addEventListener('click', openAbout);
   el.aboutClose.addEventListener('click', () => closeAbout());
@@ -327,11 +338,39 @@ export function initUI(handlers) {
     }
     if (e.key !== 'Escape') return;
     if (!el.about.hidden)   { closeAbout(); return; }
+    if (!el.export.hidden)  { finishExport(null); return; }
     if (!el.confirm.hidden) { el.confirmCancel.click(); return; }
     if (sheetMode)          { closeSheet(); return; }
     if (timelineOpen)       { closeTimeline(); return; }
     if (!el.picker.hidden)  cb.onPickerCancel && cb.onPickerCancel();
   });
+}
+
+// 사진까지 / 목록만 / 취소 세 가지로 답한다.
+// confirmDialog 는 예·아니오뿐이라 '취소'를 표현할 수 없어서 따로 둔다.
+export function exportDialog() {
+  return new Promise((resolve) => {
+    if (exportResolve) finishExport(null);
+
+    exportResolve = resolve;
+    el.export.hidden = false;
+    requestAnimationFrame(() => el.export.classList.add('is-on'));
+  });
+}
+
+// result 가 null 이면 아무것도 내보내지 않는다.
+function finishExport(result) {
+  if (!exportResolve) return;
+
+  const resolve = exportResolve;
+  exportResolve = null;
+
+  el.export.classList.remove('is-on');
+  setTimeout(() => {
+    if (!el.export.classList.contains('is-on')) el.export.hidden = true;
+  }, 280);
+
+  resolve(result);
 }
 
 function openAbout() {
@@ -392,6 +431,7 @@ export function showScreen(name) {
     closeTimeline(true);
     closeLightbox();
     closeAbout(true);
+    finishExport(null);
     clearSearch();
     setLocating(false);
     hideHint();
@@ -458,7 +498,7 @@ function buildFilterRow(root) {
 
   row.reset = h('button', 'chip chip--reset');
   row.reset.type = 'button';
-  row.reset.classList.add('is-folded');
+  row.reset.disabled = true;
   row.reset.innerHTML = RESET_ICON;
   row.reset.append(document.createTextNode('필터 초기화'));
   row.reset.addEventListener('click', resetFilters);
@@ -563,9 +603,8 @@ function paintFilters() {
     row.tagMore.setAttribute('aria-expanded', String(tagFilterOpen));
     row.tagMore.setAttribute('aria-label', tagFilterOpen ? '태그 접기' : '태그 더 보기');
 
-    // 초기화 버튼은 실제로 걸러지고 있을 때만 보인다.
-    // 핀이 안 보이는 이유가 필터라는 걸 눈에 띄게 하려는 목적이다.
-    row.reset.classList.toggle('is-folded', !filtered);
+    // 자리는 항상 지키되, 걸린 필터가 없으면 누를 게 없으므로 비활성으로 둔다.
+    row.reset.disabled = !filtered;
   });
 }
 

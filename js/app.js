@@ -458,12 +458,9 @@ let exporting = false;
 async function onExport() {
   if (exporting) return;
 
-  const withPhotos = await UI.confirmDialog({
-    title: '기록을 내보낼까요?',
-    desc: '사진까지 넣으면 파일이 크고 시간이 걸려요. 목록만 받으면 금방 끝나요.',
-    okText: '사진까지',
-    cancelText: '목록만'
-  });
+  // 취소 · ESC · 바깥 클릭이면 null 이 온다.
+  const choice = await UI.exportDialog();
+  if (!choice) return;
 
   exporting = true;
   UI.toast('내보내는 중…', 60000);
@@ -471,7 +468,7 @@ async function onExport() {
   try {
     const data = await FB.exportEverything(
       (done, total) => UI.toast(`내보내는 중… ${done}/${total}`, 60000),
-      { photos: withPhotos }
+      { photos: choice === 'photos' }
     );
 
     const size = downloadJson(data, `pinlog-${UI.todayValue()}.json`);

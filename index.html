@@ -540,6 +540,25 @@
     </div>
   </div>
 
+  <div id="export" class="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="export-title">
+    <div class="confirm__box">
+      <h3 id="export-title" class="text-[17px] font-bold tracking-tight">기록을 내보낼까요?</h3>
+      <p class="mt-2 text-[13.5px] text-ink-500 leading-relaxed">
+        핀·사진·댓글은 모두 서버에만 있어요. 실수로 지우거나 계정에 문제가 생기면
+        되돌릴 방법이 없으니, 가끔 파일로 받아두면 안심할 수 있어요.
+      </p>
+      <p class="mt-2.5 text-[12.5px] text-ink-400 leading-relaxed">
+        사진까지 담으면 파일이 크고 시간이 걸려요. 목록만 받으면 금방 끝납니다.
+      </p>
+
+      <div class="export__actions">
+        <button id="export-photos" type="button" class="btn-primary h-12">사진까지 받기</button>
+        <button id="export-list" type="button" class="btn-ghost h-12">목록만 받기</button>
+        <button id="export-cancel" type="button" class="export__cancel">취소</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden>
     <span id="toast-text"></span>
     <button id="toast-action" type="button" class="toast__action" hidden></button>
