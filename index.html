@@ -398,7 +398,10 @@
       <div class="sheet__head">
         <div class="min-w-0 flex-1">
           <span id="detail-badge" class="badge badge--visited">가본 곳</span>
-          <h2 id="detail-name" class="sheet__title mt-2 truncate">장소 이름</h2>
+          <div class="detail-title">
+            <h2 id="detail-name" class="sheet__title truncate">장소 이름</h2>
+            <button id="detail-name-copy" type="button" class="copy-btn" aria-label="장소 이름 복사" title="이름 복사"><svg data-copy-icon viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.8"/><path d="M15 6.2V5.6A2.6 2.6 0 0 0 12.4 3H6.6A2.6 2.6 0 0 0 4 5.6v5.8A2.6 2.6 0 0 0 6.6 14h.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg data-copy-done viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true" hidden><path d="m5 12.5 4.4 4.4L19 7.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
         </div>
         <button type="button" class="sheet__close" data-close-sheet aria-label="닫기">
           <svg viewBox="0 0 24 24" fill="none" class="w-[18px] h-[18px]">
@@ -413,6 +416,7 @@
           <circle cx="12" cy="10" r="2.2" fill="currentColor"/>
         </svg>
         <span id="detail-address">-</span>
+        <button id="detail-address-copy" type="button" class="copy-btn" aria-label="주소 복사" title="주소 복사"><svg data-copy-icon viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.8"/><path d="M15 6.2V5.6A2.6 2.6 0 0 0 12.4 3H6.6A2.6 2.6 0 0 0 4 5.6v5.8A2.6 2.6 0 0 0 6.6 14h.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg data-copy-done viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true" hidden><path d="m5 12.5 4.4 4.4L19 7.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </p>
 
       <p id="detail-when" class="sheet__address mt-1.5" hidden>
@@ -442,17 +446,7 @@
 
       <div id="detail-memo-wrap" class="memo-box mt-4">
         <p id="detail-memo" class="whitespace-pre-wrap break-words"></p>
-        <button id="detail-memo-copy" type="button" class="memo-copy" aria-label="메모 복사" title="메모 복사">
-          <svg id="memo-copy-icon" viewBox="0 0 24 24" fill="none" class="w-[15px] h-[15px]">
-            <rect x="9" y="9" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M15 6.2V5.6A2.6 2.6 0 0 0 12.4 3H6.6A2.6 2.6 0 0 0 4 5.6v5.8A2.6 2.6 0 0 0 6.6 14h.6"
-                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-          <svg id="memo-copy-done" viewBox="0 0 24 24" fill="none" class="w-[15px] h-[15px]" hidden>
-            <path d="m5 12.5 4.4 4.4L19 7.6" stroke="currentColor" stroke-width="2.4"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+        <button id="detail-memo-copy" type="button" class="copy-btn memo-copy" aria-label="메모 복사" title="메모 복사"><svg data-copy-icon viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.8"/><path d="M15 6.2V5.6A2.6 2.6 0 0 0 12.4 3H6.6A2.6 2.6 0 0 0 4 5.6v5.8A2.6 2.6 0 0 0 6.6 14h.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg data-copy-done viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true" hidden><path d="m5 12.5 4.4 4.4L19 7.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
 
       <p id="detail-meta" class="mt-3.5 text-[11.5px] text-ink-400"></p>

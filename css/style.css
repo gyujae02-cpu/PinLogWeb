@@ -1117,6 +1117,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .sheet__address span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* 제목이 길면 줄여서 자르고, 복사 버튼은 잘린 글자 바로 옆에 붙는다. */
+.detail-title {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 8px;
+}
+.detail-title .sheet__title { min-width: 0; }
+
 .memo-box {
   position: relative;
   padding: 15px 46px 15px 16px;
@@ -1137,20 +1144,24 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .memo-link:hover { color: var(--brand-700); }
 
-.memo-copy {
-  position: absolute;
-  top: 8px; right: 8px;
+/* 이름 · 주소 · 메모가 같이 쓰는 복사 버튼 */
+.copy-btn {
+  flex-shrink: 0;
   display: grid; place-items: center;
-  width: 30px; height: 30px;
+  width: 28px; height: 28px;
   border-radius: 9px;
   color: var(--ink-400);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
 }
-.memo-copy:hover { color: var(--brand-600); background: #fff; }
-.memo-copy:active { transform: scale(.94); }
-.memo-copy.is-done { color: var(--brand-600); }
+.copy-btn:hover { color: var(--brand-600); background: var(--surface-sunken); }
+.copy-btn:active { transform: scale(.92); }
+.copy-btn.is-done { color: var(--brand-600); }
+
+/* 메모 것만 글 위에 얹히므로 자리를 따로 잡는다. */
+.memo-copy { position: absolute; top: 8px; right: 8px; }
+.memo-copy:hover { background: #fff; }
 
 .badge {
   display: inline-flex; align-items: center;

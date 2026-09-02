@@ -93,8 +93,8 @@ export const el = {
   detailMemoWrap:$('#detail-memo-wrap'),
   detailMemo:    $('#detail-memo'),
   detailMemoCopy:$('#detail-memo-copy'),
-  memoCopyIcon:  $('#memo-copy-icon'),
-  memoCopyDone:  $('#memo-copy-done'),
+  detailNameCopy:$('#detail-name-copy'),
+  detailAddrCopy:$('#detail-address-copy'),
   detailMeta:    $('#detail-meta'),
   detailEdit:    $('#detail-edit'),
   detailDelete:  $('#detail-delete'),
@@ -147,7 +147,6 @@ let photoBusy = false;
 
 let cb = {};
 let toastTimer = null;
-let copyTimer = null;
 let exportResolve = null;
 let toastActionFn = null;
 let hintTimer = null;
@@ -187,7 +186,9 @@ export function initUI(handlers) {
 
   initCardTilt();
 
-  el.detailMemoCopy.addEventListener('click', copyMemo);
+  bindCopy(el.detailNameCopy, () => el.detailName.textContent,    '장소 이름을 복사했어요.');
+  bindCopy(el.detailAddrCopy, () => el.detailAddress.textContent, '주소를 복사했어요.');
+  bindCopy(el.detailMemoCopy, () => el.detailMemo.textContent,    '메모를 복사했어요.');
 
   el.exportPhotos.addEventListener('click', () => finishExport('photos'));
   el.exportList.addEventListener('click', () => finishExport('list'));
@@ -993,6 +994,7 @@ export function openDetail(pin) {
 
   el.detailName.textContent = pin.name;
   el.detailAddress.textContent = pin.address || '주소 정보 없음';
+  el.detailAddrCopy.hidden = !pin.address;   // 복사할 주소가 없으면 버튼도 감춘다
 
   el.detailVisit.hidden = !isWish;
 
@@ -1010,10 +1012,11 @@ export function openDetail(pin) {
   if (pin.memo) {
     el.detailMemoWrap.hidden = false;
     renderMemo(pin.memo);
-    setCopied(false);
   } else {
     el.detailMemoWrap.hidden = true;
   }
+
+  resetCopyMarks();
 
   renderMeta(pin);
 
@@ -1060,27 +1063,43 @@ function renderMemo(text) {
   if (last < src.length) node.appendChild(document.createTextNode(src.slice(last)));
 }
 
-async function copyMemo() {
-  // 링크의 글자는 원래 주소 그대로라, 이어 붙이면 저장된 메모와 같다.
-  const text = el.detailMemo.textContent;
-  if (!text) return;
+// 상세를 다시 열 때 체크 표시를 되돌리기 위한 목록.
+const copyResets = [];
 
-  if (!(await writeClipboard(text))) {
-    toast('복사하지 못했어요. 메모를 길게 눌러 직접 복사해주세요.');
-    return;
-  }
+// read() 가 돌려준 글자를 클립보드에 넣고, 잠깐 체크 표시로 바꾼다.
+// 메모의 경우 링크 글자가 원래 주소 그대로라 이어 붙이면 저장된 값과 같다.
+function bindCopy(btn, read, message) {
+  const icon = btn.querySelector('[data-copy-icon]');
+  const done = btn.querySelector('[data-copy-done]');
+  let timer = null;
 
-  toast('메모를 복사했어요.');
-  setCopied(true);
+  const mark = (on) => {
+    btn.classList.toggle('is-done', on);
+    icon.hidden = on;
+    done.hidden = !on;
+  };
 
-  clearTimeout(copyTimer);
-  copyTimer = setTimeout(() => setCopied(false), 1600);
+  btn.addEventListener('click', async () => {
+    const text = String(read() || '').trim();
+    if (!text) return;
+
+    if (!(await writeClipboard(text))) {
+      toast('복사하지 못했어요. 길게 눌러 직접 복사해주세요.');
+      return;
+    }
+
+    toast(message);
+    mark(true);
+
+    clearTimeout(timer);
+    timer = setTimeout(() => mark(false), 1600);
+  });
+
+  copyResets.push(() => { clearTimeout(timer); mark(false); });
 }
 
-function setCopied(on) {
-  el.detailMemoCopy.classList.toggle('is-done', on);
-  el.memoCopyIcon.hidden = on;
-  el.memoCopyDone.hidden = !on;
+function resetCopyMarks() {
+  copyResets.forEach((fn) => fn());
 }
 
 async function writeClipboard(text) {
