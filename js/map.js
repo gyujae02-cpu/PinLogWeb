@@ -435,6 +435,35 @@ export function moveTo(lat, lng, level) {
   map.setCenter(new kakao.maps.LatLng(lat, lng));
 }
 
+// 컨테이너 크기와 지도가 어긋난 채 남아 있을 수 있다.
+// 크기가 '변하는' 순간만 잡는 감시로는 처음부터 어긋난 경우를 못 잡으므로,
+// 위치를 고르기 직전처럼 정확도가 중요한 순간에는 조건 없이 맞춘다.
+export function syncSize() {
+  if (!map || !container) return;
+
+  lastSize = sizeKey();
+  map.relayout();
+}
+
+// 화면 정중앙 — 크로스헤어가 실제로 그려지는 자리 — 에 놓인 좌표.
+//
+// map.getCenter() 는 지도가 '기억하는' 중심이라, 컨테이너 크기와 어긋나 있으면
+// 화면 한가운데가 아닐 수 있다. 그래서 눈에 보이는 지점을 지도에게 되물어본다.
+// 이렇게 하면 어긋남이 남아 있어도 '보이는 자리 = 찍히는 자리' 가 보장된다.
+export function getCrosshairCoords() {
+  if (!map) return { ...DEFAULT_CENTER };
+
+  const proj = map.getProjection();
+
+  // Point 를 직접 만들지 않고 기존 것의 좌표만 바꿔 쓴다.
+  const point = proj.containerPointFromCoords(map.getCenter());
+  point.x = container.clientWidth / 2;
+  point.y = container.clientHeight / 2;
+
+  const ll = proj.coordsFromContainerPoint(point);
+  return { lat: ll.getLat(), lng: ll.getLng() };
+}
+
 export function getCenter() {
   if (!map) return { ...DEFAULT_CENTER };
   const c = map.getCenter();

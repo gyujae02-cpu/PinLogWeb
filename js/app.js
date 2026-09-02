@@ -554,6 +554,10 @@ function startPicking(opts = {}) {
   UI.closeSheet();
   UI.hideSearchPanel();
 
+  // 검색창을 쓰면 키보드가 오르내리면서 지도 영역 크기가 바뀐다.
+  // 옮기기 전에 맞춰둬야 검색한 장소가 크로스헤어 자리에 온다.
+  MapCtl.syncSize();
+
   if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
     MapCtl.moveTo(opts.lat, opts.lng, opts.level);
   }
@@ -570,7 +574,7 @@ function startPicking(opts = {}) {
 }
 
 function refreshPickerAddress() {
-  const c = MapCtl.getCenter();
+  const c = MapCtl.getCrosshairCoords();
   fillAddress(c.lat, c.lng, (t) => UI.setPickerAddress(t));
 }
 
@@ -581,7 +585,7 @@ function onPickerCancel() {
 }
 
 function onPickerConfirm() {
-  const c = MapCtl.getCenter();
+  const c = MapCtl.getCrosshairCoords();
   const address = UI.el.pickerAddress.textContent;
   const name = state.pickerName;
 
