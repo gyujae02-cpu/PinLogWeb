@@ -570,7 +570,7 @@ function startPicking(opts = {}) {
 }
 
 function refreshPickerAddress() {
-  const c = MapCtl.getCenter();
+  const c = MapCtl.getCrosshairCoord();
   fillAddress(c.lat, c.lng, (t) => UI.setPickerAddress(t));
 }
 
@@ -581,7 +581,8 @@ function onPickerCancel() {
 }
 
 function onPickerConfirm() {
-  const c = MapCtl.getCenter();
+  // 지도가 기억하는 중심이 아니라, 물방울 핀 아래에 실제로 보이는 좌표를 저장한다.
+  const c = MapCtl.getCrosshairCoord();
   const address = UI.el.pickerAddress.textContent;
   const name = state.pickerName;
 

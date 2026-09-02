@@ -26,7 +26,6 @@ let places = null;
 let geocoder = null;
 let activeId = null;
 let resizeObs = null;
-let resizeRaf = 0;
 let lastSize = '';
 
 let handlers = {
@@ -150,48 +149,61 @@ export function createMap(el, center, cbs = {}) {
 function watchContainerSize() {
   lastSize = sizeKey();
 
+  // 알림 하나만 믿지 않고 올 수 있는 곳에 모두 붙인다.
+  // 크기가 그대로면 applyRelayout 이 바로 빠져나오므로 중복 호출은 공짜다.
   if (typeof ResizeObserver === 'function') {
-    resizeObs = new ResizeObserver(scheduleRelayout);
+    resizeObs = new ResizeObserver(applyRelayout);
     resizeObs.observe(container);
-    return;
   }
 
-  window.addEventListener('resize', scheduleRelayout);
-  window.addEventListener('orientationchange', scheduleRelayout);
+  window.addEventListener('resize', applyRelayout);
+  window.addEventListener('orientationchange', applyRelayout);
+
+  // 모바일 키보드나 툴바는 visualViewport 만 먼저 바뀌고
+  // 레이아웃은 한 박자 늦게 따라오는 경우가 있다.
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', applyRelayout);
+  }
 }
 
 function sizeKey() {
   return container ? `${container.clientWidth}x${container.clientHeight}` : '';
 }
 
-function scheduleRelayout() {
-  if (resizeRaf) return;
+// 컨테이너 크기가 바뀌면 카카오맵에게 바로 알려준다.
+// ResizeObserver 콜백은 레이아웃 뒤 · 그리기 전에 돌기 때문에,
+// 여기서 곧장 맞추면 어긋난 화면이 한 프레임도 보이지 않는다.
+function applyRelayout() {
+  if (!map || !container) return;
 
-  resizeRaf = requestAnimationFrame(() => {
-    resizeRaf = 0;
-    if (!map || !container) return;
+  // 크기가 실제로 달라졌을 때만 다시 그린다.
+  const key = sizeKey();
+  if (key === lastSize) return;
+  lastSize = key;
 
-    // 크기가 실제로 달라졌을 때만 다시 그린다.
-    const key = sizeKey();
-    if (key === lastSize) return;
-    lastSize = key;
+  // relayout() 은 왼쪽 위를 기준으로 영역을 다시 잡는다.
+  // 그래서 주소창이 나타나 높이가 h 만큼 줄면 중심이 h/2 만큼 밀린다.
+  // 보고 있던 자리가 그대로 남도록 중심을 기억했다가 되돌린다.
+  const center = map.getCenter();
+  map.relayout();
+  map.setCenter(center);
+}
 
-    // relayout() 은 왼쪽 위를 기준으로 영역을 다시 잡는다.
-    // 그래서 주소창이 나타나 높이가 h 만큼 줄면 중심이 h/2 만큼 밀린다.
-    // 보고 있던 자리가 그대로 남도록 중심을 기억했다가 되돌린다.
-    const center = map.getCenter();
-    map.relayout();
-    map.setCenter(center);
-  });
+// 중심 좌표를 읽거나 지도를 옮기기 전에 불러서 크기를 먼저 맞춰둔다.
+export function syncSize() {
+  applyRelayout();
 }
 
 function unwatchContainerSize() {
   if (resizeObs) { resizeObs.disconnect(); resizeObs = null; }
 
-  window.removeEventListener('resize', scheduleRelayout);
-  window.removeEventListener('orientationchange', scheduleRelayout);
+  window.removeEventListener('resize', applyRelayout);
+  window.removeEventListener('orientationchange', applyRelayout);
 
-  if (resizeRaf) { cancelAnimationFrame(resizeRaf); resizeRaf = 0; }
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', applyRelayout);
+  }
+
   lastSize = '';
 }
 
@@ -431,23 +443,42 @@ function applyActiveClass() {
 
 export function panTo(lat, lng) {
   if (!map) return;
+  syncSize();
   map.panTo(new kakao.maps.LatLng(lat, lng));
 }
 
 export function moveTo(lat, lng, level) {
   if (!map) return;
+  syncSize();
   if (typeof level === 'number') map.setLevel(level);
   map.setCenter(new kakao.maps.LatLng(lat, lng));
 }
 
 export function getCenter() {
   if (!map) return { ...DEFAULT_CENTER };
+  syncSize();
   const c = map.getCenter();
   return { lat: c.getLat(), lng: c.getLng() };
 }
 
+// 화면 정중앙 — 위치 선택 핀이 꽂혀 있는 그 픽셀 — 에 실제로 그려진 좌표.
+// getCenter() 는 지도가 "기억하는" 중심이라 컨테이너 크기가 낡으면 핀과 어긋나지만,
+// 이 함수는 눈에 보이는 지점에서 거꾸로 좌표를 읽으므로 항상 핀 아래를 가리킨다.
+export function getCrosshairCoord() {
+  if (!map || !container) return getCenter();
+
+  syncSize();
+
+  const point = new kakao.maps.Point(container.clientWidth / 2, container.clientHeight / 2);
+  const ll = map.getProjection().coordsFromContainerPoint(point);
+
+  return { lat: ll.getLat(), lng: ll.getLng() };
+}
+
 export function panToWithOffset(lat, lng, offset = {}) {
   if (!map) return;
+
+  syncSize();
 
   const proj = map.getProjection();
   const point = proj.containerPointFromCoords(new kakao.maps.LatLng(lat, lng));
