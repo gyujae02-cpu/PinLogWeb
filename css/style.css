@@ -1729,23 +1729,19 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   color: var(--ink-500);
 }
 
-.about__list {
-  margin-top: 20px;
-  border-radius: 16px;
-  background: var(--surface-sunken);
-  overflow: hidden;
+.about__by {
+  margin-top: 22px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: -.005em;
+  color: var(--ink-400);
 }
-.about__row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  padding: 11px 14px;
-  font-size: 13px; letter-spacing: -.015em;
+.about__ver {
+  margin-top: 3px;
+  font-size: 11.5px; font-weight: 500; letter-spacing: .01em;
+  color: var(--ink-400);
+  opacity: .8;
 }
-.about__row + .about__row { border-top: 1px solid rgba(var(--ink-rgb), .07); }
-.about__row dt { color: var(--ink-400); font-weight: 600; }
-.about__row dd { color: var(--ink-900); font-weight: 700; }
 
-.about__close { width: 100%; height: 48px; margin-top: 20px; }
+.about__close { width: 100%; height: 48px; margin-top: 22px; }
 
 .toast {
   position: fixed; z-index: 60;
