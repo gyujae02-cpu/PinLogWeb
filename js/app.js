@@ -559,7 +559,7 @@ function startPicking(opts = {}) {
   MapCtl.syncSize();
 
   if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
-    MapCtl.moveTo(opts.lat, opts.lng, opts.level);
+    MapCtl.moveToCrosshair(opts.lat, opts.lng, opts.level);
   }
 
   state.pickerName = opts.name || '';

@@ -464,6 +464,39 @@ export function getCrosshairCoords() {
   return { lat: ll.getLat(), lng: ll.getLng() };
 }
 
+// 장소를 화면 정중앙 — 크로스헤어가 그려지는 자리 — 에 정확히 놓는다.
+//
+// setCenter 만으로는 부족하다. 지도가 기억하는 영역 크기가 실제와 어긋나 있으면
+// '지도의 중심' 이 화면 한가운데가 아니기 때문이다. 모바일에서 주소창이나
+// 하단 바가 나타났다 사라지면 이 상태가 된다.
+//
+// 그래서 놓은 뒤에 실제로 몇 픽셀에 그려졌는지 지도에게 되물어보고,
+// 화면 한가운데와 어긋난 만큼 다시 밀어준다.
+// 어긋난 원인이 무엇이든 결과는 맞게 된다.
+export function moveToCrosshair(lat, lng, level) {
+  if (!map || !container) return;
+
+  if (typeof level === 'number') map.setLevel(level);
+
+  const target = new kakao.maps.LatLng(lat, lng);
+  map.setCenter(target);
+
+  const proj = map.getProjection();
+  const drawn = proj.containerPointFromCoords(target);
+
+  const dx = drawn.x - container.clientWidth / 2;
+  const dy = drawn.y - container.clientHeight / 2;
+
+  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+  // 장소를 화면 가운데로 끌어오려면 중심을 그 차이만큼 반대로 옮긴다.
+  const center = proj.containerPointFromCoords(map.getCenter());
+  center.x += dx;
+  center.y += dy;
+
+  map.setCenter(proj.coordsFromContainerPoint(center));
+}
+
 export function getCenter() {
   if (!map) return { ...DEFAULT_CENTER };
   const c = map.getCenter();
