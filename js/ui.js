@@ -116,6 +116,7 @@ export const el = {
 
   btnAbout:      $('#btn-about'),
   about:         $('#about'),
+  aboutDays:     $('#about-days'),
   aboutClose:    $('#about-close'),
 
   export:        $('#export'),
@@ -374,7 +375,25 @@ function finishExport(result) {
   resolve(result);
 }
 
+// 만난 날을 1일로 센다.
+const MET_ON = [2026, 7, 27];   // 월은 0부터 — 2026.08.27
+
+// 시분초가 섞인 값을 그냥 나누면 오후에 하루 모자라게 나온다.
+// 양쪽 다 로컬 자정으로 내려서 뺀다.
+function daysTogether() {
+  const [y, m, d] = MET_ON;
+  const start = new Date(y, m, d);
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return Math.floor((today - start) / 86400000) + 1;
+}
+
 function openAbout() {
+  // 앱을 켜둔 채 자정을 넘길 수 있어서 열 때마다 다시 센다.
+  el.aboutDays.textContent = daysTogether();
+
   el.about.hidden = false;
   requestAnimationFrame(() => el.about.classList.add('is-on'));
 }
