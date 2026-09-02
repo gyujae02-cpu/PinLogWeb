@@ -846,6 +846,15 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 @keyframes pinBob { from { transform: translateY(0); } to { transform: translateY(-8px); } }
 @keyframes shadowPulse { from { transform: scale(1); opacity: .35; } to { transform: scale(.75); opacity: .2; } }
 
+/* 임시 진단용 · 원인 확인 후 제거 */
+.picker__debug {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; line-height: 1.45;
+  color: #B91C1C;
+  white-space: pre;
+}
+
 .picker__bar {
   position: absolute;
   left: calc(var(--gutter) + var(--safe-l));

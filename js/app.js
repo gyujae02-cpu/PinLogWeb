@@ -571,11 +571,34 @@ function startPicking(opts = {}) {
 
   if (state.pickerIdleOff) state.pickerIdleOff();
   state.pickerIdleOff = MapCtl.onIdle(refreshPickerAddress);
+
+  paintPickerDebug();   // 임시 진단용 · 원인 확인 후 제거
 }
 
 function refreshPickerAddress() {
   const c = MapCtl.getCrosshairCoords();
   fillAddress(c.lat, c.lng, (t) => UI.setPickerAddress(t));
+  paintPickerDebug();
+}
+
+// 임시 진단용 · 원인 확인 후 제거
+function paintPickerDebug() {
+  const box = document.getElementById('picker-debug');
+  const g = MapCtl.debugGeometry();
+  if (!box || !g) return;
+
+  const cross = document.querySelector('.picker__crosshair');
+  const crossY = cross ? Math.round(cross.getBoundingClientRect().top) : -1;
+
+  // 지도가 중심을 그린 자리를 화면 기준으로 환산
+  const drawnScreenY = g.rectTop + g.drawnY;
+
+  box.textContent =
+    `십자Y=${crossY}  중심Y=${drawnScreenY}  차이=${drawnScreenY - crossY}
+` +
+    `clientH=${g.clientH} rectTop=${g.rectTop} rectH=${g.rectH}
+` +
+    `innerH=${g.innerH} vvH=${g.vvH} vvTop=${g.vvTop} L=${g.level}`;
 }
 
 function onPickerCancel() {

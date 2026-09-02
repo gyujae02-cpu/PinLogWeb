@@ -497,6 +497,28 @@ export function moveToCrosshair(lat, lng, level) {
   map.setCenter(proj.coordsFromContainerPoint(center));
 }
 
+// 임시 진단용 · 원인 확인 후 제거.
+// 지도가 믿는 영역과 실제 화면이 어디서 갈라지는지 숫자로 보기 위한 것.
+export function debugGeometry() {
+  if (!map || !container) return null;
+
+  const rect = container.getBoundingClientRect();
+  const proj = map.getProjection();
+  const drawnCenter = proj.containerPointFromCoords(map.getCenter());
+  const vv = window.visualViewport;
+
+  return {
+    clientH:  Math.round(container.clientHeight),   // 지도 영역의 레이아웃 높이
+    rectTop:  Math.round(rect.top),                 // 화면 기준 지도 영역 시작점
+    rectH:    Math.round(rect.height),
+    innerH:   Math.round(window.innerHeight),
+    vvH:      vv ? Math.round(vv.height) : -1,      // 실제로 보이는 높이
+    vvTop:    vv ? Math.round(vv.offsetTop) : -1,
+    drawnY:   Math.round(drawnCenter.y),            // 지도가 중심을 그린 y (영역 기준)
+    level:    map.getLevel()
+  };
+}
+
 export function getCenter() {
   if (!map) return { ...DEFAULT_CENTER };
   const c = map.getCenter();
