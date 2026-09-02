@@ -116,6 +116,10 @@ export const el = {
   lightboxNext:  $('#lightbox-next'),
   lightboxCount: $('#lightbox-count'),
 
+  btnAbout:      $('#btn-about'),
+  about:         $('#about'),
+  aboutClose:    $('#about-close'),
+
   confirm:       $('#confirm'),
   confirmTitle:  $('#confirm-title'),
   confirmDesc:   $('#confirm-desc'),
@@ -180,6 +184,10 @@ export function initUI(handlers) {
   initCardTilt();
 
   el.detailMemoCopy.addEventListener('click', copyMemo);
+
+  el.btnAbout.addEventListener('click', openAbout);
+  el.aboutClose.addEventListener('click', () => closeAbout());
+  el.about.addEventListener('click', (e) => { if (e.target === el.about) closeAbout(); });
 
   el.brand.addEventListener('click', () => cb.onBrandClick && cb.onBrandClick());
   el.btnLogout.addEventListener('click', () => cb.onLogout && cb.onLogout());
@@ -340,11 +348,29 @@ export function initUI(handlers) {
       return;
     }
     if (e.key !== 'Escape') return;
+    if (!el.about.hidden)   { closeAbout(); return; }
     if (!el.confirm.hidden) { el.confirmCancel.click(); return; }
     if (sheetMode)          { closeSheet(); return; }
     if (timelineOpen)       { closeTimeline(); return; }
     if (!el.picker.hidden)  cb.onPickerCancel && cb.onPickerCancel();
   });
+}
+
+function openAbout() {
+  el.about.hidden = false;
+  requestAnimationFrame(() => el.about.classList.add('is-on'));
+}
+
+function closeAbout(immediate = false) {
+  if (el.about.hidden) return;
+  el.about.classList.remove('is-on');
+
+  if (immediate) { el.about.hidden = true; return; }
+
+  // 닫는 중에 다시 열리면 그대로 둔다.
+  setTimeout(() => {
+    if (!el.about.classList.contains('is-on')) el.about.hidden = true;
+  }, 280);
 }
 
 export function setMyId(id) {
@@ -387,6 +413,7 @@ export function showScreen(name) {
     closePicker();
     closeTimeline(true);
     closeLightbox();
+    closeAbout(true);
     clearSearch();
     setLocating(false);
     hideHint();
