@@ -1577,10 +1577,17 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .timeline__sort:focus-visible { outline: none; border-color: var(--brand-300); background-color: #fff; }
 
 /* 지도와 같은 필터 줄을 핀 모아보기에도 쓴다.
-   .filter-row 의 음수 여백은 그대로 두고 위쪽 간격만 더한다. */
+   .filter-row 의 음수 여백은 그대로 두고 위쪽 간격만 더한다.
+
+   다만 여기서는 가로 스크롤 대신 줄바꿈을 쓴다.
+   패널 폭이 좁아 칩이 잘리는데, PC 에서는 가로 스크롤을 끌기가 번거롭다.
+   세로로는 자리가 넉넉하니 접었다 펴도 다 보인다. */
 .timeline__filter {
   margin-top: 5px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  overflow: visible;
 }
 
 .timeline__list {
