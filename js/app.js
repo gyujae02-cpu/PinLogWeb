@@ -433,23 +433,40 @@ async function onLocate() {
 }
 
 function onRoute() {
-  // 앱을 못 띄우는 환경(PC, SDK 로드 실패)에서는 조용히 알려만 준다.
+  // 앱을 못 띄우는 환경(PC, SDK 로드 실패)에서는 알려만 준다.
   // 핀을 찾기 전에 본다. 환경은 어느 핀이든 똑같기 때문이다.
-  if (!IS_MOBILE || !window.Kakao || !Kakao.isInitialized()) {
+  if (!IS_MOBILE || !window.Kakao || !Kakao.isInitialized() || !Kakao.Navi) {
     UI.toast('카카오내비는 휴대폰에서만 실행할 수 있어요.');
     return;
   }
 
   const pin = findPin(state.selectedId);
-  if (!pin) return;
+  if (!pin) {
+    UI.toast('핀 정보를 찾지 못했어요.');
+    return;
+  }
 
-  // x 가 경도, y 가 위도다.
-  Kakao.Navi.start({
-    name: pin.name || pin.address || '목적지',
-    x: pin.lng,
-    y: pin.lat,
-    coordType: 'wgs84'
-  });
+  try {
+    // x 가 경도, y 가 위도다.
+    Kakao.Navi.start({
+      name: pin.name || pin.address || '목적지',
+      x: pin.lng,
+      y: pin.lat,
+      coordType: 'wgs84'
+    });
+  } catch (err) {
+    console.error('[PinLog] 카카오내비 실행 실패:', err);
+    UI.toast('카카오내비를 열지 못했어요. (' + (err.message || err) + ')', 5000);
+    return;
+  }
+
+  // 카카오 SDK 는 앱 실행 실패를 빈 catch 로 삼켜서 아무 신호도 주지 않는다.
+  // 앱이 뜨면 브라우저가 뒤로 물러나며 document.hidden 이 true 가 되므로,
+  // 잠시 뒤에도 화면이 그대로 보이면 실행에 실패한 것으로 본다.
+  setTimeout(() => {
+    if (document.hidden) return;
+    UI.toast('카카오내비가 열리지 않았어요. 앱이 설치돼 있는지 확인해주세요.', 5000);
+  }, 2500);
 }
 
 function onToggleMapType() {
