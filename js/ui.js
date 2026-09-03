@@ -266,6 +266,7 @@ export function initUI(handlers) {
   el.detailDelete.addEventListener('click', () => cb.onDeletePin && cb.onDeletePin());
   el.detailEdit.addEventListener('click', () => cb.onEditPin && cb.onEditPin());
   el.detailVisit.addEventListener('click', () => cb.onMarkVisited && cb.onMarkVisited());
+  el.detailRoute.addEventListener('click', () => cb.onRoute && cb.onRoute());
 
   el.toastAction.addEventListener('click', () => {
     const fn = toastActionFn;
@@ -1012,13 +1013,6 @@ export function setFormLoading(on) {
   el.formDelete.disabled = on;
 }
 
-// 카카오맵 길찾기 링크. 이름 · 위도 · 경도를 쉼표로 잇는 규격이라
-// 이름에 쉼표가 들어 있으면 형식이 깨진다. 미리 공백으로 바꿔둔다.
-function routeUrl(pin) {
-  const label = (pin.name || pin.address || '목적지').replace(/,/g, ' ');
-  return `https://map.kakao.com/link/to/${encodeURIComponent(label)},${pin.lat},${pin.lng}`;
-}
-
 export function openDetail(pin) {
   const isWish = pin.category === 'wish';
 
@@ -1028,8 +1022,6 @@ export function openDetail(pin) {
   el.detailName.textContent = pin.name;
   el.detailAddress.textContent = pin.address || '주소 정보 없음';
   el.detailAddrCopy.hidden = !pin.address;   // 복사할 주소가 없으면 버튼도 감춘다
-
-  el.detailRoute.href = routeUrl(pin);
 
   el.detailVisit.hidden = !isWish;
 

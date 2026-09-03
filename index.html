@@ -42,6 +42,14 @@
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=8847bde4928641b8979855917e77783a&libraries=services&autoload=false"></script>
 
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.2/kakao.min.js"
+          integrity="sha384-zt/G7/KfaRQ9dT/QIkS0ujMtzouJqzuSJcXVQu50x0rl/+mD1dc70AeOejVbMD9E"
+          crossorigin="anonymous"></script>
+  <script>
+    // 카카오내비 앱 실행에 쓴다. 바로 위 지도 SDK 와 같은 JavaScript 키다.
+    if (window.Kakao && !Kakao.isInitialized()) Kakao.init('8847bde4928641b8979855917e77783a');
+  </script>
+
   <link rel="stylesheet" href="css/style.css" />
 </head>
 
@@ -434,13 +442,13 @@
         <span id="detail-when-text"></span>
       </p>
 
-      <a id="detail-route" class="detail-route" target="_blank" rel="noopener noreferrer"
-         aria-label="카카오맵에서 길찾기" title="카카오맵에서 길찾기">
+      <button id="detail-route" type="button" class="detail-route"
+              aria-label="카카오내비로 길찾기" title="카카오내비로 길찾기">
         <svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px] shrink-0">
           <path d="M21 3 3 10.6l7.4 3 3 7.4L21 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
         </svg>
         길찾기
-      </a>
+      </button>
 
       <div id="detail-tags" class="tag-row mt-3" hidden></div>
 
@@ -570,7 +578,7 @@
       </details>
 
       <p class="about__by">© 2026 JAEGYU LEE</p>
-      <p class="about__ver">v20260902</p>
+      <p class="about__ver">v20260903</p>
 
       <button id="about-close" type="button" class="btn-primary about__close">닫기</button>
     </div>

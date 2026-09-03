@@ -4,6 +4,11 @@ import * as UI from './ui.js';
 import { makeCover } from './photo.js';
 import { collectUsers, normalizeId, displayName } from './users.js';
 
+// 카카오내비는 앱을 띄우는 방식이라 휴대폰에서만 동작한다.
+// userAgentData 를 주는 브라우저에서는 그 값을, 아니면 UA 문자열을 본다.
+const IS_MOBILE = navigator.userAgentData?.mobile
+  ?? /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+
 function blockPageZoom(e) {
   if (e.target && e.target.closest && e.target.closest('#map')) return;
   e.preventDefault();
@@ -44,6 +49,7 @@ UI.initUI({
   onZoomIn,
   onZoomOut,
   onToggleMapType,
+  onRoute,
   onFilterChange,
   onSearch,
   onSelectPlace,
@@ -424,6 +430,26 @@ async function onLocate() {
   if (pos.accuracy > 5000) {
     UI.toast(`대략적인 위치예요 (오차 약 ${Math.round(pos.accuracy / 1000)}km)`, 3000);
   }
+}
+
+function onRoute() {
+  // 앱을 못 띄우는 환경(PC, SDK 로드 실패)에서는 조용히 알려만 준다.
+  // 핀을 찾기 전에 본다. 환경은 어느 핀이든 똑같기 때문이다.
+  if (!IS_MOBILE || !window.Kakao || !Kakao.isInitialized()) {
+    UI.toast('카카오내비는 휴대폰에서만 실행할 수 있어요.');
+    return;
+  }
+
+  const pin = findPin(state.selectedId);
+  if (!pin) return;
+
+  // x 가 경도, y 가 위도다.
+  Kakao.Navi.start({
+    name: pin.name || pin.address || '목적지',
+    x: pin.lng,
+    y: pin.lat,
+    coordType: 'wgs84'
+  });
 }
 
 function onToggleMapType() {
