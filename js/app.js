@@ -31,6 +31,8 @@ const state = {
   userMoved: false,
   mapReady: false,
   skyview: false,
+  roadview: false,
+  roadviewHinted: false,
   entering: false,
   selectedId: null,
   detailSig: '',
@@ -49,6 +51,7 @@ UI.initUI({
   onZoomIn,
   onZoomOut,
   onToggleMapType,
+  onToggleRoadview,
   onRoute,
   onFilterChange,
   onSearch,
@@ -256,6 +259,9 @@ function leaveMap() {
   state.selectedId = null;
   state.skyview = false;
   UI.setMapTypeState(false);
+  state.roadview = false;
+  UI.setRoadviewState(false);
+  UI.closeRoadview();
   state.editingId = null;
   state.draft = null;
   state.detailPhotos = null;
@@ -382,11 +388,41 @@ function sheetPanOffset(mobileY) {
 }
 
 function handleMapClick(coord) {
-  // 지도를 탭해서 픽커를 여는 동작은 두지 않는다.
-  // 지도는 끌고 확대하는 표면이라 옮기려다 탭이 되는 일이 잦아서,
   // 물방울 핀은 검색 결과를 고르거나 '핀 추가' 를 눌렀을 때만 나온다.
+  // 지도는 끌고 확대하는 표면이라, 옮기려다 탭이 되는 일이 잦기 때문이다.
   // 이미 열려 있을 때 탭한 자리로 옮겨주는 것까지는 남긴다.
-  if (UI.isPickerOpen()) MapCtl.panTo(coord.lat, coord.lng);
+  if (UI.isPickerOpen()) { MapCtl.panTo(coord.lat, coord.lng); return; }
+
+  if (state.roadview) openRoadviewAt(coord.lat, coord.lng);
+}
+
+function onToggleRoadview() {
+  if (!state.mapReady) return;
+
+  state.roadview = !state.roadview;
+  MapCtl.setRoadviewOverlay(state.roadview);
+  UI.setRoadviewState(state.roadview);
+
+  // 파란 선이 무엇인지는 한 번만 알려주면 된다.
+  if (state.roadview && !state.roadviewHinted) {
+    state.roadviewHinted = true;
+    UI.toast('파란 길을 누르면 로드뷰가 열려요.', 3200);
+  }
+}
+
+async function openRoadviewAt(lat, lng) {
+  const panoId = await MapCtl.findPano(lat, lng, 50);
+
+  if (!panoId) {
+    UI.toast('이 근처에는 로드뷰가 없어요.');
+    return;
+  }
+
+  // 띄우는 게 먼저다. 숨어 있는 칸에 만들면 크기를 0 으로 잰다.
+  UI.openRoadview();
+  MapCtl.showRoadview(UI.el.roadviewView, panoId, lat, lng);
+
+  fillAddress(lat, lng, (t) => { if (UI.isRoadviewOpen()) UI.setRoadviewAddress(t); });
 }
 
 function handlePinClick(id) {
@@ -603,6 +639,9 @@ function onAddClick() {
 
 function startPicking(opts = {}) {
   if (!state.mapReady) return;
+
+  // 지도 탭이 '위치 맞추기' 와 '로드뷰 열기' 두 가지 뜻을 갖지 않게 한다.
+  if (state.roadview) onToggleRoadview();
 
   UI.closeSheet();
   UI.hideSearchPanel();

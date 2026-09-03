@@ -199,12 +199,21 @@
     </button>
 
     <div class="bottom-controls">
-      <button id="btn-maptype" type="button" class="round-btn" aria-pressed="false" aria-label="위성 지도" title="위성 지도">
-        <svg viewBox="0 0 24 24" fill="none" class="w-[21px] h-[21px]">
-          <path d="M12 3.5 21 8l-9 4.5L3 8l9-4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          <path d="m3.5 12.4 8.5 4.2 8.5-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <div class="layer-ctl">
+        <button id="btn-maptype" type="button" class="layer-ctl__btn" aria-pressed="false" aria-label="위성 지도" title="위성 지도">
+          <svg viewBox="0 0 24 24" fill="none" class="w-[20px] h-[20px]">
+            <path d="M12 3.5 21 8l-9 4.5L3 8l9-4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="m3.5 12.4 8.5 4.2 8.5-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <span class="layer-ctl__div" aria-hidden="true"></span>
+        <button id="btn-roadview" type="button" class="layer-ctl__btn" aria-pressed="false" aria-label="로드뷰" title="로드뷰">
+          <svg viewBox="0 0 24 24" fill="none" class="w-[20px] h-[20px]">
+            <circle cx="12" cy="5.4" r="2.6" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M9 21v-5H7.4l1.3-4.6A3.4 3.4 0 0 1 12 9a3.4 3.4 0 0 1 3.3 2.4L16.6 16H15v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
 
       <button id="btn-locate" type="button" class="round-btn" aria-label="내 위치로 이동" title="내 위치로 이동">
         <svg viewBox="0 0 24 24" fill="none" class="w-[21px] h-[21px]">
@@ -508,6 +517,18 @@
         <button id="detail-edit" type="button" class="btn-ghost flex-1 h-[52px]">수정하기</button>
       </div>
     </div>
+  </div>
+
+  <div id="roadview" class="roadview" hidden role="dialog" aria-modal="true" aria-label="로드뷰">
+    <div id="roadview-view" class="roadview__view"></div>
+
+    <button type="button" id="roadview-close" class="roadview__close" aria-label="로드뷰 닫기">
+      <svg viewBox="0 0 24 24" fill="none" class="w-[20px] h-[20px]">
+        <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <p id="roadview-address" class="roadview__address"></p>
   </div>
 
   <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="사진 보기">

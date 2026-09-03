@@ -27,6 +27,10 @@ let geocoder = null;
 let activeId = null;
 let resizeObs = null;
 let lastSize = '';
+let rvOverlay = null;
+let rvClient = null;
+let roadview = null;
+let rvContainer = null;
 
 let handlers = {
   onMapClick: null,
@@ -187,6 +191,9 @@ function applyRelayout() {
   const center = map.getCenter();
   map.relayout();
   map.setCenter(center);
+
+  // 로드뷰도 컨테이너 크기를 기억하는 건 지도와 똑같다.
+  if (roadview) roadview.relayout();
 }
 
 // 중심 좌표를 읽거나 지도를 옮기기 전에 불러서 크기를 먼저 맞춰둔다.
@@ -223,6 +230,11 @@ function clampCenter() {
 }
 
 export function destroyMap() {
+
+  if (rvOverlay) { rvOverlay.setMap(null); rvOverlay = null; }
+  rvClient = null;
+  roadview = null;
+  rvContainer = null;
 
   unwatchContainerSize();
   clearPins();
@@ -456,6 +468,34 @@ export function moveTo(lat, lng, level) {
 
 // 위성은 HYBRID(위성 + 도로 · 지명 라벨)를 쓴다.
 // 순수 SKYVIEW 는 지명이 사라져서 어디인지 읽을 수가 없다.
+// 로드뷰가 있는 도로를 지도 위에 파란 선으로 덮는다.
+export function setRoadviewOverlay(on) {
+  if (!map) return;
+  if (!rvOverlay) rvOverlay = new kakao.maps.RoadviewOverlay();
+  rvOverlay.setMap(on ? map : null);
+}
+
+// 찍은 자리에서 가장 가까운 파노라마를 찾는다. 없으면 null 이다.
+export function findPano(lat, lng, radius = 50) {
+  return new Promise((resolve) => {
+    if (!rvClient) rvClient = new kakao.maps.RoadviewClient();
+    rvClient.getNearestPanoId(new kakao.maps.LatLng(lat, lng), radius, (id) => resolve(id || null));
+  });
+}
+
+// 숨어 있는 칸에 만들면 크기를 0 으로 기억해 버린다.
+// 그래서 화면에 먼저 띄운 뒤에 불러야 한다.
+export function showRoadview(el, panoId, lat, lng) {
+  if (!roadview || rvContainer !== el) {
+    rvContainer = el;
+    roadview = new kakao.maps.Roadview(el);
+  } else {
+    roadview.relayout();
+  }
+
+  roadview.setPanoId(panoId, new kakao.maps.LatLng(lat, lng));
+}
+
 export function setSkyview(on) {
   if (!map) return;
   map.setMapTypeId(on ? kakao.maps.MapTypeId.HYBRID : kakao.maps.MapTypeId.ROADMAP);

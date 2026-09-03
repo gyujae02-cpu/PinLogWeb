@@ -40,6 +40,11 @@ export const el = {
   btnTimeline:   $('#btn-timeline'),
   btnLocate:     $('#btn-locate'),
   btnMapType:    $('#btn-maptype'),
+  btnRoadview:   $('#btn-roadview'),
+  roadview:      $('#roadview'),
+  roadviewView:  $('#roadview-view'),
+  roadviewClose: $('#roadview-close'),
+  roadviewAddr:  $('#roadview-address'),
   btnAdd:        $('#btn-add'),
   btnZoomIn:     $('#btn-zoom-in'),
   btnZoomOut:    $('#btn-zoom-out'),
@@ -207,6 +212,8 @@ export function initUI(handlers) {
   el.btnLogout.addEventListener('click', () => cb.onLogout && cb.onLogout());
   el.btnLocate.addEventListener('click', () => cb.onLocate && cb.onLocate());
   el.btnMapType.addEventListener('click', () => cb.onToggleMapType && cb.onToggleMapType());
+  el.btnRoadview.addEventListener('click', () => cb.onToggleRoadview && cb.onToggleRoadview());
+  el.roadviewClose.addEventListener('click', () => closeRoadview());
   el.btnAdd.addEventListener('click', () => cb.onAddClick && cb.onAddClick());
   el.btnTimeline.addEventListener('click', () => cb.onOpenTimeline && cb.onOpenTimeline());
   el.btnZoomIn.addEventListener('click', () => cb.onZoomIn && cb.onZoomIn());
@@ -344,6 +351,7 @@ export function initUI(handlers) {
       return;
     }
     if (e.key !== 'Escape') return;
+    if (!el.roadview.hidden) { closeRoadview(); return; }
     if (!el.about.hidden)   { closeAbout(); return; }
     if (!el.export.hidden)  { finishExport(null); return; }
     if (!el.confirm.hidden) { el.confirmCancel.click(); return; }
@@ -1664,6 +1672,38 @@ export function setLocating(on) {
   } else {
     el.locatingPill.hidden = true;
   }
+}
+
+// 로드뷰 뷰어는 화면에 먼저 나와야 카카오가 크기를 제대로 잰다.
+// 그래서 여는 것과 그리는 것을 나눠 두고, app 쪽에서 이 순서로 부른다.
+export function openRoadview() {
+  el.roadviewAddr.textContent = '';
+  el.roadview.hidden = false;
+  requestAnimationFrame(() => el.roadview.classList.add('is-on'));
+}
+
+export function closeRoadview() {
+  if (el.roadview.hidden) return;
+
+  el.roadview.classList.remove('is-on');
+  setTimeout(() => {
+    if (!el.roadview.classList.contains('is-on')) el.roadview.hidden = true;
+  }, 240);
+}
+
+export function isRoadviewOpen() { return !el.roadview.hidden; }
+
+export function setRoadviewAddress(text) {
+  el.roadviewAddr.textContent = text || '';
+}
+
+export function setRoadviewState(on) {
+  el.btnRoadview.classList.toggle('is-on', on);
+  el.btnRoadview.setAttribute('aria-pressed', on ? 'true' : 'false');
+
+  const label = on ? '로드뷰 끄기' : '로드뷰';
+  el.btnRoadview.setAttribute('aria-label', label);
+  el.btnRoadview.title = label;
 }
 
 export function setMapTypeState(sky) {
