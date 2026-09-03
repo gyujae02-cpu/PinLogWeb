@@ -1207,10 +1207,14 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 /* 주소 바로 아래에서 조용히 대기한다.
    주 액션(다녀왔어요)과 경쟁하지 않도록 badge 와 같은 톤으로 둔다. */
-.detail-route {
+.detail-actions {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  margin-top: 12px;
+}
+
+.detail-chip {
   display: inline-flex; align-items: center; gap: 5px;
   height: 32px; padding: 0 13px;
-  margin-top: 12px;
   border-radius: 99px;
   background: var(--brand-50);
   color: var(--brand-600);
@@ -1218,8 +1222,8 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   white-space: nowrap;
   transition: background .18s var(--ease), transform .18s var(--ease);
 }
-.detail-route:hover { background: var(--brand-100); }
-.detail-route:active { transform: scale(.96); }
+.detail-chip:hover { background: var(--brand-100); }
+.detail-chip:active { transform: scale(.96); }
 .badge--wish    { background: var(--wish-50);  color: var(--wish-600); }
 
 .segmented { display: flex; gap: 8px; }

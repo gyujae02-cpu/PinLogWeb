@@ -750,6 +750,18 @@ async function onMarkVisited() {
   const id = pin.id;
   const prevDate = pin.visitedAt;
 
+  const ok = await UI.confirmDialog({
+    title: '가본 곳으로 옮길까요?',
+    desc: `'${pin.name}' 을 다녀온 곳으로 바꿔요. 다녀온 날짜는 오늘로 기록되고, 나중에 수정할 수 있어요.`,
+    okText: '다녀왔어요',
+    tone: 'primary'
+  });
+  if (!ok) return;
+
+  // 물어보는 동안 상대가 먼저 옮겼을 수도 있다.
+  const fresh = findPin(id);
+  if (!fresh || fresh.category !== 'wish') return;
+
   try {
     await FB.setPinVisit(id, 'visited', UI.todayValue());
     UI.toast('가본 곳으로 옮겼어요.', 5000, {

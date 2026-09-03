@@ -90,6 +90,7 @@ export const el = {
   detailName:    $('#detail-name'),
   detailAddress: $('#detail-address'),
   detailRoute:   $('#detail-route'),
+  detailSearch:  $('#detail-search'),
   detailWhen:    $('#detail-when'),
   detailWhenText:$('#detail-when-text'),
   detailTags:    $('#detail-tags'),
@@ -1021,6 +1022,12 @@ export function setFormLoading(on) {
   el.formDelete.disabled = on;
 }
 
+// 핀 이름 그대로 네이버에 넘긴다.
+function searchUrl(pin) {
+  const query = pin.name || pin.address || '';
+  return 'https://search.naver.com/search.naver?query=' + encodeURIComponent(query);
+}
+
 export function openDetail(pin) {
   const isWish = pin.category === 'wish';
 
@@ -1030,6 +1037,8 @@ export function openDetail(pin) {
   el.detailName.textContent = pin.name;
   el.detailAddress.textContent = pin.address || '주소 정보 없음';
   el.detailAddrCopy.hidden = !pin.address;   // 복사할 주소가 없으면 버튼도 감춘다
+
+  el.detailSearch.href = searchUrl(pin);
 
   el.detailVisit.hidden = !isWish;
 
@@ -1752,12 +1761,17 @@ function hideToast() {
   setTimeout(() => { el.toast.hidden = true; }, 320);
 }
 
-export function confirmDialog({ title, desc, okText = '삭제', cancelText = '취소' }) {
+// tone 은 확인 버튼의 색이다. 지우거나 잃는 일은 'danger',
+// 다녀왔어요처럼 무언가를 남기는 일은 'primary' 를 쓴다.
+export function confirmDialog({ title, desc, okText = '삭제', cancelText = '취소', tone = 'danger' }) {
   return new Promise((resolve) => {
     el.confirmTitle.textContent = title;
     el.confirmDesc.textContent = desc;
     el.confirmOk.textContent = okText;
     el.confirmCancel.textContent = cancelText;
+
+    // 아래에서 복제하므로 클래스는 그 전에 바꿔둔다.
+    el.confirmOk.className = (tone === 'primary' ? 'btn-primary' : 'btn-danger') + ' flex-1 h-12';
 
     el.confirm.hidden = false;
     requestAnimationFrame(() => el.confirm.classList.add('is-on'));

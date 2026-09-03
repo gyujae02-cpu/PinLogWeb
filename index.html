@@ -451,13 +451,24 @@
         <span id="detail-when-text"></span>
       </p>
 
-      <button id="detail-route" type="button" class="detail-route"
-              aria-label="카카오내비로 길찾기" title="카카오내비로 길찾기">
-        <svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px] shrink-0">
-          <path d="M21 3 3 10.6l7.4 3 3 7.4L21 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-        </svg>
-        길찾기
-      </button>
+      <div class="detail-actions">
+        <button id="detail-route" type="button" class="detail-chip"
+                aria-label="카카오내비로 길찾기" title="카카오내비로 길찾기">
+          <svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px] shrink-0">
+            <path d="M21 3 3 10.6l7.4 3 3 7.4L21 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+          길찾기
+        </button>
+
+        <a id="detail-search" class="detail-chip" target="_blank" rel="noopener noreferrer"
+           aria-label="네이버에서 검색" title="네이버에서 검색">
+          <svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px] shrink-0">
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+            <path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          네이버 검색
+        </a>
+      </div>
 
       <div id="detail-tags" class="tag-row mt-3" hidden></div>
 
