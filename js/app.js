@@ -382,13 +382,11 @@ function sheetPanOffset(mobileY) {
 }
 
 function handleMapClick(coord) {
-
-  if (UI.isPickerOpen()) {
-    MapCtl.panTo(coord.lat, coord.lng);
-    return;
-  }
-
-  startPicking({ lat: coord.lat, lng: coord.lng });
+  // 지도를 탭해서 픽커를 여는 동작은 두지 않는다.
+  // 지도는 끌고 확대하는 표면이라 옮기려다 탭이 되는 일이 잦아서,
+  // 물방울 핀은 검색 결과를 고르거나 '핀 추가' 를 눌렀을 때만 나온다.
+  // 이미 열려 있을 때 탭한 자리로 옮겨주는 것까지는 남긴다.
+  if (UI.isPickerOpen()) MapCtl.panTo(coord.lat, coord.lng);
 }
 
 function handlePinClick(id) {
