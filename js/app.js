@@ -820,9 +820,24 @@ async function onAddComment(text) {
   }
 }
 
-async function onDeleteComment(commentId) {
+async function onDeleteComment(commentId, text) {
   const pinId = state.selectedId;
   if (!pinId) return;
+
+  const quote = String(text || '').trim();
+  const short = quote.length > 24 ? quote.slice(0, 24) + '…' : quote;
+
+  const ok = await UI.confirmDialog({
+    title: '댓글을 삭제할까요?',
+    desc: short
+      ? `'${short}' 댓글이 사라져요. 되돌릴 수 없어요.`
+      : '삭제한 댓글은 되돌릴 수 없어요.',
+    okText: '삭제'
+  });
+  if (!ok) return;
+
+  // 물어보는 동안 다른 핀으로 옮겨갔을 수 있다.
+  if (state.selectedId !== pinId) return;
 
   try {
     await FB.deleteComment(pinId, commentId);

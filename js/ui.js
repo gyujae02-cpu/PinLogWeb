@@ -1278,7 +1278,7 @@ export function setDetailComments(comments) {
     if (mine) {
       const del = h('button', 'comment__del', '삭제');
       del.type = 'button';
-      del.addEventListener('click', () => cb.onDeleteComment && cb.onDeleteComment(c.id));
+      del.addEventListener('click', () => cb.onDeleteComment && cb.onDeleteComment(c.id, c.text));
       head.appendChild(del);
     }
 
