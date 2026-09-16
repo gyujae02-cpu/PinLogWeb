@@ -140,9 +140,6 @@ export function subscribePins(onData, onError) {
           cover: typeof v.cover === 'string' ? v.cover : '',
           photoCount: Number(v.photoCount) > 0 ? Number(v.photoCount) : 0,
           commentCount: Number(v.commentCount) > 0 ? Number(v.commentCount) : 0,
-          // 댓글이 달릴 때마다 핀 문서에 같이 찍어두는 값.
-          // '댓글 최신순' 정렬이 이걸 보고 줄을 세운다.
-          lastCommentAt: toDate(v.lastCommentAt),
           createdAt: toDate(v.createdAt),
           updatedAt: toDate(v.updatedAt),
           createdBy: v.createdBy || ''
@@ -307,10 +304,7 @@ export async function addComment(pinId, text) {
     createdAt: serverTimestamp()
   });
 
-  updateDoc(doc(db, 'pins', pinId), {
-    commentCount: increment(1),
-    lastCommentAt: serverTimestamp()
-  }).catch(() => {});
+  updateDoc(doc(db, 'pins', pinId), { commentCount: increment(1) }).catch(() => {});
 }
 
 // 댓글 모아보기 — 댓글이 달린 핀만 골라 한꺼번에 읽어온다.

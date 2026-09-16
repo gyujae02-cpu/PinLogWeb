@@ -69,6 +69,7 @@ export const el = {
   feedSub:         $('#feed-sub'),
   feedSearch:      $('#feed-search'),
   feedSearchClear: $('#feed-search-clear'),
+  feedSort:        $('#feed-sort'),
   feedList:        $('#feed-list'),
   feedEmpty:       $('#feed-empty'),
 
@@ -178,6 +179,7 @@ let timelineOrigin = null;
 
 let feedOpen = false;
 let feedQuery = '';
+let feedSort = 'recent';
 let feedItems = [];
 let feedLoading = false;
 let feedError = false;
@@ -366,6 +368,11 @@ export function initUI(handlers) {
   el.feedSearchClear.addEventListener('click', () => {
     clearFeedSearch();
     el.feedSearch.focus();
+  });
+
+  el.feedSort.addEventListener('change', () => {
+    feedSort = el.feedSort.value;
+    if (!feedLoading) renderFeed();
   });
 
   el.lightboxClose.addEventListener('click', () => closeLightbox());
@@ -1415,9 +1422,7 @@ export function setFeedComments(items) {
 
   feedLoading = false;
   feedError = false;
-  // 날짜 머리글을 붙이려면 최신순이 보장돼야 한다. 받은 순서에 기대지 않는다.
-  feedItems = (Array.isArray(items) ? items.slice() : [])
-    .sort((a, b) => b.createdAt - a.createdAt);
+  feedItems = Array.isArray(items) ? items.slice() : [];
 
   renderFeed();
 }
@@ -1432,7 +1437,13 @@ export function setFeedError() {
 }
 
 function renderFeed() {
-  const list = feedItems.filter(matchesFeedQuery);
+  // 날짜 머리글을 붙이려면 순서가 보장돼야 해서, 받은 순서에 기대지 않고 여기서 준다.
+  // filter 가 새 배열을 돌려주므로 그 자리에서 정렬해도 원본은 안 건드린다.
+  const list = feedItems
+    .filter(matchesFeedQuery)
+    .sort(feedSort === 'oldest'
+      ? (a, b) => a.createdAt - b.createdAt
+      : (a, b) => b.createdAt - a.createdAt);
 
   if (feedError) {
     el.feedSub.textContent = '불러오지 못했어요';
@@ -1648,23 +1659,10 @@ function matchesTimelineQuery(pin) {
     .includes(timelineQuery);
 }
 
-function commentTime(pin) {
-  return pin.lastCommentAt ? pin.lastCommentAt.getTime() : 0;
-}
-
 function timelineSorter() {
   switch (timelineSort) {
     case 'oldest':
       return (a, b) => effectiveDate(a) - effectiveDate(b);
-
-    // 댓글이 한 번도 안 달린 핀은 뒤로 밀고, 그 안에서는 평소대로 최신순.
-    case 'comment':
-      return (a, b) => {
-        const ta = commentTime(a);
-        const tb = commentTime(b);
-        if (ta !== tb) return tb - ta;
-        return effectiveDate(b) - effectiveDate(a);
-      };
 
     case 'name':
       return (a, b) => a.name.localeCompare(b.name, 'ko');
