@@ -38,6 +38,7 @@ export const el = {
   brand:         $('#brand'),
   btnLogout:     $('#btn-logout'),
   btnTimeline:   $('#btn-timeline'),
+  btnFeed:       $('#btn-feed'),
   btnLocate:     $('#btn-locate'),
   btnMapType:    $('#btn-maptype'),
   btnRoadview:   $('#btn-roadview'),
@@ -63,6 +64,13 @@ export const el = {
   timelineSort:        $('#timeline-sort'),
   timelineList:  $('#timeline-list'),
   timelineEmpty: $('#timeline-empty'),
+
+  feed:            $('#feed'),
+  feedSub:         $('#feed-sub'),
+  feedSearch:      $('#feed-search'),
+  feedSearchClear: $('#feed-search-clear'),
+  feedList:        $('#feed-list'),
+  feedEmpty:       $('#feed-empty'),
 
   backdrop:      $('#sheet-backdrop'),
   sheet:         $('#sheet'),
@@ -168,6 +176,12 @@ let timelineQuery = '';
 let timelineSort = 'recent';
 let timelineOrigin = null;
 
+let feedOpen = false;
+let feedQuery = '';
+let feedItems = [];
+let feedLoading = false;
+let feedError = false;
+
 let lightboxPhotos = [];
 let lightboxIndex = 0;
 
@@ -217,6 +231,7 @@ export function initUI(handlers) {
   el.roadviewClose.addEventListener('click', () => closeRoadview());
   el.btnAdd.addEventListener('click', () => cb.onAddClick && cb.onAddClick());
   el.btnTimeline.addEventListener('click', () => cb.onOpenTimeline && cb.onOpenTimeline());
+  el.btnFeed.addEventListener('click', () => cb.onOpenFeed && cb.onOpenFeed());
   el.btnZoomIn.addEventListener('click', () => cb.onZoomIn && cb.onZoomIn());
   el.btnZoomOut.addEventListener('click', () => cb.onZoomOut && cb.onZoomOut());
 
@@ -337,6 +352,22 @@ export function initUI(handlers) {
     renderTimeline(timelinePins);
   });
 
+  document.querySelectorAll('[data-close-feed]').forEach((n) => {
+    n.addEventListener('click', () => closeFeed());
+  });
+  el.feedSearch.addEventListener('input', () => {
+    feedQuery = el.feedSearch.value.trim().toLowerCase();
+    el.feedSearchClear.hidden = el.feedSearch.value.length === 0;
+    if (!feedLoading) renderFeed();
+  });
+  el.feedSearch.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); clearFeedSearch(); }
+  });
+  el.feedSearchClear.addEventListener('click', () => {
+    clearFeedSearch();
+    el.feedSearch.focus();
+  });
+
   el.lightboxClose.addEventListener('click', () => closeLightbox());
   el.lightboxPrev.addEventListener('click', () => stepLightbox(-1));
   el.lightboxNext.addEventListener('click', () => stepLightbox(1));
@@ -357,6 +388,7 @@ export function initUI(handlers) {
     if (!el.export.hidden)  { finishExport(null); return; }
     if (!el.confirm.hidden) { el.confirmCancel.click(); return; }
     if (sheetMode)          { closeSheet(); return; }
+    if (feedOpen)           { closeFeed(); return; }
     if (timelineOpen)       { closeTimeline(); return; }
     if (!el.picker.hidden)  cb.onPickerCancel && cb.onPickerCancel();
   });
@@ -1342,6 +1374,181 @@ export function closeLightbox() {
 
 export function isLightboxOpen() { return !el.lightbox.hidden; }
 
+/* ── 댓글 모아보기 ─────────────────────────────────────────── */
+
+export function openFeed() {
+  feedOpen = true;
+  el.feed.hidden = false;
+  requestAnimationFrame(() => el.feed.classList.add('is-on'));
+
+  feedQuery = '';
+  el.feedSearch.value = '';
+  el.feedSearchClear.hidden = true;
+
+  feedLoading = true;
+  feedError = false;
+  feedItems = [];
+  el.feedSub.textContent = '불러오는 중…';
+  el.feedList.innerHTML = '';
+  el.feedList.hidden = true;
+  el.feedEmpty.hidden = true;
+
+  hideHint();
+}
+
+export function closeFeed(immediate = false) {
+  if (!feedOpen) return;
+  feedOpen = false;
+
+  el.feed.classList.remove('is-on');
+  const finish = () => {
+    el.feed.hidden = true;
+    el.feedList.scrollTop = 0;
+  };
+  if (immediate) finish(); else setTimeout(finish, 360);
+}
+
+export function isFeedOpen() { return feedOpen; }
+
+export function setFeedComments(items) {
+  if (!feedOpen) return;
+
+  feedLoading = false;
+  feedError = false;
+  // 날짜 머리글을 붙이려면 최신순이 보장돼야 한다. 받은 순서에 기대지 않는다.
+  feedItems = (Array.isArray(items) ? items.slice() : [])
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  renderFeed();
+}
+
+export function setFeedError() {
+  if (!feedOpen) return;
+
+  feedLoading = false;
+  feedError = true;
+  feedItems = [];
+  renderFeed();
+}
+
+function renderFeed() {
+  const list = feedItems.filter(matchesFeedQuery);
+
+  if (feedError) {
+    el.feedSub.textContent = '불러오지 못했어요';
+  } else if (feedQuery) {
+    el.feedSub.textContent = `검색 결과 ${list.length}개`;
+  } else {
+    el.feedSub.textContent = feedItems.length
+      ? `댓글 ${feedItems.length}개`
+      : '아직 댓글이 없어요';
+  }
+
+  el.feedList.innerHTML = '';
+  el.feedList.hidden = !list.length;
+  el.feedEmpty.hidden = list.length > 0;
+  if (!list.length) { paintFeedEmpty(); return; }
+
+  const frag = document.createDocumentFragment();
+  let lastGroup = '';
+
+  list.forEach((c) => {
+    const key = dayKey(c.createdAt);
+    if (key !== lastGroup) {
+      lastGroup = key;
+      frag.appendChild(h('div', 'tl-group', dayLabel(c.createdAt)));
+    }
+    frag.appendChild(buildFeedItem(c));
+  });
+
+  el.feedList.appendChild(frag);
+}
+
+function buildFeedItem(c) {
+  const mine = !!myId && normalizeId(c.by) === myId;
+
+  const btn = h('button', 'fd-item');
+  btn.type = 'button';
+
+  const color = userColor(c.by);
+
+  const head = h('span', 'fd-item__head');
+
+  const dot = h('span', 'meta-dot');
+  dot.style.background = color.dot;
+  head.appendChild(dot);
+
+  const by = h('span', 'fd-item__by', mine ? '나' : (displayName(c.by) || '상대방'));
+  by.style.color = color.text;
+  head.appendChild(by);
+
+  const time = h('span', 'fd-item__time', relTime(c.createdAt));
+  time.title = fmtStamp(c.createdAt);
+  head.appendChild(time);
+
+  btn.appendChild(head);
+  btn.appendChild(h('span', 'fd-item__text', c.text));
+
+  const place = h('span', 'fd-item__place');
+  place.append(h('span', 'fd-item__pin', '📍'), document.createTextNode(c.pinName || '이름 없는 장소'));
+  btn.appendChild(place);
+
+  btn.addEventListener('click', () => {
+    closeFeed();
+    cb.onFeedSelect && cb.onFeedSelect(c.pinId);
+  });
+
+  return btn;
+}
+
+function matchesFeedQuery(c) {
+  if (!feedQuery) return true;
+  return `${c.text} ${c.pinName || ''} ${displayName(c.by)}`
+    .toLowerCase()
+    .includes(feedQuery);
+}
+
+function paintFeedEmpty() {
+  const title = el.feedEmpty.querySelector('[data-empty-title]');
+  const desc  = el.feedEmpty.querySelector('[data-empty-desc]');
+
+  if (feedError) {
+    title.textContent = '댓글을 불러오지 못했어요';
+    desc.textContent = '잠시 뒤에 다시 열어보세요';
+  } else if (feedQuery) {
+    title.textContent = '찾는 댓글이 없어요';
+    desc.textContent = '다른 말로 검색해 보세요';
+  } else {
+    title.textContent = '아직 댓글이 없어요';
+    desc.textContent = '핀을 열어 첫 댓글을 남겨보세요';
+  }
+}
+
+function clearFeedSearch() {
+  feedQuery = '';
+  el.feedSearch.value = '';
+  el.feedSearchClear.hidden = true;
+  if (!feedLoading) renderFeed();
+}
+
+function dayKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function dayLabel(d) {
+  const now = new Date();
+  const key = dayKey(d);
+
+  if (key === dayKey(now)) return '오늘';
+
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (key === dayKey(yesterday)) return '어제';
+
+  return d.getFullYear() === now.getFullYear()
+    ? fmtShortDate(d)
+    : `${d.getFullYear()}년 ${fmtShortDate(d)}`;
+}
+
 export function openTimeline(pins, origin) {
   timelineOpen = true;
   el.timeline.hidden = false;
@@ -1441,10 +1648,23 @@ function matchesTimelineQuery(pin) {
     .includes(timelineQuery);
 }
 
+function commentTime(pin) {
+  return pin.lastCommentAt ? pin.lastCommentAt.getTime() : 0;
+}
+
 function timelineSorter() {
   switch (timelineSort) {
     case 'oldest':
       return (a, b) => effectiveDate(a) - effectiveDate(b);
+
+    // 댓글이 한 번도 안 달린 핀은 뒤로 밀고, 그 안에서는 평소대로 최신순.
+    case 'comment':
+      return (a, b) => {
+        const ta = commentTime(a);
+        const tb = commentTime(b);
+        if (ta !== tb) return tb - ta;
+        return effectiveDate(b) - effectiveDate(a);
+      };
 
     case 'name':
       return (a, b) => a.name.localeCompare(b.name, 'ko');
@@ -1586,8 +1806,12 @@ function buildTimelineItem(pin, date) {
       meta.appendChild(who);
     }
 
-    if (pin.photoCount)   meta.appendChild(h('span', null, `사진 ${pin.photoCount}`));
-    if (pin.commentCount) meta.appendChild(h('span', null, `댓글 ${pin.commentCount}`));
+    if (pin.photoCount) meta.appendChild(h('span', null, `사진 ${pin.photoCount}`));
+
+    if (pin.commentCount) {
+      meta.appendChild(h('span', null, `댓글 ${pin.commentCount}`));
+    }
+
     body.appendChild(meta);
   }
 

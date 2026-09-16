@@ -2019,3 +2019,48 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
     transition-duration: .01ms !important;
   }
 }
+
+/* ── 댓글 모아보기 ─────────────────────────────────────────── */
+
+/* 패널 자체는 .timeline 스타일을 그대로 쓰고, 목록만 여기서 그린다. */
+.fd-item {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 4px;
+  border-radius: 18px;
+  text-align: left;
+  transition: background .16s var(--ease), transform .16s var(--ease);
+}
+.fd-item:hover  { background: var(--brand-50); }
+.fd-item:active { transform: scale(.985); }
+
+.fd-item__head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: -.01em;
+}
+.fd-item__by   { color: var(--ink-700); }
+.fd-item__time { color: var(--ink-400); font-weight: 600; }
+
+.fd-item__text {
+  font-size: 14px; letter-spacing: -.015em; line-height: 1.45;
+  color: var(--ink-900);
+  /* 긴 댓글은 세 줄까지만 — 나머지는 핀을 열어서 본다. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.fd-item__place {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 2px;
+  font-size: 11px; font-weight: 650; letter-spacing: -.01em;
+  color: var(--ink-400);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fd-item__pin { font-size: 10px; line-height: 1; }
+
+/* 버튼이 하나 늘어난 만큼 좁은 화면에서 아이디 칩을 더 줄인다. */
+@media (max-width: 420px) {
+  .me-pill { max-width: 74px; padding: 0 9px; }
+}

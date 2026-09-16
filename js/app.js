@@ -65,6 +65,8 @@ UI.initUI({
   onPickerConfirm,
   onOpenTimeline,
   onTimelineSelect,
+  onOpenFeed,
+  onFeedSelect,
   onExport,
   onAddComment,
   onDeleteComment
@@ -270,6 +272,7 @@ function leaveMap() {
   UI.closeSheet(true);
   UI.closePicker();
   UI.closeTimeline(true);
+  UI.closeFeed(true);
   UI.closeLightbox();
   UI.clearSearch();
   UI.resetTagFilter();
@@ -540,6 +543,37 @@ function onTimelineSelect(id) {
 
   const hidden = !visiblePins().some((p) => p.id === id);
   if (hidden) UI.toast('필터 때문에 지도에서는 숨겨져 있어요.', 2800);
+}
+
+let feedSeq = 0;
+
+async function onOpenFeed() {
+  if (!state.mapReady) return;
+  UI.closeSheet();
+  UI.hideSearchPanel();
+  UI.closeTimeline();
+
+  UI.openFeed();
+
+  // 여는 동안 다시 열면 늦게 온 응답이 새 목록을 덮어쓰지 않도록 번호를 매긴다.
+  const seq = ++feedSeq;
+
+  try {
+    const items = await FB.fetchAllComments(state.pins);
+    if (seq !== feedSeq) return;
+
+    UI.setFeedComments(items.map((c) => {
+      const pin = findPin(c.pinId);
+      return { ...c, pinName: pin ? pin.name : '' };
+    }));
+  } catch (err) {
+    console.error('[PinLog] 댓글 모아보기 실패:', err);
+    if (seq === feedSeq) UI.setFeedError();
+  }
+}
+
+function onFeedSelect(id) {
+  onTimelineSelect(id);
 }
 
 let exporting = false;

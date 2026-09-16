@@ -140,6 +140,9 @@ export function subscribePins(onData, onError) {
           cover: typeof v.cover === 'string' ? v.cover : '',
           photoCount: Number(v.photoCount) > 0 ? Number(v.photoCount) : 0,
           commentCount: Number(v.commentCount) > 0 ? Number(v.commentCount) : 0,
+          // 댓글이 달릴 때마다 핀 문서에 같이 찍어두는 값.
+          // '댓글 최신순' 정렬이 이걸 보고 줄을 세운다.
+          lastCommentAt: toDate(v.lastCommentAt),
           createdAt: toDate(v.createdAt),
           updatedAt: toDate(v.updatedAt),
           createdBy: v.createdBy || ''
@@ -304,7 +307,45 @@ export async function addComment(pinId, text) {
     createdAt: serverTimestamp()
   });
 
-  updateDoc(doc(db, 'pins', pinId), { commentCount: increment(1) }).catch(() => {});
+  updateDoc(doc(db, 'pins', pinId), {
+    commentCount: increment(1),
+    lastCommentAt: serverTimestamp()
+  }).catch(() => {});
+}
+
+// 댓글 모아보기 — 댓글이 달린 핀만 골라 한꺼번에 읽어온다.
+//
+// collectionGroup 으로 한 방에 긁는 방법도 있지만, 그러려면 Firestore 콘솔에서
+// 색인을 따로 만들고 보안 규칙도 /{path=**}/comments 로 열어줘야 한다.
+// 핀이 수백 개씩 되는 앱이 아니라, 필요한 핀만 병렬로 읽는 쪽이 단순하다.
+export async function fetchAllComments(pins) {
+  const targets = (pins || []).filter((p) => p && p.id && p.commentCount > 0);
+  if (!targets.length) return [];
+
+  const chunks = await Promise.all(targets.map(async (pin) => {
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'pins', pin.id, 'comments'), orderBy('order', 'asc'))
+      );
+
+      return snap.docs.map((d) => {
+        const v = d.data();
+        return {
+          id: d.id,
+          pinId: pin.id,
+          text: v.text || '',
+          by: v.by || '',
+          createdAt: toDate(v.createdAt) || new Date(Number(v.order) || Date.now())
+        };
+      }).filter((c) => c.text);
+    } catch (err) {
+      // 핀 하나를 못 읽었다고 전체가 빈손이 되면 안 된다.
+      console.error('[PinLog] 댓글 읽기 실패:', pin.id, err);
+      return [];
+    }
+  }));
+
+  return chunks.flat().sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function exportEverything(onProgress, options = {}) {
