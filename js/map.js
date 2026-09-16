@@ -141,12 +141,6 @@ export function createMap(el, center, cbs = {}) {
 
   on(map, 'zoom_changed', applyCompactPins);
 
-  on(map, 'dragstart',    markMapMoving);
-  on(map, 'zoom_start',   markMapMoving);
-  on(map, 'dragend',      markMapSettled);
-  on(map, 'zoom_changed', markMapSettled);
-  on(map, 'idle',         markMapSettled);
-
   watchContainerSize();
 
   return map;
@@ -253,10 +247,6 @@ export function destroyMap() {
   });
   listeners = [];
 
-  // 드래그 도중 로그아웃하면 클래스가 body 에 남는다.
-  if (moveSettleTimer) { clearTimeout(moveSettleTimer); moveSettleTimer = null; }
-  document.body.classList.remove('is-map-moving');
-
   map = null;
   if (container) { container.innerHTML = ''; container = null; }
 
@@ -265,26 +255,6 @@ export function destroyMap() {
   activeId = null;
   places = null;
   geocoder = null;
-}
-
-// 지도가 움직이는 동안 글래스 패널의 backdrop-filter 를 끈다.
-// 블러는 지도를 팬/줌 할 때마다 화면 위 모든 글래스 요소를 매 프레임 다시
-// 합성하게 만들어 저사양 기기에서 눈에 띄게 끊긴다. 실제 처리는 CSS 의
-// body.is-map-moving 규칙이 한다.
-let moveSettleTimer = null;
-
-function markMapMoving() {
-  if (moveSettleTimer) { clearTimeout(moveSettleTimer); moveSettleTimer = null; }
-  document.body.classList.add('is-map-moving');
-}
-
-function markMapSettled() {
-  // 손을 뗀 뒤에도 관성으로 잠시 더 흐른다. 바로 켜면 그 구간에서 끊긴다.
-  if (moveSettleTimer) clearTimeout(moveSettleTimer);
-  moveSettleTimer = setTimeout(() => {
-    moveSettleTimer = null;
-    document.body.classList.remove('is-map-moving');
-  }, 220);
 }
 
 function on(target, type, handler) {
