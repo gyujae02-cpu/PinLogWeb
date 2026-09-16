@@ -27,6 +27,13 @@
   --surface: #FFFFFF;
   --surface-sunken: #F4F8FC;
 
+  /* 글래스 패널 안에 얹는 블록.
+     반투명 '흰색'을 쓰면 패널(.90 흰색)보다 오히려 밝아져서 눌린 느낌이
+     뒤집힌다. 그래서 아주 옅은 잉크 틴트로 살짝 어둡게만 만든다.
+     95% 가 투명이라 패널의 유리질감이 그대로 통과한다. */
+  --sunken-glass: rgba(22, 32, 43, .05);
+  --raise-glass:  rgba(255, 255, 255, .60);
+
   --sh-soft: 0 4px 18px rgba(var(--ink-rgb), .06);
   --sh-card: 0 10px 30px rgba(var(--ink-rgb), .10);
   --sh-lift: 0 18px 48px rgba(var(--ink-rgb), .16);
@@ -230,7 +237,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   flex-shrink: 0;
   transition: transform .18s var(--ease), color .18s var(--ease), background .18s var(--ease);
 }
-.icon-btn:hover { color: var(--brand-600); background: #fff; }
+.icon-btn:hover { color: var(--brand-600); background: var(--raise-glass); }
 .icon-btn:active { transform: scale(.94); }
 
 .label {
@@ -256,7 +263,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   width: 100%;
   padding: 14px 15px;
   border-radius: 15px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   border: 1.5px solid transparent;
   font-size: 15px; letter-spacing: -.01em;
   color: var(--ink-900);
@@ -265,7 +272,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .input::placeholder { color: var(--ink-400); }
 .input:focus {
   outline: none;
-  background: #fff;
+  background: var(--raise-glass);
   border-color: var(--brand-300);
   box-shadow: 0 0 0 3.5px rgba(var(--brand-rgb), .12);
 }
@@ -816,7 +823,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-weight: 700;
   box-shadow: var(--sh-card), 0 0 0 1.5px var(--brand-200) inset;
 }
-.chip--reset:not(:disabled):hover { background: #fff; }
+.chip--reset:not(:disabled):hover { background: var(--raise-glass); }
 
 /* 걸린 필터가 없을 때 — 자리는 지키고 흐리게.
    아래쪽 `.chip:not(.is-on) { opacity: .8 }` 과 특이도가 같아 밀리므로
@@ -1330,7 +1337,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .sheet__close {
   display: grid; place-items: center;
   width: 34px; height: 34px; border-radius: 11px;
-  background: var(--surface-sunken); color: var(--ink-500);
+  background: var(--sunken-glass); color: var(--ink-500);
   flex-shrink: 0;
   transition: background .16s var(--ease), color .16s var(--ease);
 }
@@ -1354,7 +1361,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   position: relative;
   padding: 15px 46px 15px 16px;
   border-radius: 16px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   font-size: 14px; line-height: 1.65; letter-spacing: -.01em;
   color: var(--ink-700);
 }
@@ -1387,7 +1394,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 /* 메모 것만 글 위에 얹히므로 자리를 따로 잡는다. */
 .memo-copy { position: absolute; top: 8px; right: 8px; }
-.memo-copy:hover { background: #fff; }
+.memo-copy:hover { background: var(--raise-glass); }
 
 .badge {
   display: inline-flex; align-items: center;
@@ -1424,7 +1431,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   height: 46px;
   border-radius: 15px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   border: 1.5px solid transparent;
   font-size: 14px; font-weight: 650; letter-spacing: -.015em;
   color: var(--ink-400);
@@ -1448,7 +1455,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   display: inline-flex; align-items: center; gap: 5px;
   height: 36px; padding: 0 12px;
   border-radius: 12px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   border: 1.5px solid transparent;
   font-size: 13px; font-weight: 600; letter-spacing: -.015em;
   color: var(--ink-500);
@@ -1524,7 +1531,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   width: 74px; height: 74px;
   border-radius: 14px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   border: 1.5px dashed var(--ink-200);
   color: var(--ink-400);
   font-size: 11px; font-weight: 650; letter-spacing: -.01em;
@@ -1705,7 +1712,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   margin-top: 12px;
   padding: 16px 14px;
   border-radius: 14px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   text-align: center;
   font-size: 12.5px; color: var(--ink-400); letter-spacing: -.01em;
 }
@@ -1717,7 +1724,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   max-width: 84%;
   padding: 10px 13px 11px;
   border-radius: 15px 15px 15px 5px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   animation: panelIn .26s var(--ease) both;
 }
 .comment.is-mine .comment__bubble {
@@ -1760,14 +1767,14 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   height: 46px;
   padding: 0 15px;
   border-radius: 15px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   border: 1.5px solid transparent;
   font-size: 14px; letter-spacing: -.01em;
   color: var(--ink-900);
   transition: border-color .18s var(--ease), background .18s var(--ease);
 }
 .comments__input::placeholder { color: var(--ink-400); }
-.comments__input:focus { outline: none; background: #fff; border-color: var(--brand-300); }
+.comments__input:focus { outline: none; background: var(--raise-glass); border-color: var(--brand-300); }
 
 .comments__send {
   display: grid; place-items: center;
@@ -1844,11 +1851,11 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   display: flex; align-items: center; gap: 8px;
   height: 40px; padding: 0 12px;
   border-radius: 13px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   border: 1.5px solid transparent;
   transition: background .18s var(--ease), border-color .18s var(--ease);
 }
-.timeline__search:focus-within { background: #fff; border-color: var(--brand-300); }
+.timeline__search:focus-within { background: var(--raise-glass); border-color: var(--brand-300); }
 .timeline__search input {
   flex: 1; min-width: 0;
   background: none; border: none; outline: none;
@@ -1871,7 +1878,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   padding: 0 30px 0 12px;
   border-radius: 13px;
   border: 1.5px solid transparent;
-  background-color: var(--surface-sunken);
+  background-color: var(--sunken-glass);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;

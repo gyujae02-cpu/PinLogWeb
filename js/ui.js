@@ -496,6 +496,14 @@ function initLoginBg() {
   video.preload = 'auto';
   video.load();
   playLoginVideo();
+
+  // 숨겨진 탭에서 열렸거나 iOS 저전력 모드면 자동재생이 미뤄진다.
+  // 화면이 다시 보일 때 한 번 더 시도한다. 끝내 막혀도 폴백 그라디언트가 남는다.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!el.screenLogin.classList.contains('is-active')) return;
+    if (video.paused) playLoginVideo();
+  });
 }
 
 function playLoginVideo() {
