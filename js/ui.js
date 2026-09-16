@@ -10,6 +10,7 @@ export const el = {
 
   screenLogin:   $('#screen-login'),
   screenMap:     $('#screen-map'),
+  topBar:        $('.top-bar'),
 
   loginBg:       $('#login-bg'),
   loginVideo:    $('#login-video'),
@@ -214,6 +215,7 @@ export function initUI(handlers) {
 
   initLoginBg();
   initCardTilt();
+  watchTopBarMetrics();
 
   bindCopy(el.detailNameCopy, () => el.detailName.textContent,    '장소 이름을 복사했어요.');
   bindCopy(el.detailAddrCopy, () => el.detailAddress.textContent, '주소를 복사했어요.');
@@ -517,6 +519,39 @@ function pauseLoginVideo() {
   el.loginVideo.pause();
 }
 
+// 상단바가 실제로 끝나는 지점을 CSS 변수로 내보낸다.
+// 폭이 좁아 검색줄이 접히거나, 필터 칩이 늘고 줄거나, 화면을 돌리면 달라진다.
+// '현재 위치를 찾는 중' 알림이 그 아래에 놓이도록 실측값을 넘긴다.
+//
+// 높이가 아니라 '바닥 좌표'를 재는 이유: .filter-row 는 가로 스크롤 여백을
+// 위해 margin 이 -5px/-7px 라 부모 높이 밖으로 삐져나온다. 상단바 높이만
+// 재면 그 7px 을 놓쳐 알림이 칩에 걸친다.
+function syncTopBarMetrics() {
+  const bar = el.topBar;
+  if (!bar) return;
+
+  let bottom = bar.getBoundingClientRect().bottom;
+  if (el.filterRow) bottom = Math.max(bottom, el.filterRow.getBoundingClientRect().bottom);
+  if (bottom > 0) {
+    document.documentElement.style.setProperty('--top-bar-bottom', Math.round(bottom) + 'px');
+  }
+}
+
+function watchTopBarMetrics() {
+  const bar = el.topBar;
+  if (!bar) return;
+
+  syncTopBarMetrics();
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(syncTopBarMetrics);
+    ro.observe(bar);
+    if (el.filterRow) ro.observe(el.filterRow);   // 칩이 늘고 주는 것도 잡아야 한다
+  }
+  window.addEventListener('resize', syncTopBarMetrics);
+  window.addEventListener('orientationchange', () => setTimeout(syncTopBarMetrics, 250));
+}
+
 function initCardTilt() {
   const card = el.loginCard;
   const sheen = card.querySelector('.login-card__sheen');
@@ -734,6 +769,8 @@ function paintFilters() {
     // 자리는 항상 지키되, 걸린 필터가 없으면 누를 게 없으므로 비활성으로 둔다.
     row.reset.disabled = !filtered;
   });
+
+  syncTopBarMetrics();
 }
 
 function resetFilters() {

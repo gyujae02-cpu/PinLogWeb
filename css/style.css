@@ -888,8 +888,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(116px + var(--safe-t));
-  z-index: 25;
+  /* 상단바 높이는 화면 폭·필터 개수·안전영역에 따라 달라진다. 값을 고정하면
+     모바일처럼 상단바가 두 줄이 될 때 필터 아래로 깔린다.
+     ui.js 가 실측한 --top-bar-h 를 기준으로 바로 아래에 띄운다.
+     z-index 도 상단바(30)보다 위로 올려, 혹시 겹치더라도 가려지지 않게 한다. */
+  top: calc(var(--top-bar-bottom, 116px) + 10px);
+  z-index: 31;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 15px 8px 12px;
   border-radius: 99px;
@@ -914,10 +918,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   border-top-color: var(--brand-500);
   animation: spin .7s linear infinite;
   flex-shrink: 0;
-}
-
-@media (min-width: 768px) {
-  .status-pill { top: calc(112px + var(--safe-t)); }
 }
 
 .hint-pill {
