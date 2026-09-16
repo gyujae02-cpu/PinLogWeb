@@ -204,13 +204,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .btn-ghost {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 16px;
-  background: var(--surface);
+  background: var(--raise-glass);
   border: 1px solid var(--ink-200);
   color: var(--ink-700);
   font-size: 14.5px; font-weight: 600; letter-spacing: -.01em;
   transition: background .18s var(--ease), border-color .18s var(--ease), transform .18s var(--ease);
 }
-.btn-ghost:hover { background: var(--surface-sunken); border-color: var(--brand-200); }
+.btn-ghost:hover { background: var(--sunken-glass); border-color: var(--brand-200); }
 .btn-ghost:active { transform: translateY(1px); }
 
 .btn-danger {
@@ -1388,7 +1388,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   -webkit-tap-highlight-color: transparent;
   transition: color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
 }
-.copy-btn:hover { color: var(--brand-600); background: var(--surface-sunken); }
+.copy-btn:hover { color: var(--brand-600); background: var(--sunken-glass); }
 .copy-btn:active { transform: scale(.92); }
 .copy-btn.is-done { color: var(--brand-600); }
 
@@ -1926,14 +1926,23 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 24px;
 }
 
+/* 핀 모아보기와 댓글 모아보기가 함께 쓰는 날짜 머리글.
+   sticky 라 아래로 지나가는 목록을 가려야 하는데, 단색으로 채우면 유리판
+   위에 흰 띠가 얹힌 것처럼 튄다. 블러로 가리면 두 조건을 다 만족한다.
+   블러가 지원되지 않아도 .78 불투명도가 남아 글자가 겹쳐 읽히지 않는다. */
 .tl-group {
   position: sticky; top: 0;
   z-index: 1;
   margin: 16px 0 8px;
   padding: 6px 0;
-  background: var(--surface);
+  /* 흰색을 얹으면 패널(.90 흰색)보다 반드시 밝아져서 흰 띠가 생긴다.
+     패널의 실제 합성 밝기(약 245)에 맞춘 색을 써야 띠가 사라진다.
+     #F4F8FC 가 244 라 거의 정확히 맞는다. */
+  background: rgba(244, 248, 252, .88);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
   font-size: 12px; font-weight: 750; letter-spacing: -.01em;
-  color: var(--ink-400);
+  color: var(--ink-500);
 }
 .tl-group:first-child { margin-top: 0; }
 
@@ -2120,7 +2129,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   margin-top: 4px;
   padding: 11px 13px;
   border-radius: 13px;
-  background: var(--surface-sunken);
+  background: var(--sunken-glass);
   font-size: 10.5px; font-weight: 500; line-height: 1.65; letter-spacing: -.01em;
   color: var(--ink-400);
 }
