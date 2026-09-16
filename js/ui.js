@@ -11,6 +11,8 @@ export const el = {
   screenLogin:   $('#screen-login'),
   screenMap:     $('#screen-map'),
 
+  loginBg:       $('#login-bg'),
+  loginVideo:    $('#login-video'),
   loginCard:     $('#login-card'),
   loginForm:     $('#login-form'),
   loginId:       $('#login-id'),
@@ -210,6 +212,7 @@ export function initUI(handlers) {
     cb.onLogin && cb.onLogin(el.loginId.value, el.loginPassword.value, el.saveId.checked);
   });
 
+  initLoginBg();
   initCardTilt();
 
   bindCopy(el.detailNameCopy, () => el.detailName.textContent,    '장소 이름을 복사했어요.');
@@ -472,6 +475,40 @@ export function setMyId(id) {
   paintMePill();
 }
 
+/* 배경 영상.
+   <source> 가 없으면(아직 파일을 안 넣었으면) 아무것도 하지 않고
+   CSS 폴백 그라디언트를 그대로 둔다. */
+let loginVideoOn = false;
+
+function initLoginBg() {
+  const video = el.loginVideo;
+  if (!video || !video.querySelector('source')) return;
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const saveData = navigator.connection && navigator.connection.saveData;
+  if (reduceMotion || saveData) return;
+
+  video.addEventListener('playing', () => {
+    el.loginBg.classList.add('is-video-ready');
+  }, { once: true });
+
+  loginVideoOn = true;
+  video.preload = 'auto';
+  video.load();
+  playLoginVideo();
+}
+
+function playLoginVideo() {
+  if (!loginVideoOn) return;
+  // 자동재생이 막혀도(iOS 저전력 모드 등) 폴백 그라디언트가 남아 깨지지 않는다.
+  el.loginVideo.play().catch(() => {});
+}
+
+function pauseLoginVideo() {
+  if (!loginVideoOn) return;
+  el.loginVideo.pause();
+}
+
 function initCardTilt() {
   const card = el.loginCard;
   const sheen = card.querySelector('.login-card__sheen');
@@ -499,6 +536,13 @@ export function showScreen(name) {
 
   prev.classList.remove('is-active');
   next.classList.add('is-active');
+
+  // 로그인 화면은 배경이 어둡다. 모바일 브라우저 상단 색도 같이 맞춘다.
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.content = name === 'map' ? '#F1F6FB' : '#061E33';
+
+  if (name === 'map') pauseLoginVideo();
+  else playLoginVideo();
 
   if (name === 'login') {
 

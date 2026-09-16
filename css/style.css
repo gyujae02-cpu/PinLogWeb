@@ -40,6 +40,15 @@
   --safe-r: env(safe-area-inset-right, 0px);
 
   --gutter: 14px;
+
+  /* 로그인 화면(영상 배경) 전용 다크 토큰 */
+  --login-deep:  #061E33;
+  --login-ink:   #FFFFFF;
+  --login-dim:   rgba(255,255,255,.62);
+  --login-mute:  rgba(255,255,255,.42);
+  --glass-bg:    rgba(255,255,255,.10);
+  --glass-bg-hi: rgba(255,255,255,.16);
+  --glass-bd:    rgba(255,255,255,.20);
 }
 
 @media (min-width: 640px)  { :root { --gutter: 18px; } }
@@ -144,7 +153,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   color: var(--brand-600);
 }
 
-.login-title,
+/* 밝은 배경 위 워드마크는 서브픽셀 렌더링이 더 선명하다.
+   .login-title 은 배경이 어두워져서 제외했다. 흰 글씨에 서브픽셀을 쓰면
+   획이 두꺼워지고 색이 번진다. */
 .brand__text,
 .about__mark,
 .boot__mark {
@@ -259,10 +270,54 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   padding:
     calc(28px + var(--safe-t)) calc(22px + var(--safe-r))
     calc(56px + var(--safe-b)) calc(22px + var(--safe-l));
-  background: var(--canvas);
+
+  background: var(--login-deep);
+  color-scheme: dark;
+}
+
+/* ── 배경 영상 레이어 ─────────────────────────────────────────
+   #screen-login 이 스크롤 컨테이너라 absolute 로 두면 같이 밀린다.
+   .screen.is-active 는 transform 이 none 이라 fixed 가 뷰포트 기준으로 잡힌다. */
+.login-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+
+  /* 영상이 없을 때 그대로 보이는 폴백. 해안 노을 톤. */
+  background:
+    radial-gradient(118% 66% at 50% 60%, rgba(133,198,250,.50) 0%, rgba(133,198,250,0) 62%),
+    linear-gradient(180deg,
+      #072B4A 0%, #0B4A79 28%, #0B6FB5 48%,
+      #0C4C7C 64%, #072B4A 82%, #061E33 100%);
+}
+
+.login-bg__video {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 100%; height: 100%;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .9s var(--ease);
+}
+.login-bg.is-video-ready .login-bg__video { opacity: 1; }
+
+/* 가독성 스크림 + 브랜드 블루 틴트 */
+.login-bg__scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(6,20,34,.60) 0%, rgba(6,20,34,.24) 28%,
+      rgba(6,20,34,.38) 58%, rgba(6,20,34,.76) 100%),
+    radial-gradient(92% 62% at 50% 46%, rgba(6,20,34,0) 0%, rgba(6,20,34,.46) 100%),
+    linear-gradient(0deg, rgba(11,111,181,.20), rgba(11,111,181,.20));
 }
 
 .login-layout {
+  position: relative;
+  z-index: 1;
   display: flex; flex-direction: column; align-items: center;
   width: 100%;
   margin: auto;
@@ -280,13 +335,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   position: relative;
   padding: 40px 30px 30px;
   border-radius: 28px;
-  background: rgba(255,255,255,.80);
-  backdrop-filter: blur(22px) saturate(160%);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
-  border: 1px solid rgba(255,255,255,.9);
+  background: var(--glass-bg);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid var(--glass-bd);
   box-shadow:
-    0 30px 70px rgba(var(--ink-rgb), .16),
-    0 2px 0 rgba(255,255,255,.9) inset;
+    0 30px 70px rgba(3, 14, 26, .45),
+    0 1px 0 rgba(255,255,255,.26) inset;
   transform-style: preserve-3d;
   transition: transform .5s var(--ease);
   overflow: hidden;
@@ -298,22 +353,19 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .login-card__sheen {
   position: absolute; inset: -40%;
-  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.55) 50%, transparent 62%);
+  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.20) 50%, transparent 62%);
   transform: translateX(-40%);
   pointer-events: none;
   transition: transform .5s var(--ease);
 }
 .login-card > * { position: relative; }
 
+/* 모바일에서도 글래스 카드를 유지한다. 배경이 영상이라 카드를 벗기면
+   제목과 안내문구가 읽히지 않는다. 3D 틸트와 sheen 만 끈다. */
 @media (max-width: 639px) {
   .login-card {
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    background: none;
-    backdrop-filter: none; -webkit-backdrop-filter: none;
-    box-shadow: none;
-    overflow: visible;
+    padding: 34px 22px 26px;
+    border-radius: 24px;
   }
   .login-card__sheen { display: none; }
 
@@ -324,9 +376,22 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .login-title {
   margin-bottom: 30px;
   font-size: 40px; font-weight: 800; letter-spacing: -.035em; line-height: 1;
-  color: var(--ink-900);
+  color: var(--login-ink);
+  /* 좁고 진한 그림자로 글자 윤곽을 세우고, 넓은 그림자는 옅게 깔아
+     배경에서 띄우기만 한다. 넓고 진한 그림자 하나만 쓰면 밝은 배경에서
+     글자 주위가 번져 흐리게 보인다. */
+  text-shadow:
+    0 1px 2px rgba(3, 14, 26, .55),
+    0 2px 14px rgba(3, 14, 26, .28);
 }
-.login-title em { font-style: normal; color: var(--brand-600); }
+.login-title em { font-style: normal; color: var(--brand-200); }
+
+/* 핀 SVG 는 원이 currentColor, 기둥이 var(--ink-500) 이다.
+   기둥 색은 지역 변수 재정의로 밝게 바꾼다. */
+.login-title .wordmark-pin {
+  color: var(--brand-200);
+  --ink-500: rgba(255,255,255,.72);
+}
 
 .login-form {
   display: flex; flex-direction: column; gap: 12px;
@@ -386,7 +451,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   margin-top: 22px;
   text-align: center;
   font-size: 11.5px; letter-spacing: -.01em;
-  color: var(--ink-400);
+  color: var(--login-mute);
 }
 
 .field {
@@ -425,6 +490,101 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   10%,90% { transform: translateX(-1px); }
   30%,70% { transform: translateX(2px); }
   50%     { transform: translateX(-2px); }
+}
+
+/* ── 로그인 전용 다크 오버라이드 ───────────────────────────────
+   .field / .check / .btn-primary / .spinner 는 지도 화면과 공유하는
+   클래스다. 반드시 #screen-login 으로 스코프를 걸어 다른 화면을 건드리지
+   않게 한다. */
+
+#screen-login .field {
+  background: var(--glass-bg);
+  border-color: var(--glass-bd);
+}
+/* 배경이 파란 계열이라 브랜드 블루 링은 묻힌다. 밝은 하늘색으로 올린다. */
+#screen-login .field:focus-within {
+  background: var(--glass-bg-hi);
+  border-color: rgba(184, 222, 255, .80);
+  box-shadow: 0 0 0 4px rgba(184, 222, 255, .18);
+}
+#screen-login .field__icon { color: rgba(255,255,255,.52); }
+#screen-login .field:focus-within .field__icon { color: var(--brand-200); }
+
+#screen-login .field__input { color: var(--login-ink); caret-color: var(--brand-200); }
+#screen-login .field__input::placeholder { color: rgba(255,255,255,.46); }
+
+/* 크롬 자동완성이 인풋에 흰 배경을 강제로 칠해 글래스를 깬다.
+   background-color 전이를 사실상 무한히 늦춰 원래 배경을 유지시킨다. */
+#screen-login .field__input:-webkit-autofill,
+#screen-login .field__input:-webkit-autofill:hover,
+#screen-login .field__input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--login-ink);
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 9999s ease-out 0s;
+  caret-color: var(--brand-200);
+}
+
+#screen-login .check__box {
+  background: var(--glass-bg);
+  border-color: rgba(255,255,255,.26);
+}
+#screen-login .check__input:checked + .check__box {
+  background: var(--brand-500);
+  border-color: var(--brand-400);
+  color: #fff;
+}
+#screen-login .check__input:focus-visible + .check__box {
+  box-shadow: 0 0 0 3.5px rgba(255,255,255,.28);
+}
+#screen-login .check__label { color: var(--login-dim); }
+#screen-login .check__input:checked ~ .check__label { color: var(--login-ink); }
+
+#screen-login .login-error {
+  background: rgba(120, 12, 40, .52);
+  border-color: rgba(var(--wish-rgb), .58);
+  color: #FFDCE6;
+}
+
+#screen-login .login-submit {
+  box-shadow:
+    0 16px 36px rgba(3, 14, 26, .48),
+    0 0 0 1px rgba(255,255,255,.14) inset;
+}
+#screen-login .login-submit:active {
+  box-shadow: 0 8px 22px rgba(3, 14, 26, .40);
+}
+
+/* ── PC / 태블릿: 카드를 오른쪽으로 ─────────────────────────────
+   가운데 두면 카드가 영상의 주피사체를 덮는다. 오른쪽으로 밀어 왼쪽을
+   영상에 내준다. 640~767px(큰 폰 가로, 작은 태블릿)은 폭이 좁아
+   오른쪽으로 밀면 답답해지므로 중앙을 유지한다. */
+@media (min-width: 768px) {
+  #screen-login {
+    justify-content: flex-end;
+    padding-right: calc(6vw + var(--safe-r));
+  }
+
+  /* .login-layout 의 margin: auto 는 justify-content 보다 우선한다.
+     좌측 auto 만 남겨 오른쪽으로 붙이고, 상하 auto 로 수직 중앙을 유지한다. */
+  .login-layout { margin: auto 0 auto auto; }
+
+  /* 세로 스크림을 옅게 낮추고 가로 스크림을 얹는다.
+     오른쪽은 카드 뒤라 진하게, 왼쪽은 영상이 선명하게 남는다. */
+  .login-bg__scrim {
+    background:
+      linear-gradient(90deg,
+        rgba(6,20,34,0) 32%, rgba(6,20,34,.30) 64%, rgba(6,20,34,.70) 100%),
+      linear-gradient(180deg,
+        rgba(6,20,34,.44) 0%, rgba(6,20,34,.14) 30%,
+        rgba(6,20,34,.24) 62%, rgba(6,20,34,.60) 100%),
+      linear-gradient(0deg, rgba(11,111,181,.16), rgba(11,111,181,.16));
+  }
+}
+
+/* 모션 최소화 설정이면 영상을 재생하지 않고 폴백 그라디언트만 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .login-bg__video { display: none; }
+  .login-card { animation: none; }
 }
 
 @media (max-height: 700px) {
@@ -1037,6 +1197,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .copyright--login {
   margin-top: 60px;
+  color: rgba(255,255,255,.34);
 }
 
 @media (max-height: 700px) {
