@@ -370,7 +370,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   transform-style: preserve-3d;
   transition: transform .5s var(--ease);
   overflow: hidden;
-  animation: cardIn .8s var(--ease) both;
+  animation: cardIn .8s var(--ease) backwards;
 }
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(26px) rotateX(8deg); }

@@ -556,6 +556,7 @@ function initCardTilt() {
   const card = el.loginCard;
   const sheen = card.querySelector('.login-card__sheen');
   if (!window.matchMedia('(hover: hover)').matches) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const stage = card.parentElement;
 
