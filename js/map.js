@@ -32,6 +32,11 @@ let rvClient = null;
 let roadview = null;
 let rvContainer = null;
 
+// 코스 보기 — 켜져 있는 동안 코스에 든 핀에 번호를 달고 선으로 잇는다.
+// courseNos: 핀 id → 순번(1부터). 비어 있으면 코스 보기가 꺼진 상태다.
+let courseLine = null;
+let courseNos = new Map();
+
 let handlers = {
   onMapClick: null,
   onPinClick: null
@@ -237,6 +242,7 @@ export function destroyMap() {
   rvContainer = null;
 
   unwatchContainerSize();
+  clearCourse();
   clearPins();
 
   if (meOverlay) { meOverlay.setMap(null); meOverlay = null; }
@@ -397,6 +403,7 @@ function createPinElement(pin) {
         '</svg>' +
       '</span>' +
       '<span class="pin__tail"></span>' +
+      '<span class="pin__no" hidden></span>' +
     '</div>';
 
   paintPinElement(el, pin);
@@ -444,13 +451,81 @@ export function setActivePin(id) {
   applyActiveClass();
 }
 
+// 선택된 핀과 코스 번호를 함께 칠한다. 둘 다 z-index 를 건드리기 때문이다.
+// 코스 보기 중에는 코스 핀이 다른 핀 위로 오고, 나머지는 흐려진다.
 function applyActiveClass() {
+  const courseOn = courseNos.size > 0;
+
   overlays.forEach((entry, id) => {
     const on = id === activeId;
-    entry.el.classList.toggle('is-active', on);
+    const no = courseNos.get(id) || 0;
 
-    entry.overlay.setZIndex(on ? 10000 : entry.z);
+    entry.el.classList.toggle('is-active', on);
+    entry.el.classList.toggle('is-dimmed', courseOn && !no);
+
+    const noEl = entry.el.querySelector('.pin__no');
+    noEl.hidden = !no;
+    noEl.textContent = no ? String(no) : '';
+
+    entry.overlay.setZIndex(on ? 10000 : no ? 9000 - no : entry.z);
   });
+}
+
+// stops: [{ id, lat, lng }] — 코스 순서대로.
+// 번호는 핀 오버레이에 직접 단다. 따로 오버레이를 얹으면 핀 이름표 폭에 따라
+// 번호 자리가 매번 달라지고, 줌에 따라 핀이 접힐 때도 따로 놀기 때문이다.
+export function showCourse(stops, opts = {}) {
+  if (!map) return;
+
+  if (courseLine) { courseLine.setMap(null); courseLine = null; }
+  courseNos = new Map(stops.map((s, i) => [s.id, i + 1]));
+
+  if (stops.length >= 2) {
+    courseLine = new kakao.maps.Polyline({
+      path: stops.map((s) => new kakao.maps.LatLng(s.lat, s.lng)),
+      strokeWeight: 5,
+      strokeColor: '#0B6FB5',
+      strokeOpacity: 0.85,
+      // 다녀온 코스는 실선, 계획 중인 코스는 점선으로 구분한다.
+      strokeStyle: opts.done ? 'solid' : 'shortdash'
+    });
+    courseLine.setMap(map);
+  }
+
+  applyActiveClass();
+}
+
+export function clearCourse() {
+  if (courseLine) { courseLine.setMap(null); courseLine = null; }
+  if (!courseNos.size) return;
+  courseNos = new Map();
+  applyActiveClass();
+}
+
+// 점들이 모두 보이도록 지도를 맞춘다. padding 은 화면 가장자리를 가리는
+// 상단바 · 하단 카드만큼 비워둘 여백이다.
+export function fitPoints(points, padding = {}) {
+  if (!map || !points.length) return;
+
+  syncSize();
+
+  // 점이 하나면 영역이 0 이라 최대로 확대돼 버린다. 적당한 높이로 옮긴다.
+  if (points.length === 1) {
+    map.setLevel(4);
+    map.setCenter(new kakao.maps.LatLng(points[0].lat, points[0].lng));
+    return;
+  }
+
+  const bounds = new kakao.maps.LatLngBounds();
+  points.forEach((p) => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
+
+  map.setBounds(
+    bounds,
+    padding.top    ?? 60,
+    padding.right  ?? 40,
+    padding.bottom ?? 60,
+    padding.left   ?? 40
+  );
 }
 
 export function panTo(lat, lng) {

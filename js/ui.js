@@ -42,6 +42,7 @@ export const el = {
   btnLogout:     $('#btn-logout'),
   btnTimeline:   $('#btn-timeline'),
   btnFeed:       $('#btn-feed'),
+  btnCourses:    $('#btn-courses'),
   btnLocate:     $('#btn-locate'),
   btnMapType:    $('#btn-maptype'),
   btnRoadview:   $('#btn-roadview'),
@@ -76,10 +77,47 @@ export const el = {
   feedList:        $('#feed-list'),
   feedEmpty:       $('#feed-empty'),
 
+  courses:         $('#courses'),
+  coursesSub:      $('#courses-sub'),
+  coursesList:     $('#courses-list'),
+  coursesEmpty:    $('#courses-empty'),
+  btnCourseNew:    $('#btn-course-new'),
+
+  courseBar:       $('#course-bar'),
+  courseBarBadge:  $('#course-bar-badge'),
+  courseBarDate:   $('#course-bar-date'),
+  courseBarName:   $('#course-bar-name'),
+  courseBarClose:  $('#course-bar-close'),
+  courseBarStops:  $('#course-bar-stops'),
+  courseBarEdit:   $('#course-bar-edit'),
+  courseBarDone:   $('#course-bar-done'),
+
+  coursePick:       $('#course-pick'),
+  coursePickDesc:   $('#course-pick-desc'),
+  coursePickList:   $('#course-pick-list'),
+  coursePickNew:    $('#course-pick-new'),
+  coursePickCancel: $('#course-pick-cancel'),
+
   backdrop:      $('#sheet-backdrop'),
   sheet:         $('#sheet'),
   panelForm:     $('#panel-form'),
   panelDetail:   $('#panel-detail'),
+  panelCourse:   $('#panel-course'),
+
+  courseFormTitle:   $('#course-form-title'),
+  courseForm:        $('#course-form'),
+  courseName:        $('#course-name'),
+  courseDate:        $('#course-date'),
+  courseDateToday:   $('#course-date-today'),
+  courseDateClear:   $('#course-date-clear'),
+  courseStops:       $('#course-stops'),
+  courseStopsEmpty:  $('#course-stops-empty'),
+  courseStopCount:   $('#course-stop-count'),
+  courseSearch:      $('#course-search'),
+  courseSearchClear: $('#course-search-clear'),
+  courseResults:     $('#course-results'),
+  courseDelete:      $('#course-delete'),
+  courseSubmit:      $('#course-submit'),
 
   formTitle:     $('#form-title'),
   formAddress:   $('#form-address-text'),
@@ -119,6 +157,7 @@ export const el = {
   detailEdit:    $('#detail-edit'),
   detailDelete:  $('#detail-delete'),
   detailVisit:   $('#detail-visit'),
+  detailCourse:  $('#detail-course'),
 
   commentList:   $('#comment-list'),
   commentEmpty:  $('#comment-empty'),
@@ -239,6 +278,7 @@ export function initUI(handlers) {
   el.btnAdd.addEventListener('click', () => cb.onAddClick && cb.onAddClick());
   el.btnTimeline.addEventListener('click', () => cb.onOpenTimeline && cb.onOpenTimeline());
   el.btnFeed.addEventListener('click', () => cb.onOpenFeed && cb.onOpenFeed());
+  el.btnCourses.addEventListener('click', () => cb.onOpenCourses && cb.onOpenCourses());
   el.btnZoomIn.addEventListener('click', () => cb.onZoomIn && cb.onZoomIn());
   el.btnZoomOut.addEventListener('click', () => cb.onZoomOut && cb.onZoomOut());
 
@@ -297,6 +337,22 @@ export function initUI(handlers) {
   el.detailEdit.addEventListener('click', () => cb.onEditPin && cb.onEditPin());
   el.detailVisit.addEventListener('click', () => cb.onMarkVisited && cb.onMarkVisited());
   el.detailRoute.addEventListener('click', () => cb.onRoute && cb.onRoute());
+  el.detailCourse.addEventListener('click', () => cb.onAddToCourse && cb.onAddToCourse());
+
+  document.querySelectorAll('[data-close-courses]').forEach((n) => {
+    n.addEventListener('click', () => closeCourses());
+  });
+  el.btnCourseNew.addEventListener('click', () => cb.onCourseNew && cb.onCourseNew());
+
+  el.courseBarClose.addEventListener('click', () => cb.onCourseBarClose && cb.onCourseBarClose());
+  el.courseBarEdit.addEventListener('click', () => cb.onCourseEdit && cb.onCourseEdit());
+  el.courseBarDone.addEventListener('click', () => cb.onCourseDone && cb.onCourseDone());
+
+  el.coursePickNew.addEventListener('click', () => finishCoursePick('new'));
+  el.coursePickCancel.addEventListener('click', () => finishCoursePick(null));
+  el.coursePick.addEventListener('click', (e) => { if (e.target === el.coursePick) finishCoursePick(null); });
+
+  initCourseEditor();
 
   el.toastAction.addEventListener('click', () => {
     const fn = toastActionFn;
@@ -399,9 +455,12 @@ export function initUI(handlers) {
     if (!el.about.hidden)   { closeAbout(); return; }
     if (!el.export.hidden)  { finishExport(null); return; }
     if (!el.confirm.hidden) { el.confirmCancel.click(); return; }
+    if (coursePickResolve)  { finishCoursePick(null); return; }
     if (sheetMode)          { closeSheet(); return; }
     if (feedOpen)           { closeFeed(); return; }
     if (timelineOpen)       { closeTimeline(); return; }
+    if (coursesOpen)        { closeCourses(); return; }
+    if (courseBarOpen)      { cb.onCourseBarClose && cb.onCourseBarClose(); return; }
     if (!el.picker.hidden)  cb.onPickerCancel && cb.onPickerCancel();
   });
 }
@@ -593,6 +652,9 @@ export function showScreen(name) {
     closeSheet(true);
     closePicker();
     closeTimeline(true);
+    closeCourses(true);
+    hideCourseBar();
+    finishCoursePick(null);
     closeLightbox();
     closeAbout(true);
     finishExport(null);
@@ -943,6 +1005,7 @@ function openSheet(mode) {
 
   el.panelForm.hidden   = mode !== 'form';
   el.panelDetail.hidden = mode !== 'detail';
+  el.panelCourse.hidden = mode !== 'course';
 
   el.backdrop.hidden = false;
   el.sheet.hidden = false;
@@ -2104,4 +2167,666 @@ export function confirmDialog({ title, desc, okText = '삭제', cancelText = '�
     ok.addEventListener('click', () => close(true));
     cancel.addEventListener('click', () => close(false));
   });
+}
+
+/* ── 데이트 코스 ───────────────────────────────────────────── */
+
+const ICON_ARROW =
+  '<svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]" aria-hidden="true">' +
+    '<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '</svg>';
+
+const ICON_UP =
+  '<svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]">' +
+    '<path d="m6 15 6-6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '</svg>';
+
+const ICON_DOWN =
+  '<svg viewBox="0 0 24 24" fill="none" class="w-[14px] h-[14px]">' +
+    '<path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '</svg>';
+
+const ICON_X =
+  '<svg viewBox="0 0 24 24" fill="none" class="w-[12px] h-[12px]">' +
+    '<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>' +
+  '</svg>';
+
+const ICON_PIN =
+  '<svg viewBox="0 0 24 24" fill="none" class="w-[17px] h-[17px]">' +
+    '<path d="M12 21s7-5.686 7-11a7 7 0 1 0-14 0c0 5.314 7 11 7 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>' +
+    '<circle cx="12" cy="10" r="2.3" fill="currentColor"/>' +
+  '</svg>';
+
+// '9월 28일 (일)' — 코스 날짜는 목록 · 카드 · 고르기 창이 모두 같은 모양으로 쓴다.
+function fmtCourseDate(value) {
+  const d = parseDateValue(value);
+  return d ? `${fmtShortDate(d)} (${WEEKDAY[d.getDay()]})` : '';
+}
+
+// 예정 코스에만 붙인다. 지난 날짜면 빈 문자열.
+function ddayLabel(value) {
+  const d = parseDateValue(value);
+  if (!d) return '';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((d - today) / 86400000);
+
+  if (diff === 0) return 'D-DAY';
+  return diff > 0 ? `D-${diff}` : '';
+}
+
+function stopNames(course, pinsById) {
+  return course.stops
+    .map((s) => pinsById.get(s.pinId))
+    .filter(Boolean)
+    .map((p) => p.name);
+}
+
+// 예정은 가까운 날짜부터(날짜 없는 건 뒤로), 다녀온 코스는 최근 것부터.
+function sortCourses(list) {
+  const byCreated = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
+
+  const planned = list.filter((c) => c.status !== 'done').sort((a, b) => {
+    if (a.date && b.date) return a.date < b.date ? -1 : a.date > b.date ? 1 : byCreated(a, b);
+    if (a.date) return -1;
+    if (b.date) return 1;
+    return byCreated(a, b);
+  });
+
+  const done = list.filter((c) => c.status === 'done').sort((a, b) => {
+    if (a.date !== b.date) return (b.date || '') < (a.date || '') ? -1 : 1;
+    return byCreated(a, b);
+  });
+
+  return { planned, done };
+}
+
+/* 코스 목록 패널 */
+
+let coursesOpen = false;
+
+export function openCourses(courses, pins) {
+  coursesOpen = true;
+  el.courses.hidden = false;
+  requestAnimationFrame(() => el.courses.classList.add('is-on'));
+
+  renderCourses(courses, pins);
+  hideHint();
+}
+
+export function closeCourses(immediate = false) {
+  if (!coursesOpen) return;
+  coursesOpen = false;
+
+  el.courses.classList.remove('is-on');
+  const finish = () => {
+    el.courses.hidden = true;
+    el.coursesList.scrollTop = 0;
+  };
+  if (immediate) finish(); else setTimeout(finish, 360);
+}
+
+export function isCoursesOpen() { return coursesOpen; }
+
+export function renderCourses(courses, pins) {
+  const list = Array.isArray(courses) ? courses : [];
+  const pinsById = new Map((pins || []).map((p) => [p.id, p]));
+  const { planned, done } = sortCourses(list);
+
+  el.coursesSub.textContent = list.length
+    ? `예정 ${planned.length}개 · 다녀옴 ${done.length}개`
+    : '다음 데이트를 계획해보세요';
+
+  el.coursesList.innerHTML = '';
+  el.coursesList.hidden = !list.length;
+  el.coursesEmpty.hidden = list.length > 0;
+  if (!list.length) return;
+
+  const frag = document.createDocumentFragment();
+
+  if (planned.length) {
+    frag.appendChild(h('div', 'tl-group', `예정 · ${planned.length}`));
+    planned.forEach((c) => frag.appendChild(buildCourseItem(c, pinsById)));
+  }
+  if (done.length) {
+    frag.appendChild(h('div', 'tl-group', `다녀옴 · ${done.length}`));
+    done.forEach((c) => frag.appendChild(buildCourseItem(c, pinsById)));
+  }
+
+  el.coursesList.appendChild(frag);
+}
+
+function buildCourseItem(course, pinsById) {
+  const isDone = course.status === 'done';
+
+  const btn = h('button', 'cs-item');
+  btn.type = 'button';
+
+  const top = h('span', 'cs-item__top');
+  top.appendChild(h('span', 'badge ' + (isDone ? 'badge--visited' : 'badge--wish'), isDone ? '다녀옴' : '예정'));
+  top.appendChild(h('span', 'cs-item__date', fmtCourseDate(course.date) || '날짜 미정'));
+
+  const dday = isDone ? '' : ddayLabel(course.date);
+  if (dday) top.appendChild(h('span', 'cs-item__dday', dday));
+  btn.appendChild(top);
+
+  btn.appendChild(h('span', 'cs-item__name', course.name));
+
+  const names = stopNames(course, pinsById);
+  btn.appendChild(h('span', 'cs-item__route', names.length ? names.join(' → ') : '담긴 장소가 없어요'));
+
+  const meta = h('span', 'cs-item__meta');
+  meta.appendChild(h('span', null, `${names.length}곳`));
+  if (course.createdBy) {
+    const who = h('span', 'tl-item__by');
+    const dot = h('span', 'meta-dot');
+    dot.style.background = userColor(course.createdBy).dot;
+    who.append(dot, document.createTextNode(displayName(course.createdBy)));
+    meta.appendChild(who);
+  }
+  btn.appendChild(meta);
+
+  btn.addEventListener('click', () => {
+    closeCourses();
+    cb.onCourseSelect && cb.onCourseSelect(course.id);
+  });
+
+  return btn;
+}
+
+/* 코스 편집 시트 */
+
+// 담은 장소 하나. 이미 있는 핀이면 pinId, 검색으로 고른 새 장소면 place 를 든다.
+// 새 장소는 저장을 누를 때 '가볼 곳' 핀으로 만든다. 고르자마자 만들면
+// 편집을 취소했을 때 쓰지도 않을 핀이 지도에 남기 때문이다.
+let courseStops = [];
+let courseKeySeq = 0;
+let coursePinList = [];
+let coursePlaces = null;        // 카카오 검색 결과. null 이면 아직 없음(또는 검색 중)
+let coursePlacesFor = '';       // 위 결과가 어떤 검색어의 것인지
+let courseSearchTimer = null;
+let courseMax = 10;
+
+export function openCourseEditor({ course = null, pins = [], prefill = [], maxStops = 10 } = {}) {
+  const isEdit = !!course;
+  courseMax = maxStops;
+  coursePinList = Array.isArray(pins) ? pins : [];
+
+  const byId = new Map(coursePinList.map((p) => [p.id, p]));
+
+  el.courseFormTitle.textContent = isEdit ? '코스 수정하기' : '새 코스';
+  el.courseSubmit.querySelector('.btn-label').textContent = isEdit ? '수정 완료' : '저장하기';
+  el.courseDelete.hidden = !isEdit;
+
+  el.courseName.value = isEdit ? course.name : '';
+  el.courseDate.value = isEdit ? course.date : '';
+
+  const source = isEdit
+    ? course.stops.map((s) => ({ pin: byId.get(s.pinId), time: s.time, memo: s.memo }))
+    : prefill.map((pin) => ({ pin, time: '', memo: '' }));
+
+  courseStops = source
+    .filter((s) => s.pin)
+    .map((s) => ({
+      key: ++courseKeySeq,
+      pinId: s.pin.id,
+      place: null,
+      name: s.pin.name,
+      category: s.pin.category,
+      time: s.time || '',
+      memo: s.memo || ''
+    }));
+
+  clearCourseSearch();
+  renderCourseStops();
+  setCourseLoading(false);
+
+  openSheet('course');
+
+  if (!isEdit && !prefill.length && window.matchMedia('(hover: hover)').matches) {
+    setTimeout(() => el.courseName.focus(), 260);
+  }
+}
+
+export function isCourseEditorOpen() { return sheetMode === 'course'; }
+
+// 편집 중에 핀 목록이 바뀌면(상대가 핀을 지우거나 이름을 고치면) 검색 후보만 새로 받는다.
+// 이미 담은 장소는 저장할 때 app 쪽에서 다시 확인한다.
+export function setCoursePins(pins) {
+  if (sheetMode !== 'course') return;
+  coursePinList = Array.isArray(pins) ? pins : [];
+  renderCourseResults();
+}
+
+export function setCoursePlaces(list, keyword) {
+  if (sheetMode !== 'course') return;
+  if (keyword.trim() !== el.courseSearch.value.trim()) return;   // 늦게 온 옛 검색 결과
+
+  coursePlaces = Array.isArray(list) ? list : [];
+  coursePlacesFor = keyword.trim();
+  renderCourseResults();
+}
+
+export function getCourseValues() {
+  return {
+    name: el.courseName.value.trim(),
+    date: el.courseDate.value || '',
+    stops: courseStops.map((s) => ({
+      pinId: s.pinId,
+      place: s.place,
+      time: s.time,
+      memo: s.memo.trim()
+    }))
+  };
+}
+
+export function setCourseLoading(on) {
+  el.courseSubmit.disabled = on;
+  el.courseSubmit.classList.toggle('is-loading', on);
+  el.courseSubmit.querySelector('.spinner').hidden = !on;
+  el.courseDelete.disabled = on;
+}
+
+function initCourseEditor() {
+  el.courseForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    cb.onSubmitCourse && cb.onSubmitCourse(getCourseValues());
+  });
+
+  el.courseDelete.addEventListener('click', () => cb.onDeleteCourse && cb.onDeleteCourse());
+
+  el.courseDateToday.addEventListener('click', () => { el.courseDate.value = todayValue(); });
+  el.courseDateClear.addEventListener('click', () => { el.courseDate.value = ''; });
+
+  el.courseSearch.addEventListener('input', () => {
+    const kw = el.courseSearch.value;
+    el.courseSearchClear.hidden = kw.length === 0;
+
+    // 내 핀은 바로 거르고, 카카오 검색은 타자가 멈춘 뒤에 한 번만 보낸다.
+    coursePlaces = null;
+    coursePlacesFor = '';
+    renderCourseResults();
+
+    clearTimeout(courseSearchTimer);
+    if (!kw.trim()) return;
+    courseSearchTimer = setTimeout(() => cb.onCourseSearch && cb.onCourseSearch(kw), 350);
+  });
+
+  // 폼 안의 검색칸이라 Enter 가 그대로 가면 코스가 저장돼 버린다.
+  el.courseSearch.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(courseSearchTimer);
+      const kw = el.courseSearch.value;
+      if (kw.trim()) cb.onCourseSearch && cb.onCourseSearch(kw);
+    }
+    if (e.key === 'Escape' && el.courseSearch.value) {
+      e.stopPropagation();
+      clearCourseSearch();
+    }
+  });
+
+  el.courseSearchClear.addEventListener('click', () => {
+    clearCourseSearch();
+    el.courseSearch.focus();
+  });
+}
+
+function clearCourseSearch() {
+  clearTimeout(courseSearchTimer);
+  el.courseSearch.value = '';
+  el.courseSearchClear.hidden = true;
+  coursePlaces = null;
+  coursePlacesFor = '';
+  renderCourseResults();
+}
+
+function renderCourseStops() {
+  el.courseStops.innerHTML = '';
+  el.courseStopCount.textContent = `${courseStops.length}/${courseMax}`;
+  el.courseStopsEmpty.hidden = courseStops.length > 0;
+
+  const frag = document.createDocumentFragment();
+
+  courseStops.forEach((stop, i) => {
+    const li = h('li', 'cs-stop');
+
+    li.appendChild(h('span', 'cs-stop__no', String(i + 1)));
+
+    const body = h('div', 'cs-stop__body');
+
+    const top = h('div', 'cs-stop__top');
+    top.appendChild(h('span', 'cs-stop__name', stop.name));
+    if (!stop.pinId) top.appendChild(h('span', 'cs-stop__new', '가볼 곳에 추가돼요'));
+    body.appendChild(top);
+
+    const fields = h('div', 'cs-stop__fields');
+
+    const time = document.createElement('input');
+    time.type = 'time';
+    time.className = 'cs-stop__time';
+    time.value = stop.time;
+    time.setAttribute('aria-label', `${i + 1}번 장소 시간`);
+    time.addEventListener('input', () => { stop.time = time.value; });
+    fields.appendChild(time);
+
+    const memo = document.createElement('input');
+    memo.type = 'text';
+    memo.className = 'cs-stop__memo';
+    memo.maxLength = 60;
+    memo.placeholder = '메모';
+    memo.value = stop.memo;
+    memo.setAttribute('aria-label', `${i + 1}번 장소 메모`);
+    memo.addEventListener('input', () => { stop.memo = memo.value; });
+    // 메모 칸에서 Enter 를 눌러도 저장되지 않게 한다.
+    memo.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+    fields.appendChild(memo);
+
+    body.appendChild(fields);
+    li.appendChild(body);
+
+    const ctl = h('div', 'cs-stop__ctl');
+    ctl.appendChild(stopButton(ICON_UP, '위로', i === 0, () => moveCourseStop(i, -1)));
+    ctl.appendChild(stopButton(ICON_DOWN, '아래로', i === courseStops.length - 1, () => moveCourseStop(i, 1)));
+
+    const del = stopButton(ICON_X, '빼기', false, () => {
+      courseStops = courseStops.filter((s) => s.key !== stop.key);
+      renderCourseStops();
+      renderCourseResults();
+    });
+    del.classList.add('cs-stop__btn--del');
+    ctl.appendChild(del);
+
+    li.appendChild(ctl);
+    frag.appendChild(li);
+  });
+
+  el.courseStops.appendChild(frag);
+}
+
+function stopButton(icon, label, disabled, onClick) {
+  const btn = h('button', 'cs-stop__btn');
+  btn.type = 'button';
+  btn.disabled = disabled;
+  btn.innerHTML = icon;
+  btn.setAttribute('aria-label', label);
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function moveCourseStop(index, dir) {
+  const next = index + dir;
+  if (next < 0 || next >= courseStops.length) return;
+
+  const list = courseStops.slice();
+  [list[index], list[next]] = [list[next], list[index]];
+  courseStops = list;
+  renderCourseStops();
+}
+
+function addCourseStop(item) {
+  if (courseStops.length >= courseMax) {
+    toast(`코스에는 최대 ${courseMax}곳까지 담을 수 있어요.`);
+    return;
+  }
+
+  courseStops.push({ key: ++courseKeySeq, time: '', memo: '', ...item });
+  renderCourseStops();
+  clearCourseSearch();
+
+  if (window.matchMedia('(hover: hover)').matches) el.courseSearch.focus();
+}
+
+// 카카오 검색 결과가 이미 핀으로 있는 곳인지 본다.
+// 같은 이름이 가까이 있거나, 이름이 달라도 거의 같은 자리면 같은 곳으로 친다.
+function pinForPlace(place) {
+  return coursePinList.find((p) => {
+    const d = distanceMeters(p.lat, p.lng, place.lat, place.lng);
+    return d < 15 || (d < 200 && p.name.trim() === place.name.trim());
+  }) || null;
+}
+
+function renderCourseResults() {
+  const box = el.courseResults;
+  box.innerHTML = '';
+
+  const kw = el.courseSearch.value.trim().toLowerCase();
+  const inCourse = new Set(courseStops.map((s) => s.pinId).filter(Boolean));
+  const placeKeys = new Set(courseStops.filter((s) => s.place).map((s) => s.place.key));
+
+  const frag = document.createDocumentFragment();
+
+  // 검색어가 없으면 아직 안 가본 '가볼 곳'을 먼저 권한다.
+  if (!kw) {
+    const wish = coursePinList
+      .filter((p) => p.category === 'wish' && !inCourse.has(p.id))
+      .slice(0, 6);
+
+    if (wish.length) {
+      frag.appendChild(resultsHead('가볼 곳에서 고르기'));
+      wish.forEach((p) => frag.appendChild(pinResult(p)));
+    }
+    box.appendChild(frag);
+    return;
+  }
+
+  const mine = coursePinList
+    .filter((p) => !inCourse.has(p.id))
+    .filter((p) => `${p.name} ${p.address} ${p.memo}`.toLowerCase().includes(kw))
+    .slice(0, 6);
+
+  if (mine.length) {
+    frag.appendChild(resultsHead('내 핀'));
+    mine.forEach((p) => frag.appendChild(pinResult(p)));
+  }
+
+  frag.appendChild(resultsHead('새 장소', '저장하면 가볼 곳 핀이 함께 생겨요'));
+
+  if (coursePlaces === null || coursePlacesFor.toLowerCase() !== kw) {
+    frag.appendChild(h('p', 'cs-results__note', '찾는 중…'));
+  } else {
+    const shownPins = new Set(mine.map((p) => p.id));
+    let count = 0;
+
+    coursePlaces.forEach((place) => {
+      const key = `${place.id || ''}|${place.lat},${place.lng}`;
+      if (placeKeys.has(key)) return;
+
+      // 이미 핀으로 있는 곳이면 새로 만들지 않고 그 핀을 담는다.
+      const pin = pinForPlace(place);
+      if (pin) {
+        if (inCourse.has(pin.id) || shownPins.has(pin.id)) return;
+        shownPins.add(pin.id);
+        frag.appendChild(pinResult(pin));
+      } else {
+        frag.appendChild(placeResult(place, key));
+      }
+      count++;
+    });
+
+    if (!count) frag.appendChild(h('p', 'cs-results__note', '검색 결과가 없어요'));
+  }
+
+  box.appendChild(frag);
+}
+
+function resultsHead(title, note) {
+  const head = h('div', 'cs-results__head', title);
+  if (note) head.appendChild(h('small', null, note));
+  return head;
+}
+
+function resultButton({ icoClass, name, sub, onClick }) {
+  const btn = h('button', 'result-item');
+  btn.type = 'button';
+  btn.innerHTML =
+    `<span class="result-item__ico ${icoClass}">${ICON_PIN}</span>` +
+    '<span class="min-w-0 flex-1">' +
+      '<span class="result-item__name block"></span>' +
+      '<span class="result-item__addr block"></span>' +
+    '</span>';
+  btn.querySelector('.result-item__name').textContent = name;
+  btn.querySelector('.result-item__addr').textContent = sub;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function pinResult(pin) {
+  const isWish = pin.category === 'wish';
+  return resultButton({
+    icoClass: isWish ? 'is-wish' : 'is-visited',
+    name: pin.name,
+    sub: `${isWish ? '가볼 곳' : '가본 곳'}${pin.address ? ' · ' + pin.address : ''}`,
+    onClick: () => addCourseStop({ pinId: pin.id, place: null, name: pin.name, category: pin.category })
+  });
+}
+
+function placeResult(place, key) {
+  const addr = place.roadAddress || place.address || '';
+  return resultButton({
+    icoClass: '',
+    name: place.name,
+    sub: [place.category, addr].filter(Boolean).join(' · '),
+    onClick: () => addCourseStop({
+      pinId: null,
+      place: { key, name: place.name.slice(0, 40), lat: place.lat, lng: place.lng, address: addr },
+      name: place.name,
+      category: 'wish'
+    })
+  });
+}
+
+/* 코스 고르기 — 상세 시트의 '코스에 담기' */
+
+let coursePickResolve = null;
+
+// 고른 코스 id, 'new'(새 코스), 또는 null(취소)로 답한다.
+export function pickCourse({ pin, courses, maxStops = 10 }) {
+  return new Promise((resolve) => {
+    if (coursePickResolve) finishCoursePick(null);
+    coursePickResolve = resolve;
+
+    const planned = sortCourses(courses || []).planned;
+
+    el.coursePickDesc.textContent = planned.length
+      ? `'${pin.name}' 을 담을 코스를 골라주세요.`
+      : `아직 예정된 코스가 없어요. '${pin.name}' 으로 새 코스를 시작할까요?`;
+
+    el.coursePickList.innerHTML = '';
+    planned.forEach((c) => {
+      const has = c.stops.some((s) => s.pinId === pin.id);
+      const full = c.stops.length >= maxStops;
+
+      const btn = h('button', 'cp-item');
+      btn.type = 'button';
+      btn.disabled = has || full;
+
+      const body = h('span', 'cp-item__body');
+      body.appendChild(h('span', 'cp-item__name', c.name));
+      body.appendChild(h('span', 'cp-item__sub',
+        `${fmtCourseDate(c.date) || '날짜 미정'} · ${c.stops.length}곳`));
+      btn.appendChild(body);
+
+      if (has)       btn.appendChild(h('span', 'cp-item__tag', '담겨 있음'));
+      else if (full) btn.appendChild(h('span', 'cp-item__tag', '가득 찼어요'));
+
+      btn.addEventListener('click', () => finishCoursePick(c.id));
+
+      const li = document.createElement('li');
+      li.appendChild(btn);
+      el.coursePickList.appendChild(li);
+    });
+
+    el.coursePick.hidden = false;
+    requestAnimationFrame(() => el.coursePick.classList.add('is-on'));
+  });
+}
+
+function finishCoursePick(result) {
+  if (!coursePickResolve) return;
+
+  const resolve = coursePickResolve;
+  coursePickResolve = null;
+
+  el.coursePick.classList.remove('is-on');
+  setTimeout(() => {
+    if (!el.coursePick.classList.contains('is-on')) el.coursePick.hidden = true;
+  }, 280);
+
+  resolve(result);
+}
+
+/* 코스 보기 카드 */
+
+let courseBarOpen = false;
+
+// stops: [{ pin, time, memo }] — 지도에 그린 순서 그대로
+export function showCourseBar(course, stops) {
+  const isDone = course.status === 'done';
+
+  el.courseBarBadge.textContent = isDone ? '다녀옴' : '예정';
+  el.courseBarBadge.className = 'badge ' + (isDone ? 'badge--visited' : 'badge--wish');
+
+  const date = fmtCourseDate(course.date);
+  const dday = isDone ? '' : ddayLabel(course.date);
+  el.courseBarDate.textContent = date ? (dday ? `${date} · ${dday}` : date) : '날짜 미정';
+
+  el.courseBarName.textContent = course.name;
+  el.courseBarDone.hidden = isDone;
+
+  el.courseBarStops.innerHTML = '';
+  if (!stops.length) {
+    el.courseBarStops.appendChild(h('p', 'course-bar__empty', '담긴 장소가 없어요. 수정에서 장소를 추가해보세요.'));
+  }
+
+  stops.forEach((s, i) => {
+    if (i > 0) {
+      const arrow = h('span', 'cb-arrow');
+      arrow.innerHTML = ICON_ARROW;
+      el.courseBarStops.appendChild(arrow);
+    }
+
+    const btn = h('button', 'cb-stop');
+    btn.type = 'button';
+
+    const top = h('span', 'cb-stop__top');
+    top.appendChild(h('span', 'cb-stop__no', String(i + 1)));
+    if (s.time) top.appendChild(h('span', 'cb-stop__time', s.time));
+    btn.appendChild(top);
+
+    btn.appendChild(h('span', 'cb-stop__name', s.pin.name));
+    if (s.memo) {
+      const memo = h('span', 'cb-stop__memo', s.memo);
+      memo.title = s.memo;
+      btn.appendChild(memo);
+    }
+
+    btn.addEventListener('click', () => cb.onCourseStopSelect && cb.onCourseStopSelect(s.pin.id));
+    el.courseBarStops.appendChild(btn);
+  });
+
+  if (!courseBarOpen) el.courseBarStops.scrollLeft = 0;
+
+  courseBarOpen = true;
+  el.courseBar.hidden = false;
+  el.screenMap.classList.add('is-course');
+  hideHint();
+
+  // 좁은 화면에서 오른쪽 버튼들을 카드 위로 올리려면 카드 높이를 알아야 한다.
+  // 방금 보이게 했으니 offsetHeight 가 레이아웃을 바로 계산해 준다.
+  el.screenMap.style.setProperty('--course-bar-h', el.courseBar.offsetHeight + 'px');
+}
+
+export function hideCourseBar() {
+  courseBarOpen = false;
+  el.courseBar.hidden = true;
+  el.screenMap.classList.remove('is-course');
+}
+
+export function isCourseBarOpen() { return courseBarOpen; }
+
+// 지도를 코스에 맞출 때 카드가 가리는 아래쪽 여백
+export function courseBarInset() {
+  return courseBarOpen ? el.courseBar.offsetHeight + 40 : 60;
 }

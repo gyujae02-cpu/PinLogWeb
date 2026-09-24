@@ -20,7 +20,10 @@ import {
   orderBy,
   serverTimestamp,
   increment,
-  writeBatch
+  writeBatch,
+  where,
+  arrayUnion,
+  arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 import { normalizeTags, tagsForSave } from './tags.js';
@@ -41,6 +44,7 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 
 const PINS = collection(db, 'pins');
+const COURSES = collection(db, 'courses');
 
 export const ID_DOMAIN = 'pinlog.app';
 
@@ -196,6 +200,11 @@ export function setPinVisit(id, category, visitedAt) {
 
 export async function deletePin(id) {
   const pinRef = doc(db, 'pins', id);
+
+  // 이 핀을 담은 코스에서 먼저 뺀다. 화면이 들고 있는 코스 목록이 아니라
+  // 서버에 직접 물어보므로, 상대가 방금 담은 코스까지 빠짐없이 걸린다.
+  await removePinFromCourses(id);
+
   await purgeSubcollection(pinRef, 'photos');
   await purgeSubcollection(pinRef, 'comments');
   await deleteDoc(pinRef);
@@ -388,6 +397,21 @@ export async function exportEverything(onProgress, options = {}) {
     if (onProgress) onProgress(done, total);
   }
 
+  const coursesSnap = await getDocs(query(COURSES, orderBy('createdAt', 'asc')));
+  const courses = coursesSnap.docs.map((d) => {
+    const v = d.data();
+    return {
+      id: d.id,
+      name: v.name || '',
+      date: normalizeDate(v.date),
+      status: v.status === 'done' ? 'done' : 'planned',
+      stops: normalizeStops(v.stops),
+      createdBy: v.createdBy || '',
+      createdAt: toIso(v.createdAt),
+      updatedAt: toIso(v.updatedAt)
+    };
+  });
+
   return {
     app: 'PinLog',
     version: 1,
@@ -395,7 +419,8 @@ export async function exportEverything(onProgress, options = {}) {
     exportedBy: me(),
     includesPhotos: withPhotos,
     pinCount: pins.length,
-    pins
+    pins,
+    courses
   };
 }
 
@@ -407,4 +432,148 @@ function toIso(v) {
 export async function deleteComment(pinId, commentId) {
   await deleteDoc(doc(db, 'pins', pinId, 'comments', commentId));
   updateDoc(doc(db, 'pins', pinId), { commentCount: increment(-1) }).catch(() => {});
+}
+
+/* ── 데이트 코스 ───────────────────────────────────────────── */
+
+// 코스 하나에 담을 수 있는 장소 수. firestore.rules 의 값과 같아야 한다.
+export const MAX_STOPS = 10;
+export const MAX_STOP_MEMO = 60;
+
+function normalizeTime(v) {
+  const s = String(v || '').trim();
+  return /^\d{2}:\d{2}$/.test(s) ? s : '';
+}
+
+// 저장할 때와 읽을 때 같은 모양으로 맞춘다.
+// 같은 핀이 두 번 들어가면 지도 번호가 겹치므로 뒤의 것은 버린다.
+function normalizeStops(list) {
+  if (!Array.isArray(list)) return [];
+
+  const seen = new Set();
+  const out = [];
+  for (const raw of list) {
+    const pinId = raw && typeof raw.pinId === 'string' ? raw.pinId : '';
+    if (!pinId || seen.has(pinId)) continue;
+    seen.add(pinId);
+    out.push({
+      pinId,
+      time: normalizeTime(raw.time),
+      memo: String(raw.memo || '').trim().slice(0, MAX_STOP_MEMO)
+    });
+    if (out.length >= MAX_STOPS) break;
+  }
+  return out;
+}
+
+export function subscribeCourses(onData, onError) {
+  const q = query(COURSES, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      onData(snap.docs.map((d) => {
+        const v = d.data();
+        return {
+          id: d.id,
+          name: v.name || '이름 없는 코스',
+          date: normalizeDate(v.date),
+          status: v.status === 'done' ? 'done' : 'planned',
+          stops: normalizeStops(v.stops),
+          createdBy: v.createdBy || '',
+          createdAt: toDate(v.createdAt),
+          updatedAt: toDate(v.updatedAt)
+        };
+      }));
+    },
+    (err) => {
+      console.error('[PinLog] courses 구독 실패:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+// pinIds 는 stops 에서 핀 id 만 뽑은 보조 필드다.
+// 핀을 지울 때 array-contains 로 그 핀이 든 코스를 찾는 데 쓴다.
+function courseBody(data) {
+  const stops = normalizeStops(data.stops);
+  return {
+    name: String(data.name || '').trim().slice(0, 40),
+    date: normalizeDate(data.date),
+    stops,
+    pinIds: stops.map((s) => s.pinId)
+  };
+}
+
+export function addCourse(data) {
+  return addDoc(COURSES, {
+    ...courseBody(data),
+    status: 'planned',
+    createdBy: me(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function updateCourse(id, data) {
+  return updateDoc(doc(db, 'courses', id), {
+    ...courseBody(data),
+    updatedAt: serverTimestamp()
+  });
+}
+
+// 상세 시트의 '코스에 담기' — 목록 전체를 덮어쓰지 않고 끝에 하나만 붙인다.
+// 그래야 상대가 같은 코스를 동시에 고쳐도 서로의 변경을 지우지 않는다.
+// (10곳 제한은 규칙이 막고, 앱은 누르기 전에 한 번 더 확인한다)
+export function appendCourseStop(id, pinId) {
+  return updateDoc(doc(db, 'courses', id), {
+    stops: arrayUnion({ pinId, time: '', memo: '' }),
+    pinIds: arrayUnion(pinId),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function deleteCourse(id) {
+  return deleteDoc(doc(db, 'courses', id));
+}
+
+// 코스 상태와 그 안의 핀들을 한 번에 바꾼다.
+// pinChanges: [{ id, category, visitedAt }] — 다녀왔어요 / 되돌리기 양쪽에서 쓴다.
+// date 를 넘기면 코스 날짜도 함께 고친다. (날짜 없이 다녀온 코스에 오늘을 채울 때)
+// 하나의 batch 라 코스만 바뀌고 핀은 그대로인 어중간한 상태가 생기지 않는다.
+export async function setCourseStatus(id, status, pinChanges = [], date) {
+  const batch = writeBatch(db);
+
+  const patch = {
+    status: status === 'done' ? 'done' : 'planned',
+    updatedAt: serverTimestamp()
+  };
+  if (typeof date === 'string') patch.date = normalizeDate(date);
+  batch.update(doc(db, 'courses', id), patch);
+
+  pinChanges.forEach((p) => {
+    batch.update(doc(db, 'pins', p.id), {
+      category: p.category === 'wish' ? 'wish' : 'visited',
+      visitedAt: normalizeDate(p.visitedAt),
+      updatedAt: serverTimestamp()
+    });
+  });
+
+  await batch.commit();
+}
+
+async function removePinFromCourses(pinId) {
+  const snap = await getDocs(query(COURSES, where('pinIds', 'array-contains', pinId)));
+  if (snap.empty) return;
+
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => {
+    const stops = normalizeStops(d.data().stops).filter((s) => s.pinId !== pinId);
+    batch.update(d.ref, {
+      stops,
+      pinIds: arrayRemove(pinId),
+      updatedAt: serverTimestamp()
+    });
+  });
+  await batch.commit();
 }

@@ -21,7 +21,11 @@ function blockPageZoom(e) {
 const state = {
   pins: [],
   users: [],
+  courses: [],
   unsubscribePins: null,
+  unsubscribeCourses: null,
+  courseViewId: null,
+  courseEditingId: null,
   unsubPhotos: null,
   unsubComments: null,
   pickerIdleOff: null,
@@ -69,7 +73,18 @@ UI.initUI({
   onFeedSelect,
   onExport,
   onAddComment,
-  onDeleteComment
+  onDeleteComment,
+  onOpenCourses,
+  onCourseNew,
+  onCourseSelect,
+  onCourseSearch,
+  onSubmitCourse,
+  onDeleteCourse,
+  onCourseEdit,
+  onCourseDone,
+  onCourseBarClose,
+  onCourseStopSelect,
+  onAddToCourse
 });
 
 if (!FB.isConfigured) {
@@ -197,6 +212,7 @@ async function enterMap() {
 
     state.mapReady = true;
     subscribePins();
+    subscribeCourses();
     greet();
     UI.showHint();
 
@@ -246,7 +262,8 @@ async function locateInitial() {
 
 function leaveMap() {
 
-  if (state.unsubscribePins) { state.unsubscribePins(); state.unsubscribePins = null; }
+  if (state.unsubscribePins)    { state.unsubscribePins();    state.unsubscribePins = null; }
+  if (state.unsubscribeCourses) { state.unsubscribeCourses(); state.unsubscribeCourses = null; }
   detachPinExtras();
 
   if (state.pickerIdleOff) { state.pickerIdleOff(); state.pickerIdleOff = null; }
@@ -257,6 +274,9 @@ function leaveMap() {
 
   state.pins = [];
   state.users = [];
+  state.courses = [];
+  state.courseViewId = null;
+  state.courseEditingId = null;
   state.mapReady = false;
   state.selectedId = null;
   state.skyview = false;
@@ -273,6 +293,8 @@ function leaveMap() {
   UI.closePicker();
   UI.closeTimeline(true);
   UI.closeFeed(true);
+  UI.closeCourses(true);
+  UI.hideCourseBar();
   UI.closeLightbox();
   UI.clearSearch();
   UI.resetTagFilter();
@@ -290,6 +312,9 @@ function subscribePins() {
       UI.setUsers(state.users);
 
       refreshMarkers();
+      if (state.courseViewId) drawCourse(false);
+      UI.setCoursePins(pins);
+      if (UI.isCoursesOpen()) UI.renderCourses(state.courses, pins);
 
       if (state.selectedId) {
         const cur = findPin(state.selectedId);
@@ -340,7 +365,7 @@ function passesUserFilter(f, pin) {
 function refreshMarkers() {
   const list = visiblePins();
 
-  MapCtl.renderPins(list);
+  MapCtl.renderPins(withCoursePins(list));
   if (UI.isTimelineOpen()) UI.renderTimeline(list);
 
   const visited = state.pins.filter((p) => p.category === 'visited').length;
@@ -530,6 +555,7 @@ function onOpenTimeline() {
   if (!state.mapReady) return;
   UI.closeSheet();
   UI.hideSearchPanel();
+  UI.closeCourses();
 
   UI.openTimeline(visiblePins(), MapCtl.getCenter());
 }
@@ -552,6 +578,7 @@ async function onOpenFeed() {
   UI.closeSheet();
   UI.hideSearchPanel();
   UI.closeTimeline();
+  UI.closeCourses();
 
   UI.openFeed();
 
@@ -676,6 +703,9 @@ function startPicking(opts = {}) {
 
   // 지도 탭이 '위치 맞추기' 와 '로드뷰 열기' 두 가지 뜻을 갖지 않게 한다.
   if (state.roadview) onToggleRoadview();
+
+  // 위치 선택 바와 코스 카드가 같은 자리를 쓴다.
+  exitCourseView();
 
   UI.closeSheet();
   UI.hideSearchPanel();
@@ -824,9 +854,12 @@ async function onDeletePin() {
   if (pin.photoCount)   extras.push(`사진 ${pin.photoCount}장`);
   if (pin.commentCount) extras.push(`댓글 ${pin.commentCount}개`);
 
+  const inCourses = coursesWithPin(id).length;
+  const gone = inCourses ? `사라지고, 담겨 있던 코스 ${inCourses}개에서도 빠져요` : '사라져요';
+
   const ok = await UI.confirmDialog({
     title: '핀을 삭제할까요?',
-    desc: `'${pin.name}' 기록${extras.length ? `과 ${extras.join(', ')}` : ''}이 지도에서 사라져요. 되돌릴 수 없어요.`,
+    desc: `'${pin.name}' 기록${extras.length ? `과 ${extras.join(', ')}` : ''}이 지도에서 ${gone}. 되돌릴 수 없어요.`,
     okText: '삭제'
   });
   if (!ok) return;
@@ -884,9 +917,353 @@ async function onDeleteComment(commentId, text) {
 function onSheetClose() {
   state.selectedId = null;
   state.editingId = null;
+  state.courseEditingId = null;
   state.draft = null;
   state.detailSig = '';
   state.detailPhotos = null;
   detachPinExtras();
   MapCtl.setActivePin(null);
+}
+
+/* ── 데이트 코스 ───────────────────────────────────────────── */
+
+function subscribeCourses() {
+  if (state.unsubscribeCourses) { state.unsubscribeCourses(); state.unsubscribeCourses = null; }
+
+  state.unsubscribeCourses = FB.subscribeCourses(
+    (courses) => {
+      state.courses = courses;
+
+      if (UI.isCoursesOpen()) UI.renderCourses(courses, state.pins);
+
+      if (state.courseViewId) {
+        if (!findCourse(state.courseViewId)) {
+          exitCourseView();
+          UI.toast('보고 있던 코스가 삭제됐어요.');
+        } else {
+          refreshMarkers();
+          drawCourse(false);
+        }
+      }
+    },
+    (err) => {
+      // 규칙을 다시 게시하지 않았으면 여기로 온다. 핀은 그대로 쓸 수 있으니 알리기만 한다.
+      if (err && err.code === 'permission-denied') {
+        UI.toast('코스를 불러올 권한이 없어요. firestore.rules 를 다시 게시해주세요.', 4200);
+      }
+    }
+  );
+}
+
+function findCourse(id) {
+  return state.courses.find((c) => c.id === id) || null;
+}
+
+// 코스에 적힌 순서대로 실제 핀을 붙인다. 그사이 지워진 핀은 건너뛴다.
+function resolveStops(course) {
+  if (!course) return [];
+  return course.stops
+    .map((s) => ({ pin: findPin(s.pinId), time: s.time, memo: s.memo }))
+    .filter((s) => s.pin);
+}
+
+function coursesWithPin(pinId) {
+  return state.courses.filter((c) => c.stops.some((s) => s.pinId === pinId));
+}
+
+// 코스를 보는 동안에는 필터에 걸려 숨은 핀이라도 코스에 든 것은 지도에 올린다.
+function withCoursePins(list) {
+  const course = state.courseViewId ? findCourse(state.courseViewId) : null;
+  if (!course) return list;
+
+  const shown = new Set(list.map((p) => p.id));
+  const extra = resolveStops(course).map((s) => s.pin).filter((p) => !shown.has(p.id));
+  return extra.length ? list.concat(extra) : list;
+}
+
+function onOpenCourses() {
+  if (!state.mapReady) return;
+  UI.closeSheet();
+  UI.hideSearchPanel();
+  UI.closeTimeline();
+  UI.closeFeed();
+
+  UI.openCourses(state.courses, state.pins);
+}
+
+function openCourseView(id) {
+  if (!findCourse(id)) return;
+
+  if (UI.isPickerOpen()) onPickerCancel();
+  UI.closeSheet();
+  UI.hideSearchPanel();
+
+  state.courseViewId = id;
+  refreshMarkers();
+  drawCourse(true);
+}
+
+function drawCourse(fit) {
+  const course = findCourse(state.courseViewId);
+  if (!course) return;
+
+  const stops = resolveStops(course);
+
+  MapCtl.showCourse(
+    stops.map((s) => ({ id: s.pin.id, lat: s.pin.lat, lng: s.pin.lng })),
+    { done: course.status === 'done' }
+  );
+  UI.showCourseBar(course, stops);
+
+  if (fit && stops.length) {
+    MapCtl.fitPoints(stops.map((s) => s.pin), {
+      top: topBarBottom() + 30,
+      right: 80,
+      bottom: UI.courseBarInset(),
+      left: 40
+    });
+  }
+}
+
+function topBarBottom() {
+  const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--top-bar-bottom'), 10);
+  return Number.isFinite(v) ? v : 120;
+}
+
+function exitCourseView() {
+  if (!state.courseViewId) return;
+  state.courseViewId = null;
+
+  MapCtl.clearCourse();
+  UI.hideCourseBar();
+  refreshMarkers();
+}
+
+function onCourseSelect(id) {
+  openCourseView(id);
+}
+
+function onCourseBarClose() {
+  exitCourseView();
+}
+
+function onCourseStopSelect(pinId) {
+  handlePinClick(pinId);
+}
+
+function onCourseNew() {
+  UI.closeCourses();
+  openCourseEditor(null, []);
+}
+
+function onCourseEdit() {
+  const course = findCourse(state.courseViewId);
+  if (course) openCourseEditor(course);
+}
+
+// 상세 시트에서 곧장 편집으로 넘어올 수 있다. 시트를 닫았다 열면 한 번 튀므로
+// 닫힐 때 하는 정리(선택 해제 · 사진/댓글 구독 해제)만 먼저 해두고 패널만 바꾼다.
+function openCourseEditor(course, prefill = []) {
+  if (!state.mapReady) return;
+  if (UI.isPickerOpen()) onPickerCancel();
+
+  onSheetClose();
+  state.courseEditingId = course ? course.id : null;
+
+  UI.openCourseEditor({ course, pins: state.pins, prefill, maxStops: FB.MAX_STOPS });
+}
+
+async function onCourseSearch(keyword) {
+  try {
+    const list = await MapCtl.searchPlaces(keyword);
+    UI.setCoursePlaces(list, keyword);
+  } catch (err) {
+    UI.setCoursePlaces([], keyword);
+    UI.toast(err.message || '검색에 실패했어요.');
+  }
+}
+
+// 이름을 비워두면 날짜로 지어준다.
+function autoCourseName(date) {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(date || '');
+  return m ? `${Number(m[1])}월 ${Number(m[2])}일 데이트` : '데이트 코스';
+}
+
+async function onSubmitCourse(values) {
+  if (!values.stops.length) {
+    UI.toast('장소를 하나 이상 담아주세요.');
+    UI.el.courseSearch.focus();
+    return;
+  }
+
+  const editingId = state.courseEditingId;
+  const name = values.name || autoCourseName(values.date);
+
+  UI.setCourseLoading(true);
+  try {
+    if (editingId && !findCourse(editingId)) throw Object.assign(new Error('gone'), { code: 'gone' });
+
+    // 검색으로 고른 새 장소는 여기서 '가볼 곳' 핀이 된다.
+    const stops = [];
+    let created = 0;
+    for (const s of values.stops) {
+      if (s.pinId) {
+        if (findPin(s.pinId)) stops.push({ pinId: s.pinId, time: s.time, memo: s.memo });
+        continue;
+      }
+
+      const ref = await FB.addPin({
+        name: s.place.name,
+        memo: '',
+        category: 'wish',
+        tags: [],
+        visitedAt: '',
+        lat: s.place.lat,
+        lng: s.place.lng,
+        address: s.place.address
+      });
+      created++;
+      stops.push({ pinId: ref.id, time: s.time, memo: s.memo });
+    }
+
+    if (!stops.length) {
+      UI.toast('담았던 장소가 모두 삭제됐어요. 다시 골라주세요.', 3200);
+      return;
+    }
+
+    let courseId = editingId;
+    if (editingId) {
+      await FB.updateCourse(editingId, { name, date: values.date, stops });
+    } else {
+      const ref = await FB.addCourse({ name, date: values.date, stops });
+      courseId = ref.id;
+    }
+
+    UI.closeSheet();
+
+    const extra = created ? ` 가볼 곳 ${created}곳도 추가했어요.` : '';
+    UI.toast((editingId ? '코스를 수정했어요.' : `'${name}' 코스를 만들었어요.`) + extra, 3000);
+
+    // 새로 만든 코스는 바로 지도에 펼쳐 보여준다.
+    if (!editingId) openCourseView(courseId);
+  } catch (err) {
+    console.error('[PinLog] 코스 저장 실패:', err);
+    UI.toast(
+      err.code === 'gone'              ? '그사이 코스가 삭제됐어요.' :
+      err.code === 'permission-denied' ? '저장 권한이 없어요. firestore.rules 를 확인해주세요.' :
+                                         '코스를 저장하지 못했어요.',
+      3000
+    );
+  } finally {
+    UI.setCourseLoading(false);
+  }
+}
+
+async function onDeleteCourse() {
+  const course = findCourse(state.courseEditingId);
+  if (!course) return;
+
+  const ok = await UI.confirmDialog({
+    title: '코스를 삭제할까요?',
+    desc: `'${course.name}' 코스가 사라져요. 담겨 있던 장소 핀은 지도에 그대로 남아요.`,
+    okText: '삭제'
+  });
+  if (!ok) return;
+
+  try {
+    await FB.deleteCourse(course.id);
+    UI.closeSheet();
+    if (state.courseViewId === course.id) exitCourseView();
+    UI.toast('코스를 삭제했어요.');
+  } catch (err) {
+    console.error('[PinLog] 코스 삭제 실패:', err);
+    UI.toast(err.code === 'permission-denied' ? '삭제 권한이 없어요.' : '코스를 삭제하지 못했어요.', 3000);
+  }
+}
+
+function fmtMonthDay(value) {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(value || '');
+  return m ? `${Number(m[1])}월 ${Number(m[2])}일` : value;
+}
+
+async function onCourseDone() {
+  const course = findCourse(state.courseViewId);
+  if (!course || course.status === 'done') return;
+
+  const id = course.id;
+  const date = course.date || UI.todayValue();
+  const wish = resolveStops(course).filter((s) => s.pin.category === 'wish');
+
+  const ok = await UI.confirmDialog({
+    title: '다녀온 코스로 바꿀까요?',
+    desc: wish.length
+      ? `'${course.name}' 의 가볼 곳 ${wish.length}곳도 가본 곳으로 옮기고, 다녀온 날은 ${fmtMonthDay(date)}로 기록해요.`
+      : `'${course.name}' 을 다녀온 코스로 표시해요.`,
+    okText: '다녀왔어요',
+    tone: 'primary'
+  });
+  if (!ok) return;
+
+  // 물어보는 동안 상대가 먼저 바꿨을 수 있어서 최신 상태로 다시 고른다.
+  const fresh = findCourse(id);
+  if (!fresh || fresh.status === 'done') return;
+
+  const targets = resolveStops(fresh).filter((s) => s.pin.category === 'wish').map((s) => s.pin);
+  const forward = targets.map((p) => ({ id: p.id, category: 'visited', visitedAt: date }));
+  const back    = targets.map((p) => ({ id: p.id, category: 'wish',    visitedAt: p.visitedAt }));
+
+  // 날짜 없이 다녀온 코스면 오늘을 채우고, 되돌릴 때 다시 비운다.
+  const fillDate = fresh.date ? undefined : date;
+  const clearDate = fresh.date ? undefined : '';
+
+  try {
+    await FB.setCourseStatus(id, 'done', forward, fillDate);
+    UI.toast(targets.length ? `다녀온 코스로 옮겼어요. 가본 곳 ${targets.length}곳이 늘었어요.` : '다녀온 코스로 옮겼어요.', 5000, {
+      label: '되돌리기',
+      onClick: async () => {
+        try {
+          // 그사이 지워진 핀은 되돌릴 수 없으니 빼고 보낸다. (없는 문서를 고치면 batch 전체가 실패한다)
+          await FB.setCourseStatus(id, 'planned', back.filter((p) => findPin(p.id)), clearDate);
+          UI.toast('되돌렸어요.');
+        } catch (_) {
+          UI.toast('되돌리지 못했어요.');
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[PinLog] 코스 다녀왔어요 실패:', err);
+    UI.toast(err.code === 'permission-denied' ? '바꿀 권한이 없어요.' : '바꾸지 못했어요.', 3000);
+  }
+}
+
+async function onAddToCourse() {
+  const pin = findPin(state.selectedId);
+  if (!pin) return;
+
+  const choice = await UI.pickCourse({ pin, courses: state.courses, maxStops: FB.MAX_STOPS });
+  if (!choice) return;
+
+  if (choice === 'new') {
+    openCourseEditor(null, [pin]);
+    return;
+  }
+
+  const course = findCourse(choice);
+  if (!course) { UI.toast('그사이 코스가 삭제됐어요.'); return; }
+  if (course.stops.some((s) => s.pinId === pin.id)) { UI.toast('이미 담겨 있는 장소예요.'); return; }
+  if (course.stops.length >= FB.MAX_STOPS) {
+    UI.toast(`코스에는 최대 ${FB.MAX_STOPS}곳까지 담을 수 있어요.`);
+    return;
+  }
+
+  try {
+    await FB.appendCourseStop(course.id, pin.id);
+    UI.toast(`'${course.name}' 에 담았어요.`, 4000, {
+      label: '코스 보기',
+      onClick: () => openCourseView(course.id)
+    });
+  } catch (err) {
+    console.error('[PinLog] 코스에 담기 실패:', err);
+    UI.toast(err.code === 'permission-denied' ? '담을 권한이 없어요.' : '코스에 담지 못했어요.', 3000);
+  }
 }
