@@ -91,6 +91,9 @@ export const el = {
   courseBarStops:  $('#course-bar-stops'),
   courseBarPrev:   $('#course-bar-prev'),
   courseBarNext:   $('#course-bar-next'),
+  courseBarTrack:  $('.course-bar__track'),
+  courseBarTable:  $('#course-bar-table'),
+  courseViewBtns:  [...document.querySelectorAll('[data-course-view]')],
   courseBarEdit:   $('#course-bar-edit'),
   courseBarDone:   $('#course-bar-done'),
 
@@ -350,6 +353,10 @@ export function initUI(handlers) {
   el.courseBarEdit.addEventListener('click', () => cb.onCourseEdit && cb.onCourseEdit());
   el.courseBarDone.addEventListener('click', () => cb.onCourseDone && cb.onCourseDone());
   initCourseBarScroll();
+  el.courseViewBtns.forEach((btn) => {
+    btn.addEventListener('click', () => setCourseView(btn.dataset.courseView));
+  });
+  applyCourseView();
 
   el.coursePickNew.addEventListener('click', () => finishCoursePick('new'));
   el.coursePickCancel.addEventListener('click', () => finishCoursePick(null));
@@ -2809,18 +2816,164 @@ export function showCourseBar(course, stops) {
     el.courseBarStops.appendChild(btn);
   });
 
-  if (!courseBarOpen) el.courseBarStops.scrollLeft = 0;
+  if (!courseBarOpen) {
+    el.courseBarStops.scrollLeft = 0;
+    el.courseBarTable.scrollTop = 0;
+  }
+
+  renderCourseTable(stops);
 
   courseBarOpen = true;
   el.courseBar.hidden = false;
   el.screenMap.classList.add('is-course');
   hideHint();
 
-  // 좁은 화면에서 오른쪽 버튼들을 카드 위로 올리려면 카드 높이를 알아야 한다.
+  applyCourseView();
+}
+
+/* 카드 ↔ 표 전환 */
+
+const COURSE_VIEW_KEY = 'pinlog:courseView';
+let courseView = readCourseView();
+
+function readCourseView() {
+  try {
+    return localStorage.getItem(COURSE_VIEW_KEY) === 'table' ? 'table' : 'cards';
+  } catch (_) {
+    return 'cards';
+  }
+}
+
+function setCourseView(view) {
+  courseView = view === 'table' ? 'table' : 'cards';
+  try { localStorage.setItem(COURSE_VIEW_KEY, courseView); } catch (_) {  }
+  applyCourseView();
+}
+
+function applyCourseView() {
+  const table = courseView === 'table';
+
+  el.courseBarTrack.hidden = table;
+  el.courseBarTable.hidden = !table;
+  el.screenMap.classList.toggle('is-course-table', courseBarOpen && table);
+
+  el.courseViewBtns.forEach((btn) => {
+    const on = btn.dataset.courseView === courseView;
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-checked', String(on));
+  });
+
+  if (!courseBarOpen) return;
+
+  // 표로 바꾸면 카드 높이가 달라지니 오른쪽 버튼 자리도 다시 맞춘다.
   // 방금 보이게 했으니 offsetHeight 가 레이아웃을 바로 계산해 준다.
   el.screenMap.style.setProperty('--course-bar-h', el.courseBar.offsetHeight + 'px');
-
   updateCourseNav();
+}
+
+// 순서는 코스 순서 그대로 — 정렬하지 않는다.
+// '다음까지'는 다음 장소까지의 직선 거리라 마지막 줄은 비어 있다.
+function renderCourseTable(stops) {
+  const box = el.courseBarTable;
+  box.innerHTML = '';
+
+  if (!stops.length) {
+    box.appendChild(h('p', 'course-bar__empty', '담긴 장소가 없어요. 수정에서 장소를 추가해보세요.'));
+    return;
+  }
+
+  const table = h('table', 'ct');
+
+  const head = document.createElement('thead');
+  const hr = document.createElement('tr');
+  [
+    ['ct__no', '#'],
+    ['ct__time', '시간'],
+    ['ct__name', '장소'],
+    ['ct__memo ct__col-memo', '메모'],
+    ['ct__state ct__col-state', '상태'],
+    ['ct__dist', '다음까지']
+  ].forEach(([cls, label]) => {
+    const th = h('th', cls, label);
+    th.scope = 'col';
+    hr.appendChild(th);
+  });
+  head.appendChild(hr);
+  table.appendChild(head);
+
+  const body = document.createElement('tbody');
+  let total = 0;
+
+  stops.forEach((s, i) => {
+    const isWish = s.pin.category === 'wish';
+    const next = stops[i + 1];
+    const meters = next ? distanceMeters(s.pin.lat, s.pin.lng, next.pin.lat, next.pin.lng) : NaN;
+    if (Number.isFinite(meters)) total += meters;
+
+    const tr = document.createElement('tr');
+    tr.tabIndex = 0;
+    tr.setAttribute('role', 'button');
+    tr.setAttribute('aria-label', `${i + 1}번 ${s.pin.name}`);
+
+    const no = h('td', 'ct__no');
+    no.appendChild(h('span', null, String(i + 1)));
+    tr.appendChild(no);
+
+    tr.appendChild(s.time ? h('td', 'ct__time', s.time) : emptyCell('ct__time'));
+
+    // 폰에서는 메모 · 상태 열을 접고, 이름 칸 안에 점과 메모를 대신 보여준다.
+    const name = h('td', 'ct__name');
+    const row = h('span', 'ct__name-row');
+    row.appendChild(h('span', 'ct__dot' + (isWish ? ' is-wish' : '')));
+    const text = h('span', 'ct__name-text', s.pin.name);
+    text.title = s.pin.name;
+    row.appendChild(text);
+    name.appendChild(row);
+    name.appendChild(h('span', 'ct__sub', s.memo || ''));
+    tr.appendChild(name);
+
+    if (s.memo) {
+      const memo = h('td', 'ct__memo ct__col-memo');
+      const mt = h('span', 'ct__memo-text', s.memo);
+      mt.title = s.memo;
+      memo.appendChild(mt);
+      tr.appendChild(memo);
+    } else {
+      tr.appendChild(emptyCell('ct__memo ct__col-memo'));
+    }
+
+    const state = h('td', 'ct__state ct__col-state');
+    state.appendChild(h('span', 'badge ' + (isWish ? 'badge--wish' : 'badge--visited'), isWish ? '가볼 곳' : '가본 곳'));
+    tr.appendChild(state);
+
+    tr.appendChild(Number.isFinite(meters) ? h('td', 'ct__dist', formatDistance(meters)) : emptyCell('ct__dist'));
+
+    const open = () => cb.onCourseStopSelect && cb.onCourseStopSelect(s.pin.id);
+    tr.addEventListener('click', open);
+    tr.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+
+    body.appendChild(tr);
+  });
+  table.appendChild(body);
+
+  if (stops.length >= 2) {
+    const foot = document.createElement('tfoot');
+    const fr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.append('총 이동 ', h('b', null, formatDistance(total)), ' · 직선 거리 기준');
+    fr.appendChild(td);
+    foot.appendChild(fr);
+    table.appendChild(foot);
+  }
+
+  box.appendChild(table);
+}
+
+function emptyCell(cls) {
+  return h('td', cls + ' ct__empty', '–');
 }
 
 // 카드 줄은 가로 스크롤이라 휴대폰은 밀면 되지만, PC 마우스 휠은 세로로만 움직인다.
@@ -2875,7 +3028,7 @@ function stepCourseBar(dir) {
 export function hideCourseBar() {
   courseBarOpen = false;
   el.courseBar.hidden = true;
-  el.screenMap.classList.remove('is-course');
+  el.screenMap.classList.remove('is-course', 'is-course-table');
 }
 
 export function isCourseBarOpen() { return courseBarOpen; }

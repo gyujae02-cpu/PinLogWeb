@@ -306,6 +306,25 @@
           </div>
           <p id="course-bar-name" class="course-bar__name"></p>
         </div>
+
+        <!-- 카드(가로 줄) ↔ 표 전환. 마지막 선택을 기억한다. -->
+        <div class="view-toggle" role="radiogroup" aria-label="장소 보기 방식">
+          <button type="button" class="view-toggle__btn is-on" data-course-view="cards"
+                  role="radio" aria-checked="true" aria-label="카드로 보기" title="카드로 보기">
+            <svg viewBox="0 0 24 24" fill="none" class="w-[16px] h-[16px]" aria-hidden="true">
+              <rect x="3" y="6" width="7.5" height="12" rx="2.2" stroke="currentColor" stroke-width="1.8"/>
+              <rect x="13.5" y="6" width="7.5" height="12" rx="2.2" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
+          <button type="button" class="view-toggle__btn" data-course-view="table"
+                  role="radio" aria-checked="false" aria-label="표로 보기" title="표로 보기">
+            <svg viewBox="0 0 24 24" fill="none" class="w-[16px] h-[16px]" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M3.5 9.5h17M3.5 14.5h17M9 9.5v10" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
+        </div>
+
         <button id="course-bar-close" type="button" class="sheet__close" aria-label="코스 보기 닫기">
           <svg viewBox="0 0 24 24" fill="none" class="w-[18px] h-[18px]">
               <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -328,6 +347,9 @@
           </svg>
         </button>
       </div>
+
+      <!-- 표 보기 — 순서는 코스 순서 그대로, 정렬 없음 -->
+      <div id="course-bar-table" class="course-bar__table scroll-y" hidden></div>
 
       <div class="course-bar__actions">
         <button id="course-bar-edit" type="button" class="btn-ghost h-11 flex-1">수정</button>

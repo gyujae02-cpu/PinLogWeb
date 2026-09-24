@@ -2387,6 +2387,153 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .course-bar__nav--prev { left: -10px; }
 .course-bar__nav--next { right: -10px; }
 
+/* 카드 ↔ 표 전환 */
+.view-toggle {
+  display: flex; flex-shrink: 0;
+  padding: 3px; gap: 2px;
+  border-radius: 12px;
+  background: var(--sunken-glass);
+}
+.view-toggle__btn {
+  display: grid; place-items: center;
+  width: 32px; height: 28px;
+  border-radius: 9px;
+  color: var(--ink-400);
+  transition: background .16s var(--ease), color .16s var(--ease);
+}
+.view-toggle__btn:hover { color: var(--ink-700); }
+.view-toggle__btn.is-on {
+  background: #fff;
+  color: var(--brand-600);
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), .12);
+}
+
+/* 표 보기 — 길어지면 카드 안에서 세로로 스크롤하고, 머리글은 위에 붙어 있다.
+   지도를 너무 가리지 않도록 높이를 제한한다. (폰은 더 낮게) */
+.course-bar__table {
+  margin: 12px -6px 0;
+  max-height: min(50vh, 520px);
+  max-height: min(50dvh, 520px);
+  border-radius: 14px;
+}
+@media (max-width: 719px) {
+  .course-bar__table { max-height: 42vh; max-height: 42dvh; }
+
+  /* 표를 펼치면 카드가 높아져서, 위로 올린 오른쪽 버튼들이 상단바까지 밀려 올라간다.
+     폰은 두 손가락으로 확대 · 이동이 되니 표를 보는 동안에는 버튼을 접는다.
+     카드 보기로 돌아가면 다시 나타난다. */
+  #screen-map.is-course-table .bottom-controls { display: none; }
+}
+
+.ct {
+  width: 100%;
+  border-collapse: separate; border-spacing: 0;
+  font-size: 13px; letter-spacing: -.015em;
+  color: var(--ink-700);
+}
+.ct th {
+  position: sticky; top: 0; z-index: 1;
+  padding: 7px 6px;
+  /* 목록 머리글(.tl-group)과 같은 이유로 패널 밝기에 맞춘 반투명 + 블러 */
+  background: rgba(244, 248, 252, .92);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid var(--ink-200);
+  font-size: 11px; font-weight: 750;
+  color: var(--ink-500);
+  text-align: left;
+  white-space: nowrap;
+}
+.ct td {
+  padding: 9px 6px;
+  border-bottom: 1px solid rgba(var(--ink-rgb), .06);
+  vertical-align: middle;
+}
+.ct tbody tr { cursor: pointer; transition: background .14s var(--ease); }
+.ct tbody tr:hover { background: var(--brand-50); }
+.ct tbody tr:focus-visible { outline: 2px solid var(--brand-400); outline-offset: -2px; }
+.ct tbody tr:last-child td { border-bottom: none; }
+
+.ct__no { width: 30px; text-align: center; }
+.ct__no span {
+  display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 99px;
+  background: var(--brand-600); color: #fff;
+  font-size: 10.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ct__time {
+  width: 50px;
+  font-weight: 700; color: var(--brand-600);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ct__name { min-width: 0; }
+.ct__name-text {
+  display: block;
+  font-weight: 700; color: var(--ink-900);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ct__memo { color: var(--ink-500); }
+.ct__state { width: 60px; }
+.ct__state .badge { padding: 3px 8px; font-size: 10.5px; }
+.ct__dist {
+  width: 62px;
+  text-align: right;
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ct__dist small { display: block; font-size: 10px; color: var(--ink-400); }
+.ct__empty { color: var(--ink-200); }
+
+/* 표 안에서 이름 · 메모가 넘치면 잘리도록 칸 폭을 고정 방식으로 잡는다. */
+.ct { table-layout: fixed; }
+.ct__memo-text {
+  display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 폰에서만 쓰는 이름 칸 안의 메모 · 상태 점 */
+.ct__sub { display: none; }
+.ct__dot { display: none; }
+
+.ct tfoot td {
+  padding: 9px 6px 4px;
+  border-bottom: none;
+  font-size: 11.5px; color: var(--ink-400);
+  text-align: right;
+}
+.ct tfoot b { color: var(--ink-700); font-weight: 750; }
+
+/* 폰 — 열을 # · 시간 · 장소(아래 줄에 메모) · 다음까지 로 줄인다. */
+@media (max-width: 719px) {
+  .ct__col-memo, .ct__col-state { display: none; }
+
+  /* 고정 레이아웃은 숨긴 열 몫의 폭까지 남겨둬서 이름 칸이 쪼그라든다.
+     자동 레이아웃으로 돌리고, 이름 칸이 남는 폭을 모두 갖게 한다.
+     (max-width: 0 을 줘야 긴 이름이 표를 밀어내지 않고 … 으로 잘린다) */
+  .ct { table-layout: auto; }
+  .ct__name { width: 100%; max-width: 0; }
+  .ct__sub {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px; font-weight: 500; color: var(--ink-500);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ct__sub:empty { display: none; }
+  .ct__name-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .ct__dot {
+    display: block; flex-shrink: 0;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--brand-500);
+  }
+  .ct__dot.is-wish { background: var(--wish-500); }
+  .ct__time { width: 44px; }
+  .ct__dist { width: 54px; }
+}
+
 .course-bar__empty { font-size: 12.5px; color: var(--ink-400); }
 
 .cb-stop {
