@@ -313,7 +313,21 @@
         </button>
       </div>
 
-      <div id="course-bar-stops" class="course-bar__stops"></div>
+      <!-- 휠 · 화살표 버튼은 마우스가 있는 기기에서만 켠다 (ui.js initCourseBarScroll) -->
+      <div class="course-bar__track">
+        <div id="course-bar-stops" class="course-bar__stops"></div>
+
+        <button type="button" id="course-bar-prev" class="gallery__nav course-bar__nav--prev" aria-label="이전 장소" hidden>
+          <svg viewBox="0 0 24 24" fill="none" class="w-[16px] h-[16px]">
+            <path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button type="button" id="course-bar-next" class="gallery__nav course-bar__nav--next" aria-label="다음 장소" hidden>
+          <svg viewBox="0 0 24 24" fill="none" class="w-[16px] h-[16px]">
+            <path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
 
       <div class="course-bar__actions">
         <button id="course-bar-edit" type="button" class="btn-ghost h-11 flex-1">수정</button>

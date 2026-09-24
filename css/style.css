@@ -2370,15 +2370,22 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* 좌우 화살표를 카드 줄 위에 얹기 위한 틀 */
+.course-bar__track { position: relative; margin-top: 12px; }
+
 .course-bar__stops {
   display: flex; align-items: stretch; gap: 6px;
-  margin: 12px -16px 0;
+  margin: 0 -16px;
   padding: 2px 16px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
 .course-bar__stops::-webkit-scrollbar { display: none; }
+
+/* 카드 줄은 카드 가장자리까지 번져 있으니 버튼도 그 끝에 걸친다. */
+.course-bar__nav--prev { left: -10px; }
+.course-bar__nav--next { right: -10px; }
 
 .course-bar__empty { font-size: 12.5px; color: var(--ink-400); }
 

@@ -89,6 +89,8 @@ export const el = {
   courseBarName:   $('#course-bar-name'),
   courseBarClose:  $('#course-bar-close'),
   courseBarStops:  $('#course-bar-stops'),
+  courseBarPrev:   $('#course-bar-prev'),
+  courseBarNext:   $('#course-bar-next'),
   courseBarEdit:   $('#course-bar-edit'),
   courseBarDone:   $('#course-bar-done'),
 
@@ -347,6 +349,7 @@ export function initUI(handlers) {
   el.courseBarClose.addEventListener('click', () => cb.onCourseBarClose && cb.onCourseBarClose());
   el.courseBarEdit.addEventListener('click', () => cb.onCourseEdit && cb.onCourseEdit());
   el.courseBarDone.addEventListener('click', () => cb.onCourseDone && cb.onCourseDone());
+  initCourseBarScroll();
 
   el.coursePickNew.addEventListener('click', () => finishCoursePick('new'));
   el.coursePickCancel.addEventListener('click', () => finishCoursePick(null));
@@ -2816,6 +2819,57 @@ export function showCourseBar(course, stops) {
   // 좁은 화면에서 오른쪽 버튼들을 카드 위로 올리려면 카드 높이를 알아야 한다.
   // 방금 보이게 했으니 offsetHeight 가 레이아웃을 바로 계산해 준다.
   el.screenMap.style.setProperty('--course-bar-h', el.courseBar.offsetHeight + 'px');
+
+  updateCourseNav();
+}
+
+// 카드 줄은 가로 스크롤이라 휴대폰은 밀면 되지만, PC 마우스 휠은 세로로만 움직인다.
+// 스크롤바도 숨겨두었으니 마우스가 있는 기기에서는 휠을 가로로 돌려주고 좌우 버튼을 띄운다.
+const CAN_HOVER = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+function initCourseBarScroll() {
+  const row = el.courseBarStops;
+
+  row.addEventListener('scroll', updateCourseNav, { passive: true });
+  window.addEventListener('resize', updateCourseNav);
+
+  el.courseBarPrev.addEventListener('click', () => stepCourseBar(-1));
+  el.courseBarNext.addEventListener('click', () => stepCourseBar(1));
+
+  row.addEventListener('wheel', (e) => {
+    // 트랙패드 좌우 밀기나 Shift+휠은 브라우저가 알아서 가로로 넘긴다.
+    if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+
+    const overflow = row.scrollWidth - row.clientWidth;
+    if (overflow <= 2) return;
+
+    // deltaMode 1 은 줄 단위라 픽셀로 바꿔준다.
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+
+    // 끝에 닿았으면 가로챌 이유가 없다.
+    if (dy < 0 && row.scrollLeft <= 0) return;
+    if (dy > 0 && row.scrollLeft >= overflow - 1) return;
+
+    e.preventDefault();
+    row.scrollLeft += dy;
+    updateCourseNav();
+  }, { passive: false });
+}
+
+function updateCourseNav() {
+  const row = el.courseBarStops;
+  const overflow = row.scrollWidth - row.clientWidth;
+
+  const show = courseBarOpen && CAN_HOVER.matches && overflow > 2;
+  el.courseBarPrev.hidden = !show || row.scrollLeft <= 2;
+  el.courseBarNext.hidden = !show || row.scrollLeft >= overflow - 2;
+}
+
+function stepCourseBar(dir) {
+  el.courseBarStops.scrollBy({
+    left: dir * el.courseBarStops.clientWidth * 0.85,
+    behavior: 'smooth'
+  });
 }
 
 export function hideCourseBar() {
