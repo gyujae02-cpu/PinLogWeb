@@ -2346,9 +2346,9 @@ let coursePinList = [];
 let coursePlaces = null;        // 카카오 검색 결과. null 이면 아직 없음(또는 검색 중)
 let coursePlacesFor = '';       // 위 결과가 어떤 검색어의 것인지
 let courseSearchTimer = null;
-let courseMax = 10;
+let courseMax = 30;
 
-export function openCourseEditor({ course = null, pins = [], prefill = [], maxStops = 10 } = {}) {
+export function openCourseEditor({ course = null, pins = [], prefill = [], maxStops = 30 } = {}) {
   const isEdit = !!course;
   courseMax = maxStops;
   coursePinList = Array.isArray(pins) ? pins : [];
@@ -2702,7 +2702,7 @@ function placeResult(place, key) {
 let coursePickResolve = null;
 
 // 고른 코스 id, 'new'(새 코스), 또는 null(취소)로 답한다.
-export function pickCourse({ pin, courses, maxStops = 10 }) {
+export function pickCourse({ pin, courses, maxStops = 30 }) {
   return new Promise((resolve) => {
     if (coursePickResolve) finishCoursePick(null);
     coursePickResolve = resolve;

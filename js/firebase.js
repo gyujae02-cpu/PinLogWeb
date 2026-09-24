@@ -437,7 +437,7 @@ export async function deleteComment(pinId, commentId) {
 /* ── 데이트 코스 ───────────────────────────────────────────── */
 
 // 코스 하나에 담을 수 있는 장소 수. firestore.rules 의 값과 같아야 한다.
-export const MAX_STOPS = 10;
+export const MAX_STOPS = 30;
 export const MAX_STOP_MEMO = 60;
 
 function normalizeTime(v) {
@@ -524,7 +524,7 @@ export function updateCourse(id, data) {
 
 // 상세 시트의 '코스에 담기' — 목록 전체를 덮어쓰지 않고 끝에 하나만 붙인다.
 // 그래야 상대가 같은 코스를 동시에 고쳐도 서로의 변경을 지우지 않는다.
-// (10곳 제한은 규칙이 막고, 앱은 누르기 전에 한 번 더 확인한다)
+// (30곳 제한은 규칙이 막고, 앱은 누르기 전에 한 번 더 확인한다)
 export function appendCourseStop(id, pinId) {
   return updateDoc(doc(db, 'courses', id), {
     stops: arrayUnion({ pinId, time: '', memo: '' }),
