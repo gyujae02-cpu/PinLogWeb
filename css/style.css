@@ -2308,7 +2308,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 /* .pin 자체는 등장 애니메이션이 opacity 를 쥐고 있어서 본체를 흐린다. */
 .pin .pin__body { transition: transform .2s var(--ease), opacity .25s var(--ease); }
-.pin.is-dimmed .pin__body { opacity: .38; }
+.pin.is-dimmed .pin__body { opacity: .17; }
+/* 본체만 흐리면 바깥 .pin 의 그림자가 진하게 남아 유령처럼 뜬다. */
+.pin.is-dimmed { filter: none; }
 
 /* 코스 보기 카드 — 위치 선택 바와 같은 재료 */
 .course-bar {
