@@ -2312,6 +2312,15 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 /* 본체만 흐리면 바깥 .pin 의 그림자가 진하게 남아 유령처럼 뜬다. */
 .pin.is-dimmed { filter: none; }
 
+/* 코스에서 한 곳을 짚었을 때 — 짚은 곳은 '선택된 핀'과 같은 모양으로 띄우고,
+   코스의 다른 장소는 중간 정도로 흐린다. (코스 밖 핀은 위의 .17 그대로) */
+.pin.is-course-muted .pin__body { opacity: .5; }
+.pin.is-focus { z-index: 5; }
+.pin.is-focus .pin__body { transform: translate(-50%, -3px) scale(1.06); }
+.pin.is-focus .pin__medal { border-width: 2.5px; }
+.pin[data-cat="visited"].is-focus { filter: drop-shadow(0 2px 2px rgba(var(--brand-rgb), .35)) drop-shadow(0 8px 16px rgba(var(--brand-rgb), .40)); }
+.pin[data-cat="wish"].is-focus    { filter: drop-shadow(0 2px 2px rgba(var(--wish-rgb), .35))  drop-shadow(0 8px 16px rgba(var(--wish-rgb), .40)); }
+
 /* 코스 보기 카드 — 위치 선택 바와 같은 재료 */
 .course-bar {
   position: absolute;
@@ -2453,6 +2462,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .ct tbody tr:hover { background: var(--brand-50); }
 .ct tbody tr:focus-visible { outline: 2px solid var(--brand-400); outline-offset: -2px; }
 .ct tbody tr:last-child td { border-bottom: none; }
+.ct tbody tr.is-selected,
+.ct tbody tr.is-selected:hover { background: var(--brand-50); }
+.ct tbody tr.is-selected .ct__no { box-shadow: inset 3px 0 0 var(--brand-500); }
+
+.ct__name-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ct__name-row .ct__name-text { min-width: 0; }
+.ct__name-row .stop-detail { flex-shrink: 0; margin-left: auto; }
 
 .ct__no { width: 30px; text-align: center; }
 .ct__no span {
@@ -2548,6 +2564,29 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .cb-stop:hover  { background: var(--brand-50); }
 .cb-stop:active { transform: scale(.97); }
+.cb-stop { position: relative; }
+
+/* 짚은 장소 — 카드 테두리와 상세 버튼 */
+.cb-stop.is-selected {
+  background: var(--brand-50);
+  box-shadow: inset 0 0 0 1.5px var(--brand-400);
+}
+
+/* 짚은 카드 · 행에만 나타나는 '상세 ›' */
+.stop-detail {
+  display: none;
+  align-items: center; gap: 1px;
+  height: 22px; padding: 0 6px 0 8px;
+  border-radius: 99px;
+  background: var(--brand-600); color: #fff;
+  font-size: 11px; font-weight: 750; letter-spacing: -.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter .16s var(--ease);
+}
+.stop-detail:hover { filter: brightness(1.1); }
+.is-selected .stop-detail { display: inline-flex; }
+.cb-stop .stop-detail { position: absolute; top: 7px; right: 7px; }
 
 .cb-stop__top { display: flex; align-items: center; gap: 6px; }
 .cb-stop__no {

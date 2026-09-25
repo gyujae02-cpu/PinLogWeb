@@ -36,6 +36,7 @@ let rvContainer = null;
 // courseNos: 핀 id → 순번(1부터). 비어 있으면 코스 보기가 꺼진 상태다.
 let courseLine = null;
 let courseNos = new Map();
+let courseFocusId = null;
 
 let handlers = {
   onMapClick: null,
@@ -453,22 +454,51 @@ export function setActivePin(id) {
 
 // 선택된 핀과 코스 번호를 함께 칠한다. 둘 다 z-index 를 건드리기 때문이다.
 // 코스 보기 중에는 코스 핀이 다른 핀 위로 오고, 나머지는 흐려진다.
+//
+// 코스에서 한 곳을 짚으면(courseFocusId) 흐림이 세 단계가 된다.
+//   짚은 장소 → 또렷하게 강조 · 코스의 다른 장소 → 중간 · 코스 밖 핀 → 가장 흐리게
+// 다른 장소까지 똑같이 흐리면 번호와 선의 흐름이 사라져서 한 단계를 남긴다.
 function applyActiveClass() {
   const courseOn = courseNos.size > 0;
+  const focusOn = courseOn && courseNos.has(courseFocusId);
 
   overlays.forEach((entry, id) => {
     const on = id === activeId;
     const no = courseNos.get(id) || 0;
+    const focus = focusOn && id === courseFocusId;
 
     entry.el.classList.toggle('is-active', on);
     entry.el.classList.toggle('is-dimmed', courseOn && !no);
+    entry.el.classList.toggle('is-focus', focus);
+    entry.el.classList.toggle('is-course-muted', focusOn && !!no && !focus);
 
     const noEl = entry.el.querySelector('.pin__no');
     noEl.hidden = !no;
     noEl.textContent = no ? String(no) : '';
 
-    entry.overlay.setZIndex(on ? 10000 : no ? 9000 - no : entry.z);
+    entry.overlay.setZIndex(on ? 10000 : focus ? 9500 : no ? 9000 - no : entry.z);
   });
+}
+
+// 코스에서 짚은 장소. null 이면 짚은 곳 없음.
+export function setCourseFocus(id) {
+  courseFocusId = id || null;
+  applyActiveClass();
+}
+
+// 짚은 장소가 하단 카드에 가리지 않게, 화면에서 보이는 영역의 한가운데로 옮긴다.
+// targetY 는 핀이 놓일 화면 y 좌표. 너무 멀리 축소돼 있으면 maxLevel 까지 당겨온다.
+export function panToFocus(lat, lng, targetY, maxLevel = 5) {
+  if (!map || !container) return;
+
+  syncSize();
+  if (map.getLevel() > maxLevel) map.setLevel(maxLevel);
+
+  const proj = map.getProjection();
+  const point = proj.containerPointFromCoords(new kakao.maps.LatLng(lat, lng));
+  point.y += container.clientHeight / 2 - targetY;
+
+  map.panTo(proj.coordsFromContainerPoint(point));
 }
 
 // stops: [{ id, lat, lng }] — 코스 순서대로.
@@ -497,6 +527,7 @@ export function showCourse(stops, opts = {}) {
 
 export function clearCourse() {
   if (courseLine) { courseLine.setMap(null); courseLine = null; }
+  courseFocusId = null;
   if (!courseNos.size) return;
   courseNos = new Map();
   applyActiveClass();

@@ -460,6 +460,15 @@ export function initUI(handlers) {
       if (e.key === 'ArrowRight') { stepLightbox(1);  return; }
       return;
     }
+
+    // 코스를 보는 동안 ← → 로 이전 · 다음 장소를 짚는다.
+    // 다른 창이 떠 있거나 글자를 입력하는 중에는 건드리지 않는다.
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && canStepCourse(e)) {
+      e.preventDefault();
+      cb.onCourseStep && cb.onCourseStep(e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
+
     if (e.key !== 'Escape') return;
     if (!el.roadview.hidden) { closeRoadview(); return; }
     if (!el.about.hidden)   { closeAbout(); return; }
@@ -470,9 +479,21 @@ export function initUI(handlers) {
     if (feedOpen)           { closeFeed(); return; }
     if (timelineOpen)       { closeTimeline(); return; }
     if (coursesOpen)        { closeCourses(); return; }
+    // 짚은 장소가 있으면 먼저 그것만 풀고, 한 번 더 누르면 코스 보기를 닫는다.
+    if (courseBarOpen && courseFocusId) { cb.onCourseFocusClear && cb.onCourseFocusClear(); return; }
     if (courseBarOpen)      { cb.onCourseBarClose && cb.onCourseBarClose(); return; }
     if (!el.picker.hidden)  cb.onPickerCancel && cb.onPickerCancel();
   });
+}
+
+function canStepCourse(e) {
+  if (!courseBarOpen || e.altKey || e.ctrlKey || e.metaKey) return false;
+
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return false;
+
+  return !sheetMode && !coursesOpen && !timelineOpen && !feedOpen && !coursePickResolve
+      && el.confirm.hidden && el.about.hidden && el.export.hidden && el.roadview.hidden;
 }
 
 // 사진까지 / 목록만 / 취소 세 가지로 답한다.
@@ -2812,7 +2833,9 @@ export function showCourseBar(course, stops) {
       btn.appendChild(memo);
     }
 
-    btn.addEventListener('click', () => cb.onCourseStopSelect && cb.onCourseStopSelect(s.pin.id));
+    btn.appendChild(stopDetailChip());
+    btn.dataset.pinId = s.pin.id;
+    btn.addEventListener('click', (e) => onStopPress(s.pin.id, e));
     el.courseBarStops.appendChild(btn);
   });
 
@@ -2829,6 +2852,85 @@ export function showCourseBar(course, stops) {
   hideHint();
 
   applyCourseView();
+
+  // 다시 그려도 짚어둔 장소는 그대로 표시한다. (그사이 빠졌으면 app 이 풀어준다)
+  paintCourseFocus(false);
+}
+
+/* 코스에서 한 곳 짚기
+   처음 누르면 지도에서 그 핀만 강조하고, 짚은 곳을 한 번 더 누르거나
+   '상세 ›' 를 누르면 상세 시트를 연다. 카드와 표가 같은 규칙을 쓴다. */
+
+let courseFocusId = null;
+
+// 카드 · 행 자체가 누르는 자리라 그 안에 버튼을 또 넣을 수는 없어서 span 으로 둔다.
+// 클릭은 카드 · 행이 받아 누른 자리가 이 칩인지로 가른다.
+function stopDetailChip() {
+  const chip = h('span', 'stop-detail', '상세');
+  chip.dataset.stopDetail = '';
+  chip.insertAdjacentHTML('beforeend', ICON_ARROW.replace('w-[14px] h-[14px]', 'w-[12px] h-[12px]'));
+  return chip;
+}
+
+function onStopPress(pinId, e) {
+  const wantsDetail = pinId === courseFocusId || !!e.target.closest('[data-stop-detail]');
+
+  if (wantsDetail) cb.onCourseStopDetail && cb.onCourseStopDetail(pinId);
+  else             cb.onCourseStopSelect && cb.onCourseStopSelect(pinId);
+}
+
+// app 이 짚은 장소를 정해주면 카드 · 행을 칠하고, 필요하면 보이는 곳까지 굴린다.
+export function setCourseFocus(pinId, opts = {}) {
+  courseFocusId = pinId || null;
+  paintCourseFocus(!!opts.reveal);
+}
+
+function paintCourseFocus(reveal) {
+  let card = null;
+  let row = null;
+
+  el.courseBarStops.querySelectorAll('.cb-stop').forEach((n) => {
+    const on = n.dataset.pinId === courseFocusId;
+    n.classList.toggle('is-selected', on);
+    n.setAttribute('aria-pressed', String(on));
+    if (on) card = n;
+  });
+
+  el.courseBarTable.querySelectorAll('tbody tr').forEach((n) => {
+    const on = n.dataset.pinId === courseFocusId;
+    n.classList.toggle('is-selected', on);
+    if (on) row = n;
+  });
+
+  if (!reveal) return;
+
+  // scrollIntoView 는 바깥 컨테이너까지 굴려버릴 수 있어서 직접 계산한다.
+  if (card && !el.courseBarStops.hidden) {
+    const box = el.courseBarStops;
+    const left = card.offsetLeft - (box.clientWidth - card.offsetWidth) / 2;
+    box.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+  }
+
+  if (row && !el.courseBarTable.hidden) {
+    const box = el.courseBarTable;
+    const headH = (box.querySelector('thead') || { offsetHeight: 0 }).offsetHeight;
+    const top = row.offsetTop - headH;
+    const bottom = row.offsetTop + row.offsetHeight;
+
+    if (top < box.scrollTop) {
+      box.scrollTo({ top, behavior: 'smooth' });
+    } else if (bottom > box.scrollTop + box.clientHeight) {
+      box.scrollTo({ top: bottom - box.clientHeight, behavior: 'smooth' });
+    }
+  }
+}
+
+export function getCourseFocus() { return courseFocusId; }
+
+// 짚은 핀을 놓을 화면 y — 상단바 아래부터 하단 카드 위까지, 보이는 영역의 한가운데
+export function courseFocusY(topInset) {
+  const barTop = courseBarOpen ? el.courseBar.getBoundingClientRect().top : window.innerHeight;
+  return Math.round((topInset + barTop) / 2);
 }
 
 /* 카드 ↔ 표 전환 */
@@ -2928,6 +3030,7 @@ function renderCourseTable(stops) {
     const text = h('span', 'ct__name-text', s.pin.name);
     text.title = s.pin.name;
     row.appendChild(text);
+    row.appendChild(stopDetailChip());
     name.appendChild(row);
     name.appendChild(h('span', 'ct__sub', s.memo || ''));
     tr.appendChild(name);
@@ -2948,10 +3051,10 @@ function renderCourseTable(stops) {
 
     tr.appendChild(Number.isFinite(meters) ? h('td', 'ct__dist', formatDistance(meters)) : emptyCell('ct__dist'));
 
-    const open = () => cb.onCourseStopSelect && cb.onCourseStopSelect(s.pin.id);
-    tr.addEventListener('click', open);
+    tr.dataset.pinId = s.pin.id;
+    tr.addEventListener('click', (e) => onStopPress(s.pin.id, e));
     tr.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStopPress(s.pin.id, e); }
     });
 
     body.appendChild(tr);
@@ -3029,6 +3132,7 @@ export function hideCourseBar() {
   courseBarOpen = false;
   el.courseBar.hidden = true;
   el.screenMap.classList.remove('is-course', 'is-course-table');
+  courseFocusId = null;
 }
 
 export function isCourseBarOpen() { return courseBarOpen; }

@@ -26,6 +26,7 @@ const state = {
   unsubscribeCourses: null,
   courseViewId: null,
   courseEditingId: null,
+  courseFocusId: null,
   unsubPhotos: null,
   unsubComments: null,
   pickerIdleOff: null,
@@ -84,6 +85,9 @@ UI.initUI({
   onCourseDone,
   onCourseBarClose,
   onCourseStopSelect,
+  onCourseStopDetail,
+  onCourseFocusClear,
+  onCourseStep,
   onAddToCourse
 });
 
@@ -277,6 +281,7 @@ function leaveMap() {
   state.courses = [];
   state.courseViewId = null;
   state.courseEditingId = null;
+  state.courseFocusId = null;
   state.mapReady = false;
   state.selectedId = null;
   state.skyview = false;
@@ -421,6 +426,9 @@ function handleMapClick(coord) {
   // 이미 열려 있을 때 탭한 자리로 옮겨주는 것까지는 남긴다.
   if (UI.isPickerOpen()) { MapCtl.panTo(coord.lat, coord.lng); return; }
 
+  // 코스에서 짚어둔 장소는 지도의 빈 곳을 누르면 풀린다.
+  if (state.courseFocusId) focusCourseStop(null);
+
   if (state.roadview) openRoadviewAt(coord.lat, coord.lng);
 }
 
@@ -466,6 +474,10 @@ function handlePinClick(id) {
   UI.openDetail(pin);
   attachPinExtras(id);
   MapCtl.panToWithOffset(pin.lat, pin.lng, sheetPanOffset(150));
+
+  // 코스를 보는 중이면 목록에서도 같은 장소를 짚어 둔다. (지도에서 핀을 직접 누른 경우)
+  const course = state.courseViewId ? findCourse(state.courseViewId) : null;
+  if (course && course.stops.some((s) => s.pinId === id)) focusCourseStop(id);
 }
 
 async function onLocate() {
@@ -999,6 +1011,9 @@ function openCourseView(id) {
   UI.hideSearchPanel();
 
   state.courseViewId = id;
+  state.courseFocusId = null;
+  MapCtl.setCourseFocus(null);
+  UI.setCourseFocus(null);
   refreshMarkers();
   drawCourse(true);
 }
@@ -1014,6 +1029,7 @@ function drawCourse(fit) {
     { done: course.status === 'done' }
   );
   UI.showCourseBar(course, stops);
+  keepCourseFocus(stops);
 
   if (fit && stops.length) {
     MapCtl.fitPoints(stops.map((s) => s.pin), {
@@ -1033,6 +1049,7 @@ function topBarBottom() {
 function exitCourseView() {
   if (!state.courseViewId) return;
   state.courseViewId = null;
+  state.courseFocusId = null;
 
   MapCtl.clearCourse();
   UI.hideCourseBar();
@@ -1047,8 +1064,50 @@ function onCourseBarClose() {
   exitCourseView();
 }
 
+// 카드 · 표에서 장소를 처음 누르면 지도에서 그 핀만 강조하고 그쪽으로 옮긴다.
+// 상세는 짚은 곳을 한 번 더 누르거나 '상세 ›' 로 연다. (onCourseStopDetail)
 function onCourseStopSelect(pinId) {
+  focusCourseStop(pinId, { pan: true });
+}
+
+function onCourseStopDetail(pinId) {
   handlePinClick(pinId);
+}
+
+function onCourseFocusClear() {
+  focusCourseStop(null);
+}
+
+// ← → 로 이전 · 다음 장소. 짚은 곳이 없으면 → 는 처음, ← 는 마지막부터.
+function onCourseStep(dir) {
+  const stops = resolveStops(findCourse(state.courseViewId));
+  if (!stops.length) return;
+
+  const cur = stops.findIndex((s) => s.pin.id === state.courseFocusId);
+  const next = cur < 0
+    ? (dir > 0 ? 0 : stops.length - 1)
+    : Math.min(stops.length - 1, Math.max(0, cur + dir));
+
+  if (next === cur) return;
+  focusCourseStop(stops[next].pin.id, { pan: true });
+}
+
+function focusCourseStop(pinId, opts = {}) {
+  const pin = pinId ? findPin(pinId) : null;
+  state.courseFocusId = pin ? pin.id : null;
+
+  MapCtl.setCourseFocus(state.courseFocusId);
+  UI.setCourseFocus(state.courseFocusId, { reveal: !!pin });
+
+  if (pin && opts.pan) {
+    MapCtl.panToFocus(pin.lat, pin.lng, UI.courseFocusY(topBarBottom()));
+  }
+}
+
+// 코스를 다시 그렸을 때 짚었던 장소가 빠졌으면 조용히 푼다.
+function keepCourseFocus(stops) {
+  if (!state.courseFocusId) return;
+  if (!stops.some((s) => s.pin.id === state.courseFocusId)) focusCourseStop(null);
 }
 
 function onCourseNew() {
