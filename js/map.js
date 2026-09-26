@@ -9,6 +9,12 @@ const MAX_LEVEL = 12;
 
 const COMPACT_FROM_LEVEL = 6;
 
+// 화면에서 먼 핀은 지도에서 떼어 둔다. 붙어 있는 오버레이는 지도를 끌 때마다
+// 카카오맵이 전부 위치를 다시 잡기 때문이다.
+// 조금 끌어서 가장자리 핀이 튀어나오지 않게, 화면 크기의 절반만큼 사방을 더 본다.
+const CULL_PAD = 0.5;
+const CULL_THROTTLE_MS = 200;
+
 const PAN_BOUNDS = {
   minLat: 32.5,
   maxLat: 39.2,
@@ -25,6 +31,7 @@ let meCircle = null;
 let places = null;
 let geocoder = null;
 let activeId = null;
+let cullTimer = null;
 let resizeObs = null;
 let lastSize = '';
 let rvOverlay = null;
@@ -147,6 +154,9 @@ export function createMap(el, center, cbs = {}) {
 
   on(map, 'zoom_changed', applyCompactPins);
 
+  on(map, 'idle', syncVisiblePins);
+  on(map, 'bounds_changed', scheduleCull);
+
   watchContainerSize();
 
   return map;
@@ -245,6 +255,7 @@ export function destroyMap() {
   unwatchContainerSize();
   clearCourse();
   clearPins();
+  if (cullTimer) { clearTimeout(cullTimer); cullTimer = null; }
 
   if (meOverlay) { meOverlay.setMap(null); meOverlay = null; }
   if (meCircle)  { meCircle.setMap(null);  meCircle = null; }
@@ -338,6 +349,8 @@ export function renderPins(pins) {
       if (exist.sig !== sig) {
         paintPinElement(exist.el, pin);
         exist.overlay.setPosition(new kakao.maps.LatLng(pin.lat, pin.lng));
+        exist.lat = pin.lat;
+        exist.lng = pin.lng;
         exist.sig = sig;
       }
       return;
@@ -357,12 +370,56 @@ export function renderPins(pins) {
       clickable: true,
       zIndex: z
     });
-    overlay.setMap(map);
-    overlays.set(pin.id, { overlay, el, sig, z });
+    // 지도에 붙이는 건 아래 syncVisiblePins 가 화면 근처 핀만 골라서 한다.
+    overlays.set(pin.id, { overlay, el, sig, z, lat: pin.lat, lng: pin.lng, attached: false });
   });
 
+  syncVisiblePins();
   applyActiveClass();
   applyCompactPins();
+}
+
+// 지도를 끄는 동안에도 가끔씩 맞춰서, 멀리 끌고 손을 뗄 때 핀이 한꺼번에 튀어나오지 않게 한다.
+function scheduleCull() {
+  if (cullTimer) return;
+  cullTimer = setTimeout(() => {
+    cullTimer = null;
+    syncVisiblePins();
+  }, CULL_THROTTLE_MS);
+}
+
+function syncVisiblePins() {
+  if (!map || !overlays.size) return;
+
+  const box = cullBox();
+  overlays.forEach((entry, id) => {
+    // 선택된 핀은 카드와 이어져 있으니 화면 밖이어도 떼지 않는다.
+    const want = !box || id === activeId || (
+      entry.lat >= box.minLat && entry.lat <= box.maxLat &&
+      entry.lng >= box.minLng && entry.lng <= box.maxLng
+    );
+    if (want === entry.attached) return;
+    entry.overlay.setMap(want ? map : null);
+    entry.attached = want;
+  });
+}
+
+// 화면 영역을 CULL_PAD 만큼 넓힌 상자. 컨테이너가 아직 크기가 없어
+// 영역이 비어 있으면 null 을 돌려주고, 그때는 전부 붙인다.
+function cullBox() {
+  const b = map.getBounds();
+  const sw = b.getSouthWest();
+  const ne = b.getNorthEast();
+  const dLat = ne.getLat() - sw.getLat();
+  const dLng = ne.getLng() - sw.getLng();
+  if (!(dLat > 0) || !(dLng > 0)) return null;
+
+  return {
+    minLat: sw.getLat() - dLat * CULL_PAD,
+    maxLat: ne.getLat() + dLat * CULL_PAD,
+    minLng: sw.getLng() - dLng * CULL_PAD,
+    maxLng: ne.getLng() + dLng * CULL_PAD
+  };
 }
 
 function baseZIndex(pin) {
@@ -409,6 +466,10 @@ function createPinElement(pin) {
 
   paintPinElement(el, pin);
 
+  el.addEventListener('animationend', (e) => {
+    if (e.target === el) el.classList.add('is-seen');
+  });
+
   const stop = (e) => e.stopPropagation();
   el.addEventListener('mousedown', stop);
   el.addEventListener('touchstart', stop, { passive: true });
@@ -449,6 +510,7 @@ export function clearPins() {
 
 export function setActivePin(id) {
   activeId = id;
+  syncVisiblePins();
   applyActiveClass();
 }
 
@@ -456,7 +518,7 @@ export function setActivePin(id) {
 // 코스 보기 중에는 코스 핀이 다른 핀 위로 오고, 나머지는 흐려진다.
 //
 // 코스에서 한 곳을 짚으면(courseFocusId) 흐림이 세 단계가 된다.
-//   짚은 장소 → 또렷하게 강조 · 코스의 다른 장소 → 중간 · 코스 밖 핀 → 가장 흐리게
+//   짚은 장소 → 또렷하게 강조 · 코스의 다른 장소 → 중간 · 코스 밖 핀 → 감춤
 // 다른 장소까지 똑같이 흐리면 번호와 선의 흐름이 사라져서 한 단계를 남긴다.
 function applyActiveClass() {
   const courseOn = courseNos.size > 0;

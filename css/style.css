@@ -1112,13 +1112,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   cursor: pointer;
   transform-origin: 50% 100%;
   animation: pinIn .38s var(--ease) both;
-  will-change: transform;
-
-  filter:
-    drop-shadow(0 1px 1.5px rgba(var(--ink-rgb), .18))
-    drop-shadow(0 6px 12px rgba(var(--ink-rgb), .20));
+  /* will-change 나 핀 전체 drop-shadow 는 핀 수만큼 GPU 레이어·블러를 만들어
+     핀이 많으면 지도가 버벅인다. 그림자는 본체 box-shadow 로 그리고,
+     filter 는 선택된 핀 한두 개에만 쓴다. */
   transition: filter .2s var(--ease);
 }
+/* 화면 밖으로 떼었다 다시 붙일 때마다 등장 애니메이션이 반복되지 않게 한다. */
+.pin.is-seen { animation: none; }
 @keyframes pinIn {
   from { opacity: 0; transform: translateY(-10px) scale(.8); }
   to   { opacity: 1; transform: none; }
@@ -1135,6 +1135,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   padding: 0 14px 0 3px;
   border-radius: 999px;
   background: linear-gradient(180deg, #FFFFFF, #FAFCFF);
+  box-shadow:
+    0 1px 1.5px rgba(var(--ink-rgb), .18),
+    0 6px 12px rgba(var(--ink-rgb), .20);
   white-space: nowrap;
   transition: transform .2s var(--ease);
 }
@@ -1178,6 +1181,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   background: #FAFCFF;
   border-radius: 0 0 3px 0;
   transform: rotate(45deg);
+  box-shadow: 2px 2px 3px rgba(var(--ink-rgb), .14);
 }
 
 .pin.is-active { z-index: 5; }
@@ -2308,12 +2312,14 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 /* .pin 자체는 등장 애니메이션이 opacity 를 쥐고 있어서 본체를 흐린다. */
 .pin .pin__body { transition: transform .2s var(--ease), opacity .25s var(--ease); }
-.pin.is-dimmed .pin__body { opacity: .17; }
-/* 본체만 흐리면 바깥 .pin 의 그림자가 진하게 남아 유령처럼 뜬다. */
+/* 코스를 보는 동안 코스 밖 핀은 완전히 감춘다.
+   투명하기만 하면 보이지 않는 핀이 눌리므로 누르는 것도 막는다. */
+.pin.is-dimmed .pin__body { opacity: 0; pointer-events: none; }
+/* 본체만 감추면 바깥 .pin 의 그림자가 남아 유령처럼 뜬다. */
 .pin.is-dimmed { filter: none; }
 
 /* 코스에서 한 곳을 짚었을 때 — 짚은 곳은 '선택된 핀'과 같은 모양으로 띄우고,
-   코스의 다른 장소는 중간 정도로 흐린다. (코스 밖 핀은 위의 .17 그대로) */
+   코스의 다른 장소는 중간 정도로 흐린다. (코스 밖 핀은 위에서 이미 감춰져 있다) */
 .pin.is-course-muted .pin__body { opacity: .5; }
 .pin.is-focus { z-index: 5; }
 .pin.is-focus .pin__body { transform: translate(-50%, -3px) scale(1.06); }
