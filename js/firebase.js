@@ -123,6 +123,12 @@ function normalizeDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
 }
 
+// 즐겨찾기는 사람마다 따로 누른다. 누른 사람 아이디 목록으로 저장한다.
+function normalizeFavorites(v) {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.filter((x) => typeof x === 'string' && x))];
+}
+
 export function subscribePins(onData, onError) {
   const q = query(PINS, orderBy('createdAt', 'desc'));
 
@@ -144,6 +150,7 @@ export function subscribePins(onData, onError) {
           cover: typeof v.cover === 'string' ? v.cover : '',
           photoCount: Number(v.photoCount) > 0 ? Number(v.photoCount) : 0,
           commentCount: Number(v.commentCount) > 0 ? Number(v.commentCount) : 0,
+          favoritedBy: normalizeFavorites(v.favoritedBy),
           createdAt: toDate(v.createdAt),
           updatedAt: toDate(v.updatedAt),
           createdBy: v.createdBy || ''
@@ -195,6 +202,16 @@ export function setPinVisit(id, category, visitedAt) {
     category: category === 'wish' ? 'wish' : 'visited',
     visitedAt: normalizeDate(visitedAt),
     updatedAt: serverTimestamp()
+  });
+}
+
+// 내 별만 켜고 끈다. arrayUnion/arrayRemove 라 상대가 동시에 눌러도 서로 덮어쓰지 않는다.
+// 내용을 고친 게 아니므로 updatedAt 은 건드리지 않는다.
+export function setFavorite(id, on) {
+  const who = me();
+  if (!who) return Promise.reject(new Error('not signed in'));
+  return updateDoc(doc(db, 'pins', id), {
+    favoritedBy: on ? arrayUnion(who) : arrayRemove(who)
   });
 }
 
@@ -377,6 +394,7 @@ export async function exportEverything(onProgress, options = {}) {
       lat: Number(v.lat),
       lng: Number(v.lng),
       address: v.address || '',
+      favoritedBy: normalizeFavorites(v.favoritedBy),
       createdBy: v.createdBy || '',
       createdAt: toIso(v.createdAt),
       updatedAt: toIso(v.updatedAt),

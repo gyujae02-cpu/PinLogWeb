@@ -16,6 +16,10 @@
   --wish-600: #E8386F;
   --wish-rgb: 255, 92, 138;
 
+  --fav-50:  #FFF8E6;
+  --fav-500: #F5B301;
+  --fav-600: #C98A00;
+
   --ink-900: #16202B;
   --ink-700: #33414F;
   --ink-500: #64748B;
@@ -812,6 +816,11 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .chip--wish.is-on .chip__dot { background: var(--wish-500); box-shadow: 0 0 0 3px rgba(var(--wish-rgb), .18); }
 .chip--wish.is-on .chip__count { background: var(--wish-50); color: var(--wish-600); }
 
+.chip__star { font-size: 12px; line-height: 1; color: var(--ink-400); transition: color .2s var(--ease); }
+.chip--fav.is-on { color: var(--fav-600); box-shadow: var(--sh-card); }
+.chip--fav.is-on .chip__star { color: var(--fav-500); }
+.chip--fav.is-on .chip__count { background: var(--fav-50); color: var(--fav-600); }
+
 .chip--tag.is-on {
   color: var(--brand-600);
   background: #fff;
@@ -1166,6 +1175,21 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .pin[data-cat="visited"] .pin__badge { background: var(--brand-500); }
 .pin[data-cat="wish"]    .pin__badge { background: var(--wish-500); }
 
+/* 즐겨찾기 — 메달 오른쪽 위. 카테고리 배지(오른쪽 아래)와 겹치지 않는다. */
+.pin__fav {
+  position: absolute;
+  right: -5px; top: -6px;
+  display: grid; place-items: center;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--fav-500);
+  color: #fff;
+  font-size: 9px; line-height: 1;
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), .25);
+}
+.pin__fav.is-both { background: var(--wish-500); }
+
 .pin__label {
   font-size: 12.5px; font-weight: 700; letter-spacing: -.02em;
   color: var(--ink-900);
@@ -1428,6 +1452,26 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .detail-brand:hover { opacity: .82; }
 .detail-brand:active { transform: scale(.96); }
 .badge--wish    { background: var(--wish-50);  color: var(--wish-600); }
+.badge--fav     { background: var(--fav-50);   color: var(--fav-600); }
+.badge--fav.is-both { background: var(--wish-50); color: var(--wish-600); }
+
+.detail-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.detail-head-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* 즐겨찾기 버튼 — 꺼져 있으면 빈 별, 켜지면 노란 별 */
+.fav-btn {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 11px;
+  background: var(--sunken-glass); color: var(--ink-400);
+  fill: none;
+  transition: background .16s var(--ease), color .16s var(--ease), transform .12s var(--ease);
+}
+.fav-btn:hover { color: var(--fav-600); }
+.fav-btn:active { transform: scale(.9); }
+.fav-btn.is-on { background: var(--fav-50); color: var(--fav-500); fill: var(--fav-500); }
+.fav-btn svg { fill: inherit; }
+.fav-btn:disabled { opacity: .5; }
 
 .segmented { display: flex; gap: 8px; }
 .segmented__item {
@@ -1979,6 +2023,8 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .tl-item__top { display: flex; align-items: center; gap: 7px; }
 .tl-item__date { font-size: 11px; color: var(--ink-400); letter-spacing: -.01em; }
+.tl-item__fav { font-size: 12px; line-height: 1; color: var(--fav-500); flex-shrink: 0; }
+.tl-item__fav.is-both { color: var(--wish-500); }
 
 .tl-item__dist {
   margin-left: auto;

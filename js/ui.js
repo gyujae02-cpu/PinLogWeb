@@ -142,6 +142,8 @@ export const el = {
   formDelete:    $('#form-delete'),
 
   detailBadge:   $('#detail-badge'),
+  detailFav:     $('#detail-fav'),
+  detailFavNote: $('#detail-fav-note'),
   detailName:    $('#detail-name'),
   detailAddress: $('#detail-address'),
   detailRoute:   $('#detail-route'),
@@ -200,7 +202,8 @@ export const el = {
   toastAction:   $('#toast-action')
 };
 
-export const filters = { visited: true, wish: true, tags: [], users: [] };
+// fav 는 켜면 '누구든 별을 준 핀만' 남긴다. 기본은 꺼짐(거르지 않음).
+export const filters = { visited: true, wish: true, fav: false, tags: [], users: [] };
 
 let sheetMode = null;
 let formCategory = 'visited';
@@ -343,6 +346,7 @@ export function initUI(handlers) {
   el.detailVisit.addEventListener('click', () => cb.onMarkVisited && cb.onMarkVisited());
   el.detailRoute.addEventListener('click', () => cb.onRoute && cb.onRoute());
   el.detailCourse.addEventListener('click', () => cb.onAddToCourse && cb.onAddToCourse());
+  el.detailFav.addEventListener('click', () => cb.onToggleFavorite && cb.onToggleFavorite());
 
   document.querySelectorAll('[data-close-courses]').forEach((n) => {
     n.addEventListener('click', () => closeCourses());
@@ -729,10 +733,11 @@ export function prefillLogin(id) {
   }
 }
 
-export function setCounts(visited, wish) {
+export function setCounts(visited, wish, fav = 0) {
   filterRows.forEach((row) => {
     row.counts.visited.textContent = visited;
     row.counts.wish.textContent = wish;
+    row.counts.fav.textContent = fav;
   });
 }
 
@@ -778,6 +783,20 @@ function buildFilterRow(root) {
 
     root.appendChild(chip);
   });
+
+  // 즐겨찾기 칩 — 카테고리 칩과 달리 켜야 거른다. is-on 칠하기는 data-filter 로 같이 된다.
+  const favChip = h('button', 'chip chip--fav');
+  favChip.type = 'button';
+  favChip.dataset.filter = 'fav';
+  const favCount = h('span', 'chip__count', '0');
+  favChip.append(h('span', 'chip__star', '★'), document.createTextNode('즐겨찾기'), favCount);
+  row.counts.fav = favCount;
+  favChip.addEventListener('click', () => {
+    filters.fav = !filters.fav;
+    paintFilters();
+    cb.onFilterChange && cb.onFilterChange(filters);
+  });
+  root.appendChild(favChip);
 
   // 사람 칩은 이 구분선과 다음 구분선 사이에 들어간다.
   row.userDiv = divider();
@@ -827,6 +846,7 @@ function divider() {
 function isFiltered() {
   return !filters.visited
       || !filters.wish
+      || filters.fav
       || filters.tags.length > 0
       || filters.users.length !== userIds.length;
 }
@@ -870,6 +890,7 @@ function paintFilters() {
 function resetFilters() {
   filters.visited = true;
   filters.wish = true;
+  filters.fav = false;
   filters.tags = [];
   filters.users = userIds.slice();
 
@@ -944,6 +965,7 @@ function paintMePill() {
 }
 
 export function resetTagFilter() {
+  filters.fav = false;
   filters.tags = [];
   filters.users = [];
   tagFilterOpen = false;
@@ -1257,6 +1279,8 @@ export function openDetail(pin) {
   el.detailBadge.textContent = isWish ? '가볼 곳' : '가본 곳';
   el.detailBadge.className = 'badge ' + (isWish ? 'badge--wish' : 'badge--visited');
 
+  paintDetailFavorite(pin);
+
   el.detailName.textContent = pin.name;
   el.detailAddress.textContent = pin.address || '주소 정보 없음';
   el.detailAddrCopy.hidden = !pin.address;   // 복사할 주소가 없으면 버튼도 감춘다
@@ -1288,6 +1312,28 @@ export function openDetail(pin) {
   renderMeta(pin);
 
   openSheet('detail');
+}
+
+// 별 버튼은 '내' 별, 옆 배지는 상대 별까지 합쳐서 보여준다.
+function paintDetailFavorite(pin) {
+  const favs = pin.favoritedBy || [];
+  const mine = favs.includes(myId);
+  const others = favs.filter((id) => id !== myId);
+
+  el.detailFav.classList.toggle('is-on', mine);
+  el.detailFav.setAttribute('aria-pressed', String(mine));
+  el.detailFav.setAttribute('aria-label', mine ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기');
+
+  const note = el.detailFavNote;
+  note.classList.toggle('is-both', mine && others.length > 0);
+  if (mine && others.length) {
+    note.textContent = '♥ 둘 다 좋아하는 곳';
+  } else if (others.length) {
+    note.textContent = `★ ${displayName(others[0])} 님이 좋아해요`;
+  } else if (mine) {
+    note.textContent = '★ 내 즐겨찾기';
+  }
+  note.hidden = favs.length === 0;
 }
 
 // http(s):// 로 시작하거나 www. 로 시작하는 주소만 링크로 만든다.
@@ -1795,6 +1841,7 @@ export function renderTimeline(pins, origin) {
 
   const byMonth  = timelineSort === 'recent' || timelineSort === 'oldest';
   const byRegion = timelineSort === 'region';
+  const byFav    = timelineSort === 'fav';
 
   // 지역 헤더에 개수를 같이 보여주려면 미리 세어둔다.
   const regionCount = new Map();
@@ -1804,6 +1851,7 @@ export function renderTimeline(pins, origin) {
       regionCount.set(r, (regionCount.get(r) || 0) + 1);
     });
   }
+  const favTotal = byFav ? list.filter((p) => favScore(p) > 0).length : 0;
 
   const frag = document.createDocumentFragment();
   let lastGroup = '';
@@ -1822,6 +1870,14 @@ export function renderTimeline(pins, origin) {
       if (key !== lastGroup) {
         lastGroup = key;
         frag.appendChild(h('div', 'tl-group', `${key} · ${regionCount.get(key)}곳`));
+      }
+    } else if (byFav) {
+      const key = favScore(pin) > 0 ? 'fav' : 'rest';
+      if (key !== lastGroup) {
+        lastGroup = key;
+        frag.appendChild(h('div', 'tl-group', key === 'fav'
+          ? `즐겨찾기 · ${favTotal}곳`
+          : `나머지 · ${list.length - favTotal}곳`));
       }
     }
 
@@ -1847,6 +1903,10 @@ function timelineSorter() {
   switch (timelineSort) {
     case 'oldest':
       return (a, b) => effectiveDate(a) - effectiveDate(b);
+
+    // 둘 다 좋아한 곳 → 한 명만 좋아한 곳(내 별 먼저) → 나머지, 같은 칸 안에서는 최신순
+    case 'fav':
+      return (a, b) => (favScore(b) - favScore(a)) || (effectiveDate(b) - effectiveDate(a));
 
     case 'name':
       return (a, b) => a.name.localeCompare(b.name, 'ko');
@@ -1874,6 +1934,13 @@ function timelineSorter() {
     default:
       return (a, b) => effectiveDate(b) - effectiveDate(a);
   }
+}
+
+function favScore(pin) {
+  const favs = pin.favoritedBy || [];
+  if (!favs.length) return 0;
+  if (favs.length >= 2) return 3;
+  return favs.includes(myId) ? 2 : 1;
 }
 
 function distanceOf(pin) {
@@ -1953,6 +2020,13 @@ function buildTimelineItem(pin, date) {
   const top = h('span', 'tl-item__top');
   top.appendChild(h('span', 'badge ' + (isWish ? 'badge--wish' : 'badge--visited'),
     isWish ? '가볼 곳' : '가본 곳'));
+
+  const favs = pin.favoritedBy || [];
+  if (favs.length) {
+    const star = h('span', 'tl-item__fav' + (favs.length >= 2 ? ' is-both' : ''), favs.length >= 2 ? '♥' : '★');
+    star.setAttribute('aria-label', favs.length >= 2 ? '둘 다 즐겨찾기' : '즐겨찾기');
+    top.appendChild(star);
+  }
 
   top.appendChild(h('span', 'tl-item__date', pin.visitedAt
     ? fmtShortDate(date)

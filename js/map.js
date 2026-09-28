@@ -438,8 +438,9 @@ function applyCompactPins() {
 function pinSignature(pin) {
   const tag = pin.tags && pin.tags.length ? pin.tags[0] : '';
   const cam = pin.photoCount > 0 ? '1' : '0';
+  const fav = (pin.favoritedBy || []).length;
 
-  return `${pin.name}|${pin.category}|${pin.lat}|${pin.lng}|${tag}|${cam}|${pin.createdBy}`;
+  return `${pin.name}|${pin.category}|${pin.lat}|${pin.lng}|${tag}|${cam}|${pin.createdBy}|${fav}`;
 }
 
 function createPinElement(pin) {
@@ -452,6 +453,7 @@ function createPinElement(pin) {
         '<span class="pin__emoji"></span>' +
         '<span class="pin__blank"></span>' +
         '<span class="pin__badge"></span>' +
+        '<span class="pin__fav" hidden></span>' +
       '</span>' +
       '<span class="pin__label"></span>' +
       '<span class="pin__cam">' +
@@ -501,6 +503,13 @@ function paintPinElement(el, pin) {
   blankEl.style.background = color.dot;
 
   el.querySelector('.pin__cam').hidden = !(pin.photoCount > 0);
+
+  // 누구든 별을 줬으면 ★, 둘 다 줬으면 ♥
+  const favCount = (pin.favoritedBy || []).length;
+  const favEl = el.querySelector('.pin__fav');
+  favEl.hidden = favCount === 0;
+  favEl.textContent = favCount >= 2 ? '♥' : '★';
+  favEl.classList.toggle('is-both', favCount >= 2);
 }
 
 export function clearPins() {

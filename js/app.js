@@ -65,6 +65,7 @@ UI.initUI({
   onDeletePin,
   onEditPin,
   onMarkVisited,
+  onToggleFavorite,
   onSheetClose,
   onPickerCancel,
   onPickerConfirm,
@@ -347,13 +348,14 @@ function subscribePins() {
 }
 
 function detailSignature(pin) {
-  return `${pin.name}|${pin.memo}|${pin.category}|${pin.visitedAt}|${pin.tags.join(',')}`;
+  return `${pin.name}|${pin.memo}|${pin.category}|${pin.visitedAt}|${pin.tags.join(',')}|${pin.favoritedBy.join(',')}`;
 }
 
 function visiblePins() {
   const f = UI.filters;
   return state.pins.filter((p) => {
     if (f[p.category] === false) return false;
+    if (f.fav && !p.favoritedBy.length) return false;
     if (!passesUserFilter(f, p)) return false;
     if (f.tags.length && !p.tags.some((t) => f.tags.includes(t))) return false;
     return true;
@@ -375,7 +377,8 @@ function refreshMarkers() {
 
   const visited = state.pins.filter((p) => p.category === 'visited').length;
   const wish    = state.pins.length - visited;
-  UI.setCounts(visited, wish);
+  const fav     = state.pins.filter((p) => p.favoritedBy.length > 0).length;
+  UI.setCounts(visited, wish, fav);
 }
 
 function findPin(id) {
@@ -854,6 +857,25 @@ async function onMarkVisited() {
   } catch (err) {
     console.error('[PinLog] 다녀왔어요 실패:', err);
     UI.toast(err.code === 'permission-denied' ? '바꿀 권한이 없어요.' : '바꾸지 못했어요.');
+  }
+}
+
+async function onToggleFavorite() {
+  const pin = findPin(state.selectedId);
+  if (!pin) return;
+
+  const on = !pin.favoritedBy.includes(FB.currentUserId());
+
+  // 화면은 스냅샷이 다시 칠한다. 로컬 스냅샷이 서버 응답보다 먼저 오므로
+  // 연달아 눌러도 매번 최신 상태에서 뒤집는다. (버튼을 잠그면 오프라인에서 풀리지 않는다)
+  UI.toast(on ? '즐겨찾기에 넣었어요.' : '즐겨찾기에서 뺐어요.');
+  try {
+    await FB.setFavorite(pin.id, on);
+  } catch (err) {
+    console.error('[PinLog] 즐겨찾기 실패:', err);
+    UI.toast(err.code === 'permission-denied'
+      ? '즐겨찾기 권한이 없어요. firestore.rules 를 다시 게시해 주세요.'
+      : '즐겨찾기를 바꾸지 못했어요.');
   }
 }
 
