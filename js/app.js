@@ -348,7 +348,7 @@ function subscribePins() {
 }
 
 function detailSignature(pin) {
-  return `${pin.name}|${pin.memo}|${pin.category}|${pin.visitedAt}|${pin.tags.join(',')}|${pin.favoritedBy.join(',')}`;
+  return `${pin.name}|${pin.memo}|${pin.category}|${pin.visitedAt}|${pin.tags.join(',')}|${pin.features.join(',')}|${pin.favoritedBy.join(',')}`;
 }
 
 function visiblePins() {
@@ -358,6 +358,7 @@ function visiblePins() {
     if (f.fav && !p.favoritedBy.length) return false;
     if (!passesUserFilter(f, p)) return false;
     if (f.tags.length && !p.tags.some((t) => f.tags.includes(t))) return false;
+    if (!f.features.every((x) => p.features.includes(x))) return false;
     return true;
   });
 }
@@ -378,7 +379,11 @@ function refreshMarkers() {
   const visited = state.pins.filter((p) => p.category === 'visited').length;
   const wish    = state.pins.length - visited;
   const fav     = state.pins.filter((p) => p.favoritedBy.length > 0).length;
-  UI.setCounts(visited, wish, fav);
+
+  const features = {};
+  state.pins.forEach((p) => p.features.forEach((x) => { features[x] = (features[x] || 0) + 1; }));
+
+  UI.setCounts(visited, wish, fav, features);
 }
 
 function findPin(id) {

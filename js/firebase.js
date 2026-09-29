@@ -26,7 +26,7 @@ import {
   arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-import { normalizeTags, tagsForSave } from './tags.js';
+import { normalizeTags, tagsForSave, normalizeFeatures } from './tags.js';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyA4fwdqoxsOY7o8oV-H7TPxpBv-pe44wHo",
@@ -143,6 +143,7 @@ export function subscribePins(onData, onError) {
           memo: v.memo || '',
           category: v.category === 'wish' ? 'wish' : 'visited',
           tags: normalizeTags(v.tags),
+          features: normalizeFeatures(v.features),
           visitedAt: normalizeDate(v.visitedAt),
           address: v.address || '',
           lat: Number(v.lat),
@@ -173,6 +174,7 @@ export function addPin(data) {
     memo: data.memo || '',
     category: data.category,
     tags: tagsForSave(data.tags),
+    features: normalizeFeatures(data.features),
     visitedAt: normalizeDate(data.visitedAt),
     lat: data.lat,
     lng: data.lng,
@@ -192,6 +194,7 @@ export function updatePin(id, data) {
     memo: data.memo || '',
     category: data.category,
     tags: tagsForSave(data.tags),
+    features: normalizeFeatures(data.features),
     visitedAt: normalizeDate(data.visitedAt),
     updatedAt: serverTimestamp()
   });
@@ -390,6 +393,7 @@ export async function exportEverything(onProgress, options = {}) {
       memo: v.memo || '',
       category: v.category || 'visited',
       tags: normalizeTags(v.tags),
+      features: normalizeFeatures(v.features),
       visitedAt: normalizeDate(v.visitedAt),
       lat: Number(v.lat),
       lng: Number(v.lng),

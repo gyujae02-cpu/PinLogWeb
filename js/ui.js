@@ -1,5 +1,5 @@
 import { compressPhoto, MAX_PHOTOS } from './photo.js';
-import { TAGS, MAX_TAGS, tagById, normalizeTags } from './tags.js';
+import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
 
@@ -134,6 +134,7 @@ export const el = {
   dateToday:     $('#date-today'),
   dateClear:     $('#date-clear'),
   tagPicker:     $('#tag-picker'),
+  featurePicker: $('#feature-picker'),
   photoStrip:    $('#photo-strip'),
   photoAdd:      $('#photo-add'),
   photoInput:    $('#photo-input'),
@@ -151,6 +152,7 @@ export const el = {
   detailWhen:    $('#detail-when'),
   detailWhenText:$('#detail-when-text'),
   detailTags:    $('#detail-tags'),
+  detailFeatures:$('#detail-features'),
   detailGallery: $('#detail-gallery'),
   detailPhotos:  $('#detail-photos'),
   galleryPrev:   $('#gallery-prev'),
@@ -203,11 +205,13 @@ export const el = {
 };
 
 // fav 는 켜면 '누구든 별을 준 핀만' 남긴다. 기본은 꺼짐(거르지 않음).
-export const filters = { visited: true, wish: true, fav: false, tags: [], users: [] };
+// features 는 켠 조건을 '모두' 가진 핀만 남긴다(AND). 태그의 OR 과 다르다.
+export const filters = { visited: true, wish: true, fav: false, tags: [], features: [], users: [] };
 
 let sheetMode = null;
 let formCategory = 'visited';
 let formTags = [];
+let formFeatures = [];
 let formPhotos = [];
 let formOriginalIds = [];
 let formSession = 0;
@@ -241,6 +245,7 @@ let myId = '';
 let userIds = [];
 let tagFilterOpen = false;
 let filterRows = [];
+let featureCounts = {};
 
 const TAG_FILTER_VISIBLE = 3;
 
@@ -378,6 +383,7 @@ export function initUI(handlers) {
   el.dateClear.addEventListener('click', () => { el.pinDate.value = ''; });
 
   buildTagPicker();
+  buildFeaturePicker();
 
   el.photoAdd.addEventListener('click', () => el.photoInput.click());
   el.photoInput.addEventListener('change', () => {
@@ -733,12 +739,18 @@ export function prefillLogin(id) {
   }
 }
 
-export function setCounts(visited, wish, fav = 0) {
+export function setCounts(visited, wish, fav = 0, features = {}) {
+  featureCounts = { ...features };
+
   filterRows.forEach((row) => {
     row.counts.visited.textContent = visited;
     row.counts.wish.textContent = wish;
     row.counts.fav.textContent = fav;
+    FEATURES.forEach((f) => { row.counts[f.id].textContent = featureCounts[f.id] || 0; });
   });
+
+  // 조건 칩은 개수가 0 이면 숨기므로, 개수가 바뀔 때마다 다시 칠한다.
+  paintFilters();
 }
 
 const CATEGORY_CHIPS = [
@@ -798,6 +810,27 @@ function buildFilterRow(root) {
   });
   root.appendChild(favChip);
 
+  // 조건 칩 — 즐겨찾기처럼 켜야 거른다. 달린 핀이 하나도 없으면 paintFilters 가 숨긴다.
+  FEATURES.forEach((f) => {
+    const chip = h('button', 'chip chip--feature');
+    chip.type = 'button';
+    chip.dataset.featureFilter = f.id;
+    const count = h('span', 'chip__count', '0');
+    chip.append(h('span', 'chip__emoji', f.emoji), document.createTextNode(f.label), count);
+    row.counts[f.id] = count;
+
+    chip.addEventListener('click', () => {
+      const on = filters.features.includes(f.id);
+      filters.features = on
+        ? filters.features.filter((x) => x !== f.id)
+        : filters.features.concat(f.id);
+      paintFilters();
+      cb.onFilterChange && cb.onFilterChange(filters);
+    });
+
+    root.appendChild(chip);
+  });
+
   // 사람 칩은 이 구분선과 다음 구분선 사이에 들어간다.
   row.userDiv = divider();
   row.userDiv.classList.add('is-folded');
@@ -848,6 +881,7 @@ function isFiltered() {
       || !filters.wish
       || filters.fav
       || filters.tags.length > 0
+      || filters.features.length > 0
       || filters.users.length !== userIds.length;
 }
 
@@ -862,6 +896,15 @@ function paintFilters() {
 
     row.root.querySelectorAll('[data-user-filter]').forEach((c) => {
       c.classList.toggle('is-on', filters.users.includes(c.dataset.userFilter));
+    });
+
+    // 달린 핀이 없으면 눌러봐야 지도가 비기만 하니 숨긴다.
+    // 켜 둔 채 0 개가 되면 끌 방법이 없어지므로, 켜져 있으면 남긴다.
+    row.root.querySelectorAll('[data-feature-filter]').forEach((c) => {
+      const id = c.dataset.featureFilter;
+      const on = filters.features.includes(id);
+      c.classList.toggle('is-on', on);
+      c.classList.toggle('is-folded', !on && !featureCounts[id]);
     });
 
     // 태그는 앞 몇 개만 두고 접는다. 켜져 있는 건 접힌 자리에서도 보여준다.
@@ -892,6 +935,7 @@ function resetFilters() {
   filters.wish = true;
   filters.fav = false;
   filters.tags = [];
+  filters.features = [];
   filters.users = userIds.slice();
 
   paintFilters();
@@ -967,7 +1011,9 @@ function paintMePill() {
 export function resetTagFilter() {
   filters.fav = false;
   filters.tags = [];
+  filters.features = [];
   filters.users = [];
+  featureCounts = {};
   tagFilterOpen = false;
   userIds = [];
 
@@ -1108,6 +1154,7 @@ export function openForm(opts) {
 
   setFormCategory(isEdit ? opts.pin.category : 'visited');
   setFormTags(isEdit ? opts.pin.tags : []);
+  setFormFeatures(isEdit ? opts.pin.features : []);
   setFormAddress(isEdit ? (opts.pin.address || '') : (opts.address || ''));
 
   const photos = (isEdit && Array.isArray(opts.photos)) ? opts.photos : [];
@@ -1171,6 +1218,38 @@ function setFormTags(list) {
   formTags = normalizeTags(list);
   el.tagPicker.querySelectorAll('[data-tag-opt]').forEach((btn) => {
     const on = formTags.includes(btn.dataset.tagOpt);
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', String(on));
+  });
+}
+
+// 조건은 태그와 모양만 같고 개수 제한이 없다.
+function buildFeaturePicker() {
+  const frag = document.createDocumentFragment();
+
+  FEATURES.forEach((f) => {
+    const btn = h('button', 'tag-opt');
+    btn.type = 'button';
+    btn.dataset.featureOpt = f.id;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.append(h('span', 'tag-opt__emoji', f.emoji), document.createTextNode(f.label));
+
+    btn.addEventListener('click', () => {
+      setFormFeatures(formFeatures.includes(f.id)
+        ? formFeatures.filter((x) => x !== f.id)
+        : formFeatures.concat(f.id));
+    });
+
+    frag.appendChild(btn);
+  });
+
+  el.featurePicker.appendChild(frag);
+}
+
+function setFormFeatures(list) {
+  formFeatures = normalizeFeatures(list);
+  el.featurePicker.querySelectorAll('[data-feature-opt]').forEach((btn) => {
+    const on = formFeatures.includes(btn.dataset.featureOpt);
     btn.classList.toggle('is-on', on);
     btn.setAttribute('aria-pressed', String(on));
   });
@@ -1256,6 +1335,7 @@ export function getFormValues() {
     memo: el.pinMemo.value.trim(),
     category: formCategory,
     tags: formTags.slice(),
+    features: formFeatures.slice(),
     visitedAt: el.pinDate.value || ''
   };
 }
@@ -1299,6 +1379,7 @@ export function openDetail(pin) {
   }
 
   renderTagRow(el.detailTags, pin.tags);
+  renderFeatureRow(el.detailFeatures, pin.features);
 
   if (pin.memo) {
     el.detailMemoWrap.hidden = false;
@@ -1450,6 +1531,22 @@ function renderTagRow(container, tags) {
     if (!t) return;
     const pill = h('span', 'tag-pill');
     pill.append(h('span', 'tag-pill__emoji', t.emoji), document.createTextNode(t.label));
+    container.appendChild(pill);
+  });
+  container.hidden = false;
+}
+
+function renderFeatureRow(container, features) {
+  container.innerHTML = '';
+  const list = normalizeFeatures(features);
+
+  if (!list.length) { container.hidden = true; return; }
+
+  list.forEach((id) => {
+    const f = featureById(id);
+    if (!f) return;
+    const pill = h('span', 'tag-pill tag-pill--feature');
+    pill.append(h('span', 'tag-pill__emoji', f.emoji), document.createTextNode(f.label));
     container.appendChild(pill);
   });
   container.hidden = false;
