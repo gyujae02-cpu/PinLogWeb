@@ -42,7 +42,7 @@ export function tagsForSave(list) {
 // 장소의 '조건' — 태그(어떤 장소인가)와 달리 개수 제한이 없고, 필터는 AND 로 건다.
 // id 를 바꾸면 firestore.rules 의 features 목록도 같이 바꿔야 한다.
 export const FEATURES = [
-  { id: 'pet',  label: '애견동반', emoji: '🐶' },
+  { id: 'pet',  label: '초롱 동반', emoji: '🐩' },   // 초롱이 — 갈색 푸들
   { id: 'late', label: '심야',     emoji: '🌙' }
 ];
 

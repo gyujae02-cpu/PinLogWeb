@@ -1347,9 +1347,11 @@ export function setFormLoading(on) {
   el.formDelete.disabled = on;
 }
 
-// 핀 이름 그대로 네이버에 넘긴다.
+// 핀 이름을 네이버에 넘기되, '[양식] 식당1' 의 [양식] 같은 대괄호 머리말은 뗀다.
+// 떼고 나서 비면 주소로 찾는다.
 function searchUrl(pin) {
-  const query = pin.name || pin.address || '';
+  const name = (pin.name || '').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+  const query = name || pin.address || '';
   return 'https://search.naver.com/search.naver?query=' + encodeURIComponent(query);
 }
 
