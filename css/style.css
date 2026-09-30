@@ -1498,6 +1498,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   margin-top: 12px;
 }
+.detail-actions--sub { margin-top: 8px; }
 
 /* 로고 이미지가 버튼 자체다. 높이만 고정하고 가로는 비율대로 둔다. */
 .detail-brand {

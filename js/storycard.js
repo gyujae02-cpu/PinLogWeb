@@ -375,8 +375,9 @@ function paintPhoto(ctx, img, x, y, w, h) {
   } else {
     ctx.fillStyle = 'rgba(255,255,255,.08)';
     ctx.fillRect(x, y, w, h);
-    const s = Math.min(h * 0.46, 240);
-    drawIcon(ctx, PIN_PATH, x + (w - s) / 2, y + (h - s) / 2, s, 'rgba(255,255,255,.78)');
+    // 사진이 없으면 메인 화면 로고 색의 'P(핀)nLog' 워드마크를 크게 가운데에 둔다.
+    const em = Math.round(Math.min(h * 0.34, w * 0.13));
+    paintBrand(ctx, x + (w - brandWidth(ctx, em)) / 2, y + h / 2, em, BRAND_MAIN);
   }
   ctx.restore();
 
@@ -386,14 +387,15 @@ function paintPhoto(ctx, img, x, y, w, h) {
   ctx.stroke();
 }
 
-// 메인 화면 왼쪽 위 'P(핀)nLog' 워드마크. 카드는 배경이 어두워서 알약 없이 전부 흰색으로 쓴다.
-// 크기는 화면의 17px 글자를 BRAND_SCALE 배로 키운 값이다.
+// 메인 화면 왼쪽 위 'P(핀)nLog' 워드마크. 크기는 화면의 17px 글자를 BRAND_SCALE 배로 키운 값이다.
+// 헤더는 전부 흰색(BRAND_WHITE), 사진 없는 자리는 메인 로고 색(BRAND_MAIN)을 쓴다.
+// 메인의 P · n 은 --ink-900(짙은 남색)이지만 카드가 어두워서 흰색으로 둔다.
 const BRAND_SCALE = 2.6;
-const BRAND_INK   = INK;
-const BRAND_STEM  = 'rgba(255,255,255,.72)';   // 로그인 화면 워드마크의 기둥과 같은 값
+const BRAND_WHITE = { ink: INK, pin: INK, log: INK, stem: 'rgba(255,255,255,.72)', shine: null };
+const BRAND_MAIN  = { ink: INK, pin: '#0B6FB5', log: '#0B6FB5', stem: '#64748B', shine: 'rgba(255,255,255,.3)' };   // --brand-600 · --ink-500
 
 // index.html 의 .wordmark-pin (viewBox 0 0 10 20) 과 같은 모양. 아래 끝이 글자 기준선에 닿는다.
-function drawWordmarkPin(ctx, x, baseline, em) {
+function drawWordmarkPin(ctx, x, baseline, em, c) {
   const w = em * 0.39;
   const h = em * 0.78;
   const s = w / 10;
@@ -401,32 +403,54 @@ function drawWordmarkPin(ctx, x, baseline, em) {
   ctx.translate(x, baseline - h);
   ctx.scale(s, h / 20);
   roundRectPath(ctx, 3.7, 8, 2.6, 12, 1.3);
-  ctx.fillStyle = BRAND_STEM;
+  ctx.fillStyle = c.stem;
   ctx.fill();
   ctx.beginPath();
   ctx.arc(5, 5, 5, 0, Math.PI * 2);
-  ctx.fillStyle = BRAND_INK;
+  ctx.fillStyle = c.pin;
   ctx.fill();
+  if (c.shine) {
+    ctx.beginPath();
+    ctx.arc(3.3, 3.3, 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = c.shine;
+    ctx.fill();
+  }
   ctx.restore();
   return w;
 }
 
-function paintBrand(ctx, x, cy) {
-  const em = Math.round(17 * BRAND_SCALE);
+function setBrandFont(ctx, em) {
+  ctx.font = font(400, em);
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${(-0.035 * em).toFixed(1)}px`;
+}
+
+// 워드마크를 em 크기로 그렸을 때의 너비. 가운데 맞춤에 쓴다.
+function brandWidth(ctx, em) {
+  ctx.save();
+  setBrandFont(ctx, em);
+  const w = ctx.measureText('P').width + em * (0.04 * 2 + 0.39) + ctx.measureText('nLog').width;
+  ctx.restore();
+  return w;
+}
+
+function paintBrand(ctx, x, cy, em = Math.round(17 * BRAND_SCALE), c = BRAND_WHITE) {
   const gap = em * 0.04;
 
   ctx.save();
-  ctx.font = font(400, em);
-  if ('letterSpacing' in ctx) ctx.letterSpacing = `${(-0.035 * em).toFixed(1)}px`;
-  ctx.fillStyle = BRAND_INK;
+  setBrandFont(ctx, em);
+  ctx.fillStyle = c.ink;
 
   // 폰트 줄높이 1 기준으로 cy 에 가운데 맞춤
   const baseline = cy + em * 0.36;
   let tx = x;
   ctx.fillText('P', tx, baseline);
   tx += ctx.measureText('P').width + gap;
-  tx += drawWordmarkPin(ctx, tx, baseline, em) + gap;
-  ctx.fillText('nLog', tx, baseline);
+  tx += drawWordmarkPin(ctx, tx, baseline, em, c) + gap;
+  ctx.fillStyle = c.ink;
+  ctx.fillText('n', tx, baseline);
+  tx += ctx.measureText('n').width;
+  ctx.fillStyle = c.log;
+  ctx.fillText('Log', tx, baseline);
   ctx.restore();
 }
 
