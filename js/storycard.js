@@ -242,13 +242,13 @@ function layoutText(ctx, card) {
     } });
   }
 
-  ctx.font = font(400, 84);
+  ctx.font = font(400, 72);
   const nameLines = clampLines(ctx, card.name, TEXT_W, 2);
-  const nameLH = 100;
+  const nameLH = 86;
   blocks.push({ h: nameLines.length * nameLH, gap: 18, draw: (y) => {
-    ctx.font = font(400, 84);
+    ctx.font = font(400, 72);
     ctx.fillStyle = INK;
-    nameLines.forEach((l, i) => ctx.fillText(l, TEXT_X - 2, y + 80 + i * nameLH));
+    nameLines.forEach((l, i) => ctx.fillText(l, TEXT_X - 2, y + 69 + i * nameLH));
   } });
 
   if (card.address) {
@@ -366,18 +366,93 @@ function paintPhoto(ctx, img, x, y, w, h) {
   ctx.stroke();
 }
 
+// 메인 화면 왼쪽 위 .brand 를 그대로 옮긴다: 흰 유리 알약 + 'P(핀)nLog' 워드마크.
+// 크기는 화면의 17px · 46px 알약을 BRAND_SCALE 배로 키운 값이다.
+const BRAND_SCALE = 2.6;
+const BRAND_INK   = '#16202B';   // --ink-900
+const BRAND_BLUE  = '#0B6FB5';   // --brand-600
+const BRAND_STEM  = '#64748B';   // --ink-500
+
+// index.html 의 .wordmark-pin (viewBox 0 0 10 20) 과 같은 모양. 아래 끝이 글자 기준선에 닿는다.
+function drawWordmarkPin(ctx, x, baseline, em) {
+  const w = em * 0.39;
+  const h = em * 0.78;
+  const s = w / 10;
+  ctx.save();
+  ctx.translate(x, baseline - h);
+  ctx.scale(s, h / 20);
+  roundRectPath(ctx, 3.7, 8, 2.6, 12, 1.3);
+  ctx.fillStyle = BRAND_STEM;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(5, 5, 5, 0, Math.PI * 2);
+  ctx.fillStyle = BRAND_BLUE;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(3.3, 3.3, 1.6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.3)';
+  ctx.fill();
+  ctx.restore();
+  return w;
+}
+
+function paintBrand(ctx, x, cy) {
+  const em = Math.round(17 * BRAND_SCALE);
+  const h = Math.round(46 * BRAND_SCALE);
+  const padX = Math.round(16 * BRAND_SCALE);
+  const gap = em * 0.04;
+
+  ctx.save();
+  ctx.font = font(400, em);
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${(-0.035 * em).toFixed(1)}px`;
+
+  const wP = ctx.measureText('P').width;
+  const wN = ctx.measureText('n').width;
+  const wLog = ctx.measureText('Log').width;
+  const textW = wP + gap + em * 0.39 + gap + wN + wLog;
+  const w = Math.ceil(textW + padX * 2);
+  const y = cy - h / 2;
+
+  // 유리 알약: --glass-l1 배경, --glass-l-bd 테두리, --sh-card 그림자
+  ctx.save();
+  ctx.shadowColor = 'rgba(22,32,43,.18)';
+  ctx.shadowBlur = 30 * BRAND_SCALE / 2;
+  ctx.shadowOffsetY = 10 * BRAND_SCALE / 2;
+  roundRectPath(ctx, x, y, w, h, 15 * BRAND_SCALE);
+  ctx.fillStyle = 'rgba(255,255,255,.62)';
+  ctx.fill();
+  ctx.restore();
+  roundRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 15 * BRAND_SCALE - 1);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.stroke();
+
+  // 글자: 폰트 줄높이 1 기준으로 가운데 맞춤
+  const baseline = cy + em * 0.36;
+  let tx = x + padX;
+  ctx.fillStyle = BRAND_INK;
+  ctx.fillText('P', tx, baseline);
+  tx += wP + gap;
+  tx += drawWordmarkPin(ctx, tx, baseline, em) + gap;
+  ctx.fillStyle = BRAND_INK;
+  ctx.fillText('n', tx, baseline);
+  tx += wN;
+  ctx.fillStyle = BRAND_BLUE;
+  ctx.fillText('Log', tx, baseline);
+  ctx.restore();
+}
+
 function paintHeader(ctx, dateText) {
-  const y = SAFE_TOP - 50;
-  drawIcon(ctx, PIN_PATH, MARGIN - 4, y - 38, 48, INK);
-  ctx.font = font(400, 42);
-  ctx.fillStyle = INK;
-  ctx.fillText('PinLog', MARGIN + 46, y);
+  const cy = SAFE_TOP - 64;
+  paintBrand(ctx, MARGIN, cy);
 
   if (dateText) {
     ctx.font = font(400, 38);
     ctx.fillStyle = INK_DIM;
     ctx.textAlign = 'right';
-    ctx.fillText(dateText, STORY_W - MARGIN, y);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(dateText, STORY_W - MARGIN, cy + 2);
+    ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
   }
 }
