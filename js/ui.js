@@ -21,6 +21,8 @@ export const el = {
   loginSubmit:   $('#login-submit'),
   loginError:    $('#login-error'),
   saveId:        $('#save-id'),
+  loginSignup:   $('#login-signup'),
+  loginFindPw:   $('#login-find-pw'),
 
   map:           $('#map'),
 
@@ -264,6 +266,18 @@ export function initUI(handlers) {
     setLoginError('');
     cb.onLogin && cb.onLogin(el.loginId.value, el.loginPassword.value, el.saveId.checked);
   });
+
+  // 계정은 관리자가 직접 만들고 관리하므로 안내 팝업만 띄운다.
+  el.loginSignup.addEventListener('click', () => confirmDialog({
+    title: '회원가입은 관리자에게 문의해 주세요',
+    desc: 'PinLog는 초대된 사람만 사용할 수 있어요.',
+    okText: '확인', cancelText: null, tone: 'primary',
+  }));
+  el.loginFindPw.addEventListener('click', () => confirmDialog({
+    title: '비밀번호 찾기는 관리자에게 문의해 주세요',
+    desc: '계정 정보는 관리자가 직접 관리하고 있어요.',
+    okText: '확인', cancelText: null, tone: 'primary',
+  }));
 
   initLoginBg();
   initCardTilt();
@@ -2342,12 +2356,14 @@ function hideToast() {
 
 // tone 은 확인 버튼의 색이다. 지우거나 잃는 일은 'danger',
 // 다녀왔어요처럼 무언가를 남기는 일은 'primary' 를 쓴다.
+// cancelText 를 null 로 주면 취소 버튼 없이 확인만 있는 안내 팝업이 된다.
 export function confirmDialog({ title, desc, okText = '삭제', cancelText = '취소', tone = 'danger' }) {
   return new Promise((resolve) => {
     el.confirmTitle.textContent = title;
     el.confirmDesc.textContent = desc;
     el.confirmOk.textContent = okText;
-    el.confirmCancel.textContent = cancelText;
+    el.confirmCancel.hidden = cancelText == null;
+    el.confirmCancel.textContent = cancelText ?? '취소';
 
     // 아래에서 복제하므로 클래스는 그 전에 바꿔둔다.
     el.confirmOk.className = (tone === 'primary' ? 'btn-primary' : 'btn-danger') + ' flex-1 h-12';

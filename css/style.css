@@ -476,6 +476,35 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .check__input:checked ~ .check__label { color: var(--ink-700); }
 
+.login-links {
+  display: inline-flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.login-links__dot {
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--ink-400);
+}
+.login-link {
+  padding: 8px 0;
+  margin: -8px 0;
+  font-size: 13px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--ink-500);
+  white-space: nowrap;
+  transition: color .16s var(--ease);
+}
+.login-link:hover,
+.login-link:active { color: var(--ink-700); }
+.login-link:focus-visible {
+  outline: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb), .20);
+}
+@media (max-width: 359px) {
+  .login-links { gap: 6px; }
+  .check__label, .login-link { font-size: 12px; }
+}
+
 .login-note {
   margin-top: 22px;
   text-align: center;
