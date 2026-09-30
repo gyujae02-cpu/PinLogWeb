@@ -24,13 +24,17 @@ const TAGLINE_ROOM = 40;    // 왼쪽 위 로고 아래 설명 줄 때문에 카
 const COPYRIGHT    = '© 2026 JAEGYU LEE';
 const FOOTER_ROOM  = 70;    // 저작권 기준선에서 카드 아래 끝까지 (한 줄 높이 + 카드와의 간격)
 
-const LAYOUT_STEPS = [
-  { name: 2, addr: 2, hash: 2, memo: 3 },
-  { name: 2, addr: 2, hash: 2, memo: 2 },
-  { name: 2, addr: 2, hash: 2, memo: 1 },
-  { name: 2, addr: 2, hash: 1, memo: 1 },
-  { name: 1, addr: 2, hash: 1, memo: 1 },
-  { name: 1, addr: 1, hash: 1, memo: 1 }
+// 이름 · 주소 · 태그 · 해시태그 · 메모는 길면 모두 두 줄까지 넘긴다(태그는 칩 두 줄).
+// 카드에 다 안 들어가면 먼저 글자를 조금씩 줄이고(TEXT_SCALES),
+// 가장 작게 해도 넘칠 때만 LINE_CUTS 순서로 한 줄로 줄인다.
+const FULL_LINES  = { name: 2, addr: 2, tags: 2, hash: 2, memo: 2 };
+const TEXT_SCALES = [1, 0.94, 0.88, 0.82, 0.76];
+const LINE_CUTS = [
+  { name: 2, addr: 2, tags: 2, hash: 2, memo: 1 },
+  { name: 2, addr: 2, tags: 2, hash: 1, memo: 1 },
+  { name: 2, addr: 2, tags: 1, hash: 1, memo: 1 },
+  { name: 1, addr: 2, tags: 1, hash: 1, memo: 1 },
+  { name: 1, addr: 1, tags: 1, hash: 1, memo: 1 }
 ];
 
 const MARGIN = 72;
@@ -266,69 +270,92 @@ function pill(ctx, x, y, text, { size, padX, h, fill, stroke, color }) {
   return w;
 }
 
+// 태그 칩을 너비에 맞춰 줄마다 나눈다. maxRows 를 넘는 칩은 뺀다(칩은 중간에 자를 수 없다).
+function tagRows(ctx, tags, size, padX, gap, maxRows) {
+  ctx.font = font(400, size);
+  const rows = [[]];
+  let x = 0;
+  for (const t of tags) {
+    const w = Math.ceil(ctx.measureText(t).width) + padX * 2;
+    if (x > 0 && x + w > TEXT_W) {
+      if (rows.length >= maxRows) break;
+      rows.push([]);
+      x = 0;
+    }
+    if (w > TEXT_W) continue;   // 한 칩이 한 줄보다 길면 넣지 않는다
+    rows[rows.length - 1].push(t);
+    x += w + gap;
+  }
+  return rows.filter((r) => r.length);
+}
+
 // 카드 안 글자 영역을 미리 재서 높이를 알아낸다. 그리기는 draw 콜백이 한다.
-// max 는 이름 · 주소 · 해시태그 · 메모의 최대 줄 수 (LAYOUT_STEPS 한 칸).
-function layoutText(ctx, card, max) {
+// max 는 항목별 최대 줄 수, k 는 글자 · 줄 간격 배율(1 이 기본 크기).
+function layoutText(ctx, card, max, k = 1) {
+  const s = (v) => Math.round(v * k);
   const blocks = [];
 
-  ctx.font = font(400, 72);
+  const nameSize = s(72), nameLH = s(86);
+  ctx.font = font(400, nameSize);
   const nameLines = clampLines(ctx, card.name, TEXT_W, max.name);
-  const nameLH = 86;
-  blocks.push({ h: nameLines.length * nameLH, gap: 18, draw: (y) => {
-    ctx.font = font(400, 72);
+  blocks.push({ h: nameLines.length * nameLH, gap: s(18), draw: (y) => {
+    ctx.font = font(400, nameSize);
     ctx.fillStyle = INK;
-    nameLines.forEach((l, i) => ctx.fillText(l, TEXT_X - 2, y + 69 + i * nameLH));
+    nameLines.forEach((l, i) => ctx.fillText(l, TEXT_X - 2, y + s(69) + i * nameLH));
   } });
 
-  // 주소가 길면 아래 줄로 넘긴다. 둘째 줄도 핀 아이콘 오른쪽에 맞춰 들여 쓴다.
+  // 둘째 줄도 핀 아이콘 오른쪽에 맞춰 들여 쓴다.
   if (card.address) {
-    ctx.font = font(300, 39);
-    const lines = clampLines(ctx, card.address, TEXT_W - 48, max.addr);
-    const lh = 52;
-    blocks.push({ h: 48 + (lines.length - 1) * lh, gap: 38, draw: (y) => {
-      drawIcon(ctx, PIN_PATH, TEXT_X - 4, y + 4, 38, INK_DIM);
-      ctx.font = font(300, 39);
+    const size = s(39), lh = s(52), icon = s(38), indent = s(44);
+    ctx.font = font(300, size);
+    const lines = clampLines(ctx, card.address, TEXT_W - indent - 4, max.addr);
+    blocks.push({ h: s(48) + (lines.length - 1) * lh, gap: s(38), draw: (y) => {
+      drawIcon(ctx, PIN_PATH, TEXT_X - 4, y + s(4), icon, INK_DIM);
+      ctx.font = font(300, size);
       ctx.fillStyle = INK_DIM;
-      lines.forEach((l, i) => ctx.fillText(l, TEXT_X + 44, y + 38 + i * lh));
+      lines.forEach((l, i) => ctx.fillText(l, TEXT_X + indent, y + s(38) + i * lh));
     } });
   }
 
   if (card.tags && card.tags.length) {
-    const hashNext = card.hashtags && card.hashtags.length;   // 해시태그는 칩에 바짝 붙인다
-    blocks.push({ h: 66, gap: hashNext ? 22 : 38, draw: (y) => {
-      let x = TEXT_X;
-      for (const t of card.tags) {
-        ctx.font = font(400, 33);
-        const w = ctx.measureText(t).width + 56;
-        if (x + w > TEXT_X + TEXT_W) break;
-        x += pill(ctx, x, y, t, {
-          size: 33, padX: 28, h: 66,
-          fill: 'rgba(255,255,255,.10)', stroke: null, color: INK
-        }) + 14;
-      }
-    } });
+    const size = s(33), padX = s(28), ph = s(66), gapX = s(14), gapY = s(12);
+    const rows = tagRows(ctx, card.tags, size, padX, gapX, max.tags);
+    if (rows.length) {
+      const hashNext = card.hashtags && card.hashtags.length;   // 해시태그는 칩에 바짝 붙인다
+      blocks.push({ h: rows.length * ph + (rows.length - 1) * gapY, gap: s(hashNext ? 22 : 38), draw: (y) => {
+        rows.forEach((row, r) => {
+          let x = TEXT_X;
+          for (const t of row) {
+            x += pill(ctx, x, y + r * (ph + gapY), t, {
+              size, padX, h: ph,
+              fill: 'rgba(255,255,255,.10)', stroke: null, color: INK
+            }) + gapX;
+          }
+        });
+      } });
+    }
   }
 
-  // 인스타처럼 태그 칩 아래 한 줄 글자로 이어 쓴다. 넘치면 두 줄까지.
+  // 인스타처럼 태그 칩 아래 글자로 이어 쓴다.
   if (card.hashtags && card.hashtags.length) {
-    ctx.font = font(400, 36);
+    const size = s(36), lh = s(54);
+    ctx.font = font(400, size);
     const lines = clampLines(ctx, card.hashtags.join(' '), TEXT_W, max.hash);
-    const lh = 54;
-    blocks.push({ h: lines.length * lh, gap: 34, draw: (y) => {
-      ctx.font = font(400, 36);
+    blocks.push({ h: lines.length * lh, gap: s(34), draw: (y) => {
+      ctx.font = font(400, size);
       ctx.fillStyle = HASH_INK;
-      lines.forEach((l, i) => ctx.fillText(l, TEXT_X, y + 40 + i * lh));
+      lines.forEach((l, i) => ctx.fillText(l, TEXT_X, y + s(40) + i * lh));
     } });
   }
 
   if (card.memo) {
-    ctx.font = font(300, 41);
+    const size = s(41), lh = s(62);
+    ctx.font = font(300, size);
     const lines = clampLines(ctx, `“${card.memo.trim()}”`, TEXT_W, max.memo);
-    const lh = 62;
     blocks.push({ h: lines.length * lh, gap: 0, draw: (y) => {
-      ctx.font = font(300, 41);
+      ctx.font = font(300, size);
       ctx.fillStyle = INK_SOFT;
-      lines.forEach((l, i) => ctx.fillText(l, TEXT_X, y + 45 + i * lh));
+      lines.forEach((l, i) => ctx.fillText(l, TEXT_X, y + s(45) + i * lh));
     } });
   }
 
@@ -529,17 +556,25 @@ export async function drawStoryCard(canvas, card) {
   paintFooter(ctx, F.footerY);
 
   // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 먼저 줄고,
-  // 사진이 최소 높이에 닿아도 넘치면 메모 → 해시태그 → 이름 → 주소 순으로 줄 수를 줄인다.
+  // 사진이 최소 높이에 닿아도 넘치면 글자를 조금씩 줄이고, 그래도 넘치면 LINE_CUTS 로 줄 수를 줄인다.
   const top = F.top + (img ? TAGLINE_ROOM : 0);
   const avail = F.footerY - FOOTER_ROOM - top;
   const chrome = CARD_PAD * 2 + 44 + 20;   // 카드 위아래 여백 + 사진과 글 사이
   const photoW = CARD_W - CARD_PAD * 2;
   const photoMin = img ? F.photoMin : F.emptyMin;
 
-  let layout;
-  for (const step of LAYOUT_STEPS) {
-    layout = layoutText(ctx, card, step);
-    if (avail - chrome - layout.height >= photoMin) break;
+  const fits = (l) => avail - chrome - l.height >= photoMin;
+  let layout = null;
+  for (const k of TEXT_SCALES) {
+    const l = layoutText(ctx, card, FULL_LINES, k);
+    if (fits(l)) { layout = l; break; }
+  }
+  if (!layout) {
+    const k = TEXT_SCALES[TEXT_SCALES.length - 1];
+    for (const step of LINE_CUTS) {
+      layout = layoutText(ctx, card, step, k);
+      if (fits(layout)) break;
+    }
   }
   const { blocks, height: textH } = layout;
 

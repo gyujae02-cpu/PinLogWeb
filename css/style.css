@@ -2958,6 +2958,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .story__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .story__thumb[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2.5px #fff; }
 .story__thumb:active { transform: scale(.94); }
+/* '사진 없음' 칸: 사진 없는 카드처럼 옅은 유리 위에 작은 핀 */
+.story__thumb--none {
+  display: grid; place-items: center;
+  background: rgba(255,255,255,.10);
+}
+.story__thumb--none svg { width: 26px; height: 26px; }
 
 /* 카드 비율 토글 */
 .story__formats {

@@ -1865,9 +1865,16 @@ function paintStoryFormats() {
   });
 }
 
-// '사진' 견본은 지금 고른 사진을 보여주고, 사진이 없는 핀에서는 숨긴다.
+// 지금 카드에 쓸 사진. '사진 없음'(-1)을 골랐으면 null.
+function storyPhoto(s) {
+  return s.photoIndex >= 0 ? s.photos[s.photoIndex] || null : null;
+}
+
+// '사진' 견본은 지금 고른 사진을 보여주고, 사진이 없으면(핀에 없거나 '사진 없음'을 골랐거나) 숨긴다.
+// 사진 배경을 쓰던 중에 사진이 빠지면 흐리게 깔 게 없어서 차콜로 바꾼다.
 function paintStoryThemes() {
-  const photo = story.photos[story.photoIndex];
+  const photo = storyPhoto(story);
+  if (!photo && story.theme === 'photo') story.theme = 'charcoal';
   el.storyThemes.querySelectorAll('[data-theme]').forEach((btn) => {
     if (btn.dataset.theme === 'photo') {
       btn.hidden = !photo;
@@ -1938,32 +1945,47 @@ function renderStoryTokens() {
   });
 }
 
+// 맨 앞 '사진 없음'(photoIndex -1)을 고르면 사진이 있는 핀도 사진 없는 카드로 만든다.
+// 사진이 한 장이어도 고를 게 생기므로 보여주고, 사진이 아예 없는 핀에서만 숨긴다.
 function renderStoryPhotos() {
   el.storyPhotos.innerHTML = '';
-  el.storyPhotos.hidden = story.photos.length < 2;
+  el.storyPhotos.hidden = !story.photos.length;
   if (el.storyPhotos.hidden) return;
 
-  story.photos.forEach((p, i) => {
+  const add = (i, label, fill) => {
     const btn = h('button', 'story__thumb');
     btn.type = 'button';
-    btn.setAttribute('aria-label', `사진 ${i + 1} 쓰기`);
+    btn.dataset.index = String(i);
+    btn.setAttribute('aria-label', label);
     btn.setAttribute('aria-pressed', String(i === story.photoIndex));
-
-    const img = document.createElement('img');
-    img.src = p.dataUrl;
-    img.alt = '';
-    btn.appendChild(img);
+    fill(btn);
 
     btn.addEventListener('click', () => {
       if (!story || story.photoIndex === i) return;
       story.photoIndex = i;
-      el.storyPhotos.querySelectorAll('.story__thumb').forEach((b, j) => {
-        b.setAttribute('aria-pressed', String(j === i));
+      el.storyPhotos.querySelectorAll('.story__thumb').forEach((b) => {
+        b.setAttribute('aria-pressed', String(Number(b.dataset.index) === i));
       });
       paintStoryThemes();
       renderStory();
     });
     el.storyPhotos.appendChild(btn);
+  };
+
+  add(-1, '사진 없이 만들기', (btn) => {
+    btn.classList.add('story__thumb--none');
+    btn.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true">'
+      + '<rect x="13.3" y="17" width="5.4" height="13" rx="2.7" fill="rgba(255,255,255,.72)"/>'
+      + '<circle cx="16" cy="11" r="9" fill="#B8DEFF"/></svg>';
+  });
+
+  story.photos.forEach((p, i) => {
+    add(i, `사진 ${i + 1} 쓰기`, (btn) => {
+      const img = document.createElement('img');
+      img.src = p.dataUrl;
+      img.alt = '';
+      btn.appendChild(img);
+    });
   });
 }
 
@@ -2008,7 +2030,7 @@ function storyCardData(s) {
   const { pin } = s;
   const d = parseDateValue(pin.visitedAt);
   const p = (v) => String(v).padStart(2, '0');
-  const photo = s.photos[s.photoIndex];
+  const photo = storyPhoto(s);
 
   return {
     name: s.name.trim() || cleanPlaceName(pin.name) || pin.name,   // 이름을 다 지우면 원래 이름으로
