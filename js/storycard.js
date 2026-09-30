@@ -5,7 +5,7 @@
 export const STORY_W = 1080;
 export const STORY_H = 1920;
 
-const FONT = "'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif";
+const FONT = "'Sebang Gothic', system-ui, -apple-system, sans-serif";
 
 // 스토리는 위(프로필) · 아래(답장 입력창)를 앱 UI 가 덮는다. 이 안쪽에만 중요한 걸 둔다.
 const SAFE_TOP    = 250;
@@ -47,7 +47,7 @@ function loadImage(src) {
 async function ensureFonts(sample) {
   if (!document.fonts || !document.fonts.load) return;
   try {
-    await Promise.all([400, 500, 700].map((w) => document.fonts.load(`${w} 40px ${FONT}`, sample)));
+    await Promise.all([300, 400, 700].map((w) => document.fonts.load(`${w} 40px ${FONT}`, sample)));
   } catch { /* 폰트가 없어도 기본 서체로 그린다 */ }
 }
 
@@ -209,7 +209,7 @@ function clampLines(ctx, text, maxW, maxLines) {
 }
 
 function pill(ctx, x, y, text, { size, padX, h, fill, stroke, color }) {
-  ctx.font = font(600, size);
+  ctx.font = font(400, size);
   const w = Math.ceil(ctx.measureText(text).width) + padX * 2;
   roundRectPath(ctx, x, y, w, h, h / 2);
   ctx.fillStyle = fill;
@@ -238,7 +238,7 @@ function layoutText(ctx, card) {
     if (card.favNote) {
       const x = TEXT_X + w + 22;
       drawIcon(ctx, HEART_PATH, x, y + 12, 36, FAV_INK);
-      ctx.font = font(600, 33);
+      ctx.font = font(400, 33);
       ctx.fillStyle = FAV_INK;
       ctx.textBaseline = 'middle';
       ctx.fillText(ellipsize(ctx, card.favNote, TEXT_W - w - 70), x + 46, y + 31);
@@ -258,7 +258,7 @@ function layoutText(ctx, card) {
   if (card.address) {
     blocks.push({ h: 48, gap: 38, draw: (y) => {
       drawIcon(ctx, PIN_PATH, TEXT_X - 4, y + 4, 38, INK_DIM);
-      ctx.font = font(400, 39);
+      ctx.font = font(300, 39);
       ctx.fillStyle = INK_DIM;
       ctx.fillText(ellipsize(ctx, card.address, TEXT_W - 48), TEXT_X + 44, y + 38);
     } });
@@ -268,7 +268,7 @@ function layoutText(ctx, card) {
     blocks.push({ h: 66, gap: 38, draw: (y) => {
       let x = TEXT_X;
       for (const t of card.tags) {
-        ctx.font = font(600, 33);
+        ctx.font = font(400, 33);
         const w = ctx.measureText(t).width + 56;
         if (x + w > TEXT_X + TEXT_W) break;
         x += pill(ctx, x, y, t, {
@@ -280,11 +280,11 @@ function layoutText(ctx, card) {
   }
 
   if (card.memo) {
-    ctx.font = font(400, 41);
+    ctx.font = font(300, 41);
     const lines = clampLines(ctx, `“${card.memo.trim()}”`, TEXT_W, 3);
     const lh = 62;
     blocks.push({ h: lines.length * lh, gap: 0, draw: (y) => {
-      ctx.font = font(400, 41);
+      ctx.font = font(300, 41);
       ctx.fillStyle = INK_SOFT;
       lines.forEach((l, i) => ctx.fillText(l, TEXT_X, y + 45 + i * lh));
     } });
@@ -365,7 +365,7 @@ function paintHeader(ctx, dateText) {
   ctx.fillText('PinLog', MARGIN + 46, y);
 
   if (dateText) {
-    ctx.font = font(500, 38);
+    ctx.font = font(400, 38);
     ctx.fillStyle = INK_DIM;
     ctx.textAlign = 'right';
     ctx.fillText(dateText, STORY_W - MARGIN, y);
@@ -412,7 +412,7 @@ export async function drawStoryCard(canvas, card) {
   }
 
   if (card.footer) {
-    ctx.font = font(500, 39);
+    ctx.font = font(400, 39);
     ctx.fillStyle = INK_DIM;
     ctx.textAlign = 'center';
     ctx.fillText(card.footer, STORY_W / 2, cardY + cardH + 92);
