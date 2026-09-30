@@ -14,7 +14,7 @@ const FONT = "'Sebang Gothic', system-ui, -apple-system, sans-serif";
 export const CARD_FORMATS = {
   story:  { h: 1920, headerY: 186, top: 250, footerY: 1600, photoMin: 460, emptyPhoto: 420, emptyMin: 320 },
   feed45: { h: 1350, headerY: 96,  top: 168, footerY: 1306, photoMin: 300, emptyPhoto: 340, emptyMin: 240 },
-  square: { h: 1080, headerY: 88,  top: 146, footerY: 1040, photoMin: 200, emptyPhoto: 260, emptyMin: 200 }
+  square: { h: 1080, headerY: 88,  top: 146, footerY: 1040, photoMin: 200, emptyPhoto: 320, emptyMin: 200 }
 };
 
 // 서비스 설명은 로고 바로 아래에 붙는다(사진이 있으면 왼쪽 위 로고, 없으면 사진 자리 큰 로고).
