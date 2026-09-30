@@ -2920,17 +2920,16 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   width: 100%;
 }
 .story__canvas {
-  height: 100%; max-height: 100%;
-  width: auto; max-width: 100%;
-  aspect-ratio: 9 / 16;
+  /* 캔버스 자체 크기(1080×1920 · 1350 · 1080)를 비율 그대로 무대 안에 줄여 넣는다. */
+  width: auto; height: auto;
+  max-width: 100%; max-height: 100%;
   border-radius: 16px;
   background: #0F1114;
   box-shadow: 0 24px 70px rgba(0,0,0,.5);
   transform: scale(.96);
   transition: transform .28s var(--ease), opacity .2s var(--ease);
 }
-.story.is-on .story__canvas { transform: none; }
-.story.is-drawing .story__canvas { opacity: .55; }
+.story.is-on .story__canvas { transform: none; }.story.is-drawing .story__canvas { opacity: .55; }
 
 .story__panel {
   flex: none;
@@ -2958,6 +2957,23 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .story__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .story__thumb[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2.5px #fff; }
 .story__thumb:active { transform: scale(.94); }
+
+/* 카드 비율 토글 */
+.story__formats {
+  display: flex; gap: 2px;
+  padding: 3px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.16);
+}
+.story__format {
+  height: 30px; padding: 0 14px;
+  border-radius: 99px;
+  color: rgba(255,255,255,.62);
+  font-size: 13px; letter-spacing: -.01em;
+  transition: background .16s var(--ease), color .16s var(--ease);
+}
+.story__format[aria-pressed="true"] { background: #fff; color: var(--brand-700); }
 
 /* 배경 테마 견본. 색은 storycard.js 의 THEME_COLORS 와 맞춘다. */
 .story__themes { display: flex; gap: 10px; padding: 3px; }

@@ -190,6 +190,7 @@ export const el = {
   storyCanvas:     $('#story-canvas'),
   storyClose:      $('#story-close'),
   storyPhotos:     $('#story-photos'),
+  storyFormats:    $('#story-formats'),
   storyThemes:     $('#story-themes'),
   storyEditToggle: $('#story-edit-toggle'),
   storyEdit:       $('#story-edit'),
@@ -506,6 +507,14 @@ export function initUI(handlers) {
   });
 
   el.storyClose.addEventListener('click', () => closeStoryCard());
+  el.storyFormats.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-format]');
+    if (!btn || !story || story.format === btn.dataset.format) return;
+    story.format = btn.dataset.format;
+    story.filename = storyFilename(story.pin, story.format);
+    paintStoryFormats();
+    renderStory();
+  });
   el.storyThemes.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-theme]');
     if (!btn || !story || story.theme === btn.dataset.theme) return;
@@ -1811,9 +1820,10 @@ export function openStoryCard(pin, photos) {
     memo: '',                                      // 메모는 기본으로 빼고, 필요하면 가져온다
     tags: (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean),
     hashtags: [],
-    theme: list.length ? 'photo' : 'charcoal',   // 고른 배경은 기억하지 않는다
+    theme: list.length ? 'photo' : 'charcoal',   // 고른 배경 · 비율은 기억하지 않는다
+    format: 'story',
     blob: null,
-    filename: storyFilename(pin)
+    filename: storyFilename(pin, 'story')
   };
 
   el.storyName.value = story.name;
@@ -1825,6 +1835,7 @@ export function openStoryCard(pin, photos) {
   el.storyEditToggle.setAttribute('aria-expanded', 'false');
   renderStoryTokens();
   renderStoryPhotos();
+  paintStoryFormats();
   paintStoryThemes();
 
   el.story.hidden = false;
@@ -1847,6 +1858,12 @@ export function closeStoryCard() {
 }
 
 export function isStoryCardOpen() { return !el.story.hidden; }
+
+function paintStoryFormats() {
+  el.storyFormats.querySelectorAll('[data-format]').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.format === story.format));
+  });
+}
 
 // '사진' 견본은 지금 고른 사진을 보여주고, 사진이 없는 핀에서는 숨긴다.
 function paintStoryThemes() {
@@ -1965,8 +1982,14 @@ async function renderStory() {
     await drawStoryCard(canvas, storyCardData(s));
     if (seq !== storySeq) return;
 
-    const ctx = el.storyCanvas.getContext('2d');
-    ctx.clearRect(0, 0, el.storyCanvas.width, el.storyCanvas.height);
+    // 비율이 바뀌면 크기를 다시 맞춘다(크기를 넣으면 캔버스가 비워진다).
+    const view = el.storyCanvas;
+    if (view.width !== canvas.width || view.height !== canvas.height) {
+      view.width = canvas.width;
+      view.height = canvas.height;
+    }
+    const ctx = view.getContext('2d');
+    ctx.clearRect(0, 0, view.width, view.height);
     ctx.drawImage(canvas, 0, 0);
     el.story.classList.remove('is-drawing');
 
@@ -1992,25 +2015,21 @@ function storyCardData(s) {
     dateText: d ? `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}` : '',
     address: s.address.trim(),
     memo: s.memo.trim(),
-    favNote: storyFavNote(pin.favoritedBy || []),
     tags: s.tags.slice(),
     hashtags: s.hashtags.map((t) => '#' + t),
     theme: s.theme,
+    format: s.format,
     photo: photo ? photo.dataUrl : ''
   };
 }
 
-// 스토리는 둘 밖의 사람이 본다. '내 즐겨찾기' 대신 이름으로 적는다.
-function storyFavNote(favs) {
-  if (favs.length >= 2) return '둘 다 좋아하는 곳';
-  if (favs.length === 1) return `${displayName(favs[0])} 님이 좋아하는 곳`;
-  return '';
-}
+// 같은 핀을 비율별로 저장해도 겹치지 않게 비율을 파일 이름 끝에 붙인다.
+const STORY_FILE_SUFFIX = { story: 'story', feed45: 'feed-4x5', square: 'feed-1x1' };
 
-function storyFilename(pin) {
+function storyFilename(pin, format) {
   const name = (cleanPlaceName(pin.name) || String(pin.name || 'pin')).replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const date = /^\d{4}-\d{2}-\d{2}$/.test(pin.visitedAt || '') ? pin.visitedAt : todayValue();
-  return `pinlog-${name || 'pin'}-${date.replace(/-/g, '')}.jpg`;
+  return `pinlog-${name || 'pin'}-${date.replace(/-/g, '')}-${STORY_FILE_SUFFIX[format] || 'story'}.jpg`;
 }
 
 /* ── 댓글 모아보기 ─────────────────────────────────────────── */

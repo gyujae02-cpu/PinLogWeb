@@ -1,15 +1,28 @@
-// 인스타그램 스토리용 카드(1080×1920)를 캔버스에 그린다.
+// 인스타그램용 카드를 캔버스에 그린다. 스토리(9:16) · 피드(4:5 · 1:1) 세 가지 비율.
 // photo.js 처럼 아무것도 import 하지 않는 말단 모듈이다.
 // 로그인 화면의 다크 글래스와 같은 재료(흰 10% 유리 · 흰 22% 테두리 · 블루 틴트)를 쓴다.
+// 너비는 모두 1080 이고 높이만 다르다. 그리는 함수들은 높이를 ctx.canvas.height 에서 읽는다.
 
-export const STORY_W = 1080;
-export const STORY_H = 1920;
+const STORY_W = 1080;
 
 const FONT = "'Sebang Gothic', system-ui, -apple-system, sans-serif";
 
-// 스토리는 위(프로필) · 아래(답장 입력창)를 앱 UI 가 덮는다. 이 안쪽에만 중요한 걸 둔다.
-const SAFE_TOP    = 250;
-const SAFE_BOTTOM = STORY_H - 300;
+// top · bottom 은 카드를 놓을 세로 범위, headerY 는 PinLog · 날짜 줄의 가운데.
+// 스토리는 위(프로필) · 아래(답장 입력창)를 앱 UI 가 덮어서 넉넉히 비운다. 피드는 가리는 게 없다.
+// 피드는 세로가 좁아 글이 많으면 LAYOUT_STEPS 순서로 줄 수를 줄여 넣는다.
+export const CARD_FORMATS = {
+  story:  { h: 1920, headerY: 186, top: 250, bottom: 1620, photoMin: 460, emptyPhoto: 420, emptyMin: 320 },
+  feed45: { h: 1350, headerY: 96,  top: 168, bottom: 1290, photoMin: 300, emptyPhoto: 340, emptyMin: 240 },
+  square: { h: 1080, headerY: 88,  top: 156, bottom: 1026, photoMin: 220, emptyPhoto: 260, emptyMin: 200 }
+};
+
+const LAYOUT_STEPS = [
+  { name: 2, hash: 2, memo: 3 },
+  { name: 2, hash: 2, memo: 2 },
+  { name: 2, hash: 2, memo: 1 },
+  { name: 2, hash: 1, memo: 1 },
+  { name: 1, hash: 1, memo: 1 }
+];
 
 const MARGIN = 72;
 const CARD_X = MARGIN;
@@ -22,11 +35,9 @@ const TEXT_W = CARD_W - (CARD_PAD + 20) * 2;
 const INK      = '#FFFFFF';
 const INK_DIM  = 'rgba(255,255,255,.62)';
 const INK_SOFT = 'rgba(255,255,255,.80)';
-const FAV_INK  = '#FFDCE6';
 const HASH_INK = '#BFE2FF';
 
 const PIN_PATH   = 'M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z';
-const HEART_PATH = 'M12 20.6s-7.4-4.5-9.4-9.1C1 7.9 3.1 4.4 6.6 4.4c2.1 0 3.6 1.1 5.4 3 1.8-1.9 3.3-3 5.4-3 3.5 0 5.6 3.5 4 7.1-2 4.6-9.4 9.1-9.4 9.1z';
 
 const imageCache = new Map();
 
@@ -78,11 +89,12 @@ function drawCover(ctx, img, x, y, w, h) {
 
 // ctx.filter 는 구형 iOS Safari 에 없다. 아주 작게 줄였다가 단계적으로 키우면
 // 어느 브라우저에서나 같은 블러가 나온다.
-function blurredBackdrop(img) {
+function blurredBackdrop(img, H) {
+  const k = H / STORY_W;   // 캔버스 비율대로 줄여야 늘어나 보이지 않는다
   const tiny = document.createElement('canvas');
-  tiny.width = 27; tiny.height = 48;
-  let step = document.createElement('canvas');
-  step.width = 216; step.height = 384;
+  tiny.width = 27; tiny.height = Math.round(27 * k);
+  const step = document.createElement('canvas');
+  step.width = 216; step.height = Math.round(216 * k);
 
   const sctx = step.getContext('2d');
   sctx.imageSmoothingQuality = 'high';
@@ -93,7 +105,7 @@ function blurredBackdrop(img) {
   tctx.drawImage(step, 0, 0, tiny.width, tiny.height);
 
   const mid = document.createElement('canvas');
-  mid.width = 135; mid.height = 240;
+  mid.width = 135; mid.height = Math.round(135 * k);
   const mctx = mid.getContext('2d');
   mctx.imageSmoothingQuality = 'high';
   mctx.drawImage(tiny, 0, 0, mid.width, mid.height);
@@ -116,20 +128,21 @@ function paintBackground(ctx, img, theme) {
     return;   // 스크림 · 틴트는 사진용이다
   }
 
+  const H = ctx.canvas.height;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(blurredBackdrop(img), 0, 0, STORY_W, STORY_H);
+  ctx.drawImage(blurredBackdrop(img, H), 0, 0, STORY_W, H);
 
   // 가독성 스크림 + 브랜드 블루 틴트 (로그인 화면과 같은 값)
-  const scrim = ctx.createLinearGradient(0, 0, 0, STORY_H);
+  const scrim = ctx.createLinearGradient(0, 0, 0, H);
   scrim.addColorStop(0,    'rgba(6,20,34,.60)');
   scrim.addColorStop(0.28, 'rgba(6,20,34,.26)');
   scrim.addColorStop(0.58, 'rgba(6,20,34,.38)');
   scrim.addColorStop(1,    'rgba(6,20,34,.72)');
   ctx.fillStyle = scrim;
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
+  ctx.fillRect(0, 0, STORY_W, H);
 
   ctx.fillStyle = 'rgba(11,111,181,.20)';
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
+  ctx.fillRect(0, 0, STORY_W, H);
 }
 
 // 색 테마 배경. 유리 뒤에 비칠 게 있어야 투명해 보여서
@@ -141,18 +154,19 @@ const BEAMS = [
 ];
 
 function paintLightBeams(ctx, colors) {
+  const H = ctx.canvas.height;
   if (colors.length === 1) {
     ctx.fillStyle = colors[0];
   } else {
     // 왼쪽 위에서 오른쪽 아래로 살짝 기울여 흐르게 한다.
-    const g = ctx.createLinearGradient(0, 0, STORY_W * 0.45, STORY_H);
+    const g = ctx.createLinearGradient(0, 0, STORY_W * 0.45, H);
     colors.forEach((c, i) => g.addColorStop(i / (colors.length - 1), c));
     ctx.fillStyle = g;
   }
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
+  ctx.fillRect(0, 0, STORY_W, H);
 
-  const cy = STORY_H * 0.48;
-  const len = STORY_H * 1.6;
+  const cy = H * 0.48;
+  const len = Math.max(H, STORY_W) * 1.6;
   for (const b of BEAMS) {
     ctx.save();
     ctx.translate(b.x + b.w / 2, cy);
@@ -168,13 +182,13 @@ function paintLightBeams(ctx, colors) {
   }
 
   // 위아래를 살짝 눌러 헤더 · 문구가 빛에 묻히지 않게 한다.
-  const shade = ctx.createLinearGradient(0, 0, 0, STORY_H);
+  const shade = ctx.createLinearGradient(0, 0, 0, H);
   shade.addColorStop(0,    'rgba(0,0,0,.35)');
   shade.addColorStop(0.25, 'rgba(0,0,0,0)');
   shade.addColorStop(0.75, 'rgba(0,0,0,0)');
   shade.addColorStop(1,    'rgba(0,0,0,.40)');
   ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
+  ctx.fillRect(0, 0, STORY_W, H);
 }
 
 function drawIcon(ctx, pathStr, x, y, size, color) {
@@ -244,22 +258,12 @@ function pill(ctx, x, y, text, { size, padX, h, fill, stroke, color }) {
 }
 
 // 카드 안 글자 영역을 미리 재서 높이를 알아낸다. 그리기는 draw 콜백이 한다.
-function layoutText(ctx, card) {
+// max 는 이름 · 해시태그 · 메모의 최대 줄 수 (LAYOUT_STEPS 한 칸).
+function layoutText(ctx, card, max) {
   const blocks = [];
 
-  if (card.favNote) {
-    blocks.push({ h: 60, gap: 30, draw: (y) => {
-      drawIcon(ctx, HEART_PATH, TEXT_X, y + 12, 36, FAV_INK);
-      ctx.font = font(400, 33);
-      ctx.fillStyle = FAV_INK;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(ellipsize(ctx, card.favNote, TEXT_W - 46), TEXT_X + 46, y + 31);
-      ctx.textBaseline = 'alphabetic';
-    } });
-  }
-
   ctx.font = font(400, 72);
-  const nameLines = clampLines(ctx, card.name, TEXT_W, 2);
+  const nameLines = clampLines(ctx, card.name, TEXT_W, max.name);
   const nameLH = 86;
   blocks.push({ h: nameLines.length * nameLH, gap: 18, draw: (y) => {
     ctx.font = font(400, 72);
@@ -295,7 +299,7 @@ function layoutText(ctx, card) {
   // 인스타처럼 태그 칩 아래 한 줄 글자로 이어 쓴다. 넘치면 두 줄까지.
   if (card.hashtags && card.hashtags.length) {
     ctx.font = font(400, 36);
-    const lines = clampLines(ctx, card.hashtags.join(' '), TEXT_W, 2);
+    const lines = clampLines(ctx, card.hashtags.join(' '), TEXT_W, max.hash);
     const lh = 54;
     blocks.push({ h: lines.length * lh, gap: 34, draw: (y) => {
       ctx.font = font(400, 36);
@@ -306,7 +310,7 @@ function layoutText(ctx, card) {
 
   if (card.memo) {
     ctx.font = font(300, 41);
-    const lines = clampLines(ctx, `“${card.memo.trim()}”`, TEXT_W, 3);
+    const lines = clampLines(ctx, `“${card.memo.trim()}”`, TEXT_W, max.memo);
     const lh = 62;
     blocks.push({ h: lines.length * lh, gap: 0, draw: (y) => {
       ctx.font = font(300, 41);
@@ -324,7 +328,7 @@ function paintGlass(ctx, y, h) {
   // 그림자는 카드 바깥에만 떨어뜨린다. 반투명 유리에 그대로 주면 안쪽이 탁해진다.
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, STORY_W, STORY_H);
+  ctx.rect(0, 0, STORY_W, ctx.canvas.height);
   roundRectPath(ctx, CARD_X, y, CARD_W, h, CARD_R, true);
   ctx.clip('evenodd');
   ctx.shadowColor = 'rgba(3,14,26,.50)';
@@ -426,8 +430,7 @@ function paintBrand(ctx, x, cy) {
   ctx.restore();
 }
 
-function paintHeader(ctx, dateText) {
-  const cy = SAFE_TOP - 64;
+function paintHeader(ctx, cy, dateText) {
   paintBrand(ctx, MARGIN, cy);
 
   if (dateText) {
@@ -442,33 +445,44 @@ function paintHeader(ctx, dateText) {
 }
 
 /**
- * card: { name, address, dateText, favNote, tags: [label], hashtags: ['#…'], memo, photo: dataUrl | '',
- *         theme: 'photo' | 'charcoal' | 'blue' | 'rose' | 'dusk' }
+ * card: { name, address, dateText, tags: [label], hashtags: ['#…'], memo, photo: dataUrl | '',
+ *         theme: 'photo' | 'charcoal' | 'blue' | 'rose' | 'dusk',
+ *         format: 'story' | 'feed45' | 'square' }
  * address · memo 는 보여줄 때만 넘긴다(빈 값이면 줄 자체를 뺀다).
  */
 export async function drawStoryCard(canvas, card) {
+  const F = CARD_FORMATS[card.format] || CARD_FORMATS.story;
   canvas.width = STORY_W;
-  canvas.height = STORY_H;
+  canvas.height = F.h;
   const ctx = canvas.getContext('2d');
 
-  const sample = [card.name, card.address, card.memo, card.favNote, card.dateText,
+  const sample = [card.name, card.address, card.memo, card.dateText,
     (card.tags || []).join(''), (card.hashtags || []).join(''), 'PinLog…“”#'].join('');
   const [img] = await Promise.all([loadImage(card.photo), ensureFonts(sample)]);
 
-  ctx.clearRect(0, 0, STORY_W, STORY_H);
+  ctx.clearRect(0, 0, STORY_W, F.h);
   paintBackground(ctx, img, card.theme || (img ? 'photo' : 'charcoal'));
-  paintHeader(ctx, card.dateText);
+  paintHeader(ctx, F.headerY, card.dateText);
 
-  const { blocks, height: textH } = layoutText(ctx, card);
-
-  // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 줄어든다.
-  const avail = SAFE_BOTTOM - SAFE_TOP;
+  // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 먼저 줄고,
+  // 사진이 최소 높이에 닿아도 넘치면 메모 → 해시태그 → 이름 순으로 줄 수를 줄인다.
+  const avail = F.bottom - F.top;
+  const chrome = CARD_PAD * 2 + 44 + 20;   // 카드 위아래 여백 + 사진과 글 사이
   const photoW = CARD_W - CARD_PAD * 2;
-  const photoMax = img ? Math.round(photoW * (img.height > img.width ? 1.05 : 0.86)) : 420;
-  const photoH = Math.max(img ? 460 : 320, Math.min(photoMax, avail - textH - CARD_PAD * 2 - 44));
-  const cardH = CARD_PAD + photoH + 44 + textH + CARD_PAD + 20;
+  const photoMin = img ? F.photoMin : F.emptyMin;
 
-  const cardY = Math.round(SAFE_TOP + Math.max(0, (avail - cardH) / 2));
+  let layout;
+  for (const step of LAYOUT_STEPS) {
+    layout = layoutText(ctx, card, step);
+    if (avail - chrome - layout.height >= photoMin) break;
+  }
+  const { blocks, height: textH } = layout;
+
+  const photoMax = img ? Math.round(photoW * (img.height > img.width ? 1.05 : 0.86)) : F.emptyPhoto;
+  const photoH = Math.max(photoMin, Math.min(photoMax, avail - textH - chrome + 20));
+  const cardH = chrome + photoH + textH;
+
+  const cardY = Math.round(F.top + Math.max(0, (avail - cardH) / 2));
 
   paintGlass(ctx, cardY, cardH);
   paintPhoto(ctx, img, CARD_X + CARD_PAD, cardY + CARD_PAD, photoW, photoH);
