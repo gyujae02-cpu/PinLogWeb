@@ -596,6 +596,11 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 #screen-login .check__label { color: var(--login-dim); }
 #screen-login .check__input:checked ~ .check__label { color: var(--login-ink); }
+#screen-login .login-link { color: var(--login-dim); }
+#screen-login .login-link:hover,
+#screen-login .login-link:active { color: var(--login-ink); }
+#screen-login .login-link:focus-visible { box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+#screen-login .login-links__dot { background: var(--login-mute); }
 
 #screen-login .login-error {
   background: rgba(120, 12, 40, .52);
