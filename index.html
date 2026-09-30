@@ -857,6 +857,9 @@
       <div id="story-photos" class="story__photos" role="group" aria-label="카드에 쓸 사진"></div>
 
       <div id="story-formats" class="story__formats" role="group" aria-label="카드 비율">
+        <!-- 파일이 아직 없으면 깨진 그림 대신 숨긴다 -->
+        <img class="story__formats-logo" src="img/instagram.png" alt="" aria-hidden="true"
+             onerror="this.hidden = true">
         <button type="button" class="story__format" data-format="story" aria-pressed="true">스토리</button>
         <button type="button" class="story__format" data-format="feed45" aria-pressed="false">피드 4:5</button>
         <button type="button" class="story__format" data-format="square" aria-pressed="false">피드 1:1</button>

@@ -2967,6 +2967,14 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   background: rgba(255,255,255,.10);
   border: 1px solid rgba(255,255,255,.16);
 }
+.story__formats { align-items: center; }
+.story__formats-logo {
+  width: 22px; height: 22px;
+  margin: 0 6px 0 8px;
+  object-fit: contain;
+  flex: none;
+}
+.story__formats-logo[hidden] { display: none; }
 .story__format {
   height: 30px; padding: 0 14px;
   border-radius: 99px;
