@@ -230,21 +230,16 @@ function pill(ctx, x, y, text, { size, padX, h, fill, stroke, color }) {
 function layoutText(ctx, card) {
   const blocks = [];
 
-  blocks.push({ h: 60, gap: 30, draw: (y) => {
-    const w = pill(ctx, TEXT_X, y, card.category === 'wish' ? '가볼 곳' : '가본 곳', {
-      size: 33, padX: 28, h: 60,
-      fill: 'rgba(255,255,255,.16)', stroke: 'rgba(255,255,255,.26)', color: INK
-    });
-    if (card.favNote) {
-      const x = TEXT_X + w + 22;
-      drawIcon(ctx, HEART_PATH, x, y + 12, 36, FAV_INK);
+  if (card.favNote) {
+    blocks.push({ h: 60, gap: 30, draw: (y) => {
+      drawIcon(ctx, HEART_PATH, TEXT_X, y + 12, 36, FAV_INK);
       ctx.font = font(400, 33);
       ctx.fillStyle = FAV_INK;
       ctx.textBaseline = 'middle';
-      ctx.fillText(ellipsize(ctx, card.favNote, TEXT_W - w - 70), x + 46, y + 31);
+      ctx.fillText(ellipsize(ctx, card.favNote, TEXT_W - 46), TEXT_X + 46, y + 31);
       ctx.textBaseline = 'alphabetic';
-    }
-  } });
+    } });
+  }
 
   ctx.font = font(400, 84);
   const nameLines = clampLines(ctx, card.name, TEXT_W, 2);
@@ -374,7 +369,7 @@ function paintHeader(ctx, dateText) {
 }
 
 /**
- * card: { name, address, dateText, category, favNote, tags: [label], memo, footer, photo: dataUrl | '' }
+ * card: { name, address, dateText, favNote, tags: [label], memo, footer, photo: dataUrl | '' }
  * address · memo 는 보여줄 때만 넘긴다(빈 값이면 줄 자체를 뺀다).
  */
 export async function drawStoryCard(canvas, card) {
@@ -383,7 +378,7 @@ export async function drawStoryCard(canvas, card) {
   const ctx = canvas.getContext('2d');
 
   const sample = [card.name, card.address, card.memo, card.favNote, card.footer, card.dateText,
-    (card.tags || []).join(''), 'PinLog가본볼곳…“”'].join('');
+    (card.tags || []).join(''), 'PinLog…“”'].join('');
   const [img] = await Promise.all([loadImage(card.photo), ensureFonts(sample)]);
 
   ctx.clearRect(0, 0, STORY_W, STORY_H);

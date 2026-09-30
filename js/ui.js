@@ -1761,8 +1761,7 @@ export function closeLightbox() {
 export function isLightboxOpen() { return !el.lightbox.hidden; }
 
 // ── 스토리 카드 ───────────────────────────────────────────
-// ordinal 은 '우리의 N번째 장소' 의 N. 가본 곳인데 날짜가 없으면 0 이 와서 문구를 뺀다.
-export function openStoryCard(pin, photos, ordinal) {
+export function openStoryCard(pin, photos) {
   const list = Array.isArray(photos) ? photos : [];
 
   story = {
@@ -1771,7 +1770,6 @@ export function openStoryCard(pin, photos, ordinal) {
     photoIndex: 0,
     address: !!pin.address,
     memo: false,
-    ordinal,
     blob: null,
     filename: storyFilename(pin)
   };
@@ -1878,15 +1876,11 @@ function storyCardData(s) {
   const d = parseDateValue(pin.visitedAt);
   const p = (v) => String(v).padStart(2, '0');
 
-  let footer = '';
-  if (isWish) footer = '언젠가 같이 갈 곳';
-  else if (s.ordinal > 0) footer = `우리의 ${s.ordinal}번째 장소`;
-
+  const footer = isWish ? '언젠가 같이 갈 곳' : '';
   const photo = s.photos[s.photoIndex];
 
   return {
     name: cleanPlaceName(pin.name) || pin.name,   // 대괄호뿐인 이름이면 그대로 둔다
-    category: pin.category,
     dateText: d ? `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}` : '',
     address: s.address ? pin.address : '',
     memo: s.memo ? pin.memo : '',

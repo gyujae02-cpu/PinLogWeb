@@ -712,20 +712,7 @@ function onMakeCard() {
     return;
   }
 
-  UI.openStoryCard(pin, state.detailPhotos, visitOrdinal(pin));
-}
-
-// 가본 곳을 다녀온 날 순(같은 날이면 등록 순)으로 세워 몇 번째인지 구한다.
-// 날짜가 없는 핀은 순서를 매길 수 없어서 0 을 돌려준다.
-function visitOrdinal(pin) {
-  if (pin.category !== 'visited' || !pin.visitedAt) return 0;
-
-  const created = (p) => (p.createdAt instanceof Date ? p.createdAt.getTime() : Infinity);
-  const visited = state.pins
-    .filter((p) => p.category === 'visited' && p.visitedAt)
-    .sort((a, b) => (a.visitedAt < b.visitedAt ? -1 : a.visitedAt > b.visitedAt ? 1 : created(a) - created(b)));
-
-  return visited.findIndex((p) => p.id === pin.id) + 1;
+  UI.openStoryCard(pin, state.detailPhotos);
 }
 
 // 휴대폰은 공유 시트로 넘겨야 사진 앱에 저장하거나 인스타로 바로 보낼 수 있다.
