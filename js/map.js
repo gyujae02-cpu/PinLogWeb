@@ -630,6 +630,24 @@ export function fitPoints(points, padding = {}) {
   );
 }
 
+// 지금 화면(여백 없이 딱 보이는 영역) 안에 든 점의 개수.
+// 컨테이너가 아직 크기가 없어 영역을 잴 수 없으면 -1 을 돌려준다.
+export function countInView(points) {
+  if (!map) return -1;
+
+  syncSize();
+
+  const b = map.getBounds();
+  const sw = b.getSouthWest();
+  const ne = b.getNorthEast();
+  if (!(ne.getLat() > sw.getLat()) || !(ne.getLng() > sw.getLng())) return -1;
+
+  return points.filter((p) =>
+    p.lat >= sw.getLat() && p.lat <= ne.getLat() &&
+    p.lng >= sw.getLng() && p.lng <= ne.getLng()
+  ).length;
+}
+
 export function panTo(lat, lng) {
   if (!map) return;
   syncSize();

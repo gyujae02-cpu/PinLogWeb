@@ -567,8 +567,57 @@ function onZoomOut() {
   if (state.mapReady) MapCtl.zoomOut();
 }
 
+// 필터를 바꾼 뒤 화면에 핀이 하나도 안 남으면, 잠깐 기다렸다가 가까운 핀으로 옮긴다.
+// 칩을 연달아 누르는 동안 지도가 튀지 않도록 마지막 변경 뒤에만 판단한다.
+const FILTER_SETTLE_MS = 500;
+const NEAREST_FIT_MAX  = 5;
+let filterSettleTimer = null;
+
 function onFilterChange() {
   refreshMarkers();
+
+  clearTimeout(filterSettleTimer);
+  filterSettleTimer = setTimeout(recenterIfEmpty, FILTER_SETTLE_MS);
+}
+
+function recenterIfEmpty() {
+  filterSettleTimer = null;
+  if (!state.mapReady) return;
+
+  // 사용자가 다른 일에 집중하고 있을 때는 지도를 건드리지 않는다.
+  if (state.courseViewId || UI.isSheetOpen() || UI.isPickerOpen() || UI.isRoadviewOpen()) return;
+
+  const list = visiblePins();
+  if (!list.length) {
+    UI.toast('조건에 맞는 핀이 없어요.');
+    return;
+  }
+
+  if (MapCtl.countInView(list) !== 0) return;
+
+  MapCtl.fitPoints(nearestPins(list, MapCtl.getCenter()), {
+    top: topBarBottom() + 30,
+    right: 40,
+    bottom: 60,
+    left: 40
+  });
+}
+
+// 중심에서 가장 가까운 핀과, 그 거리의 두 배 안에 있는 핀들을 몇 개까지 고른다.
+// 전부 맞추면 서울과 부산에 흩어진 핀 때문에 지도가 전국으로 줌아웃되기 때문이다.
+function nearestPins(list, center) {
+  const k = Math.cos(center.lat * Math.PI / 180);
+  const dist = (p) => Math.hypot(p.lat - center.lat, (p.lng - center.lng) * k);
+
+  const sorted = list
+    .map((p) => ({ p, d: dist(p) }))
+    .sort((a, b) => a.d - b.d);
+
+  const limit = sorted[0].d * 2;
+  return sorted
+    .filter((x, i) => i === 0 || x.d <= limit)
+    .slice(0, NEAREST_FIT_MAX)
+    .map((x) => x.p);
 }
 
 function onOpenTimeline() {
