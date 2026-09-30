@@ -853,9 +853,40 @@
     <div class="story__panel">
       <div id="story-photos" class="story__photos" role="group" aria-label="카드에 쓸 사진"></div>
 
-      <div class="story__opts">
-        <button type="button" id="story-opt-address" class="story__chip" aria-pressed="true">주소</button>
-        <button type="button" id="story-opt-memo" class="story__chip" aria-pressed="false">메모</button>
+      <button type="button" id="story-edit-toggle" class="story__chip" aria-expanded="false" aria-controls="story-edit">
+        카드 내용 고치기
+      </button>
+
+      <!-- 여기서 고친 내용은 카드에만 쓰이고 핀에는 저장되지 않는다. -->
+      <div id="story-edit" class="story__edit" hidden>
+        <label class="story__field">
+          <span class="story__label">이름</span>
+          <input id="story-name" class="story__input" type="text" maxlength="40" autocomplete="off">
+        </label>
+        <label class="story__field">
+          <span class="story__label">주소 <em>비우면 빠져요</em></span>
+          <input id="story-address" class="story__input" type="text" maxlength="80" autocomplete="off">
+        </label>
+        <label class="story__field">
+          <span class="story__label">
+            메모 <em>비우면 빠져요</em>
+            <button type="button" id="story-memo-fill" class="story__link">핀 메모 가져오기</button>
+          </span>
+          <textarea id="story-memo" class="story__input story__input--area" rows="2" maxlength="200"></textarea>
+        </label>
+        <div class="story__field" id="story-tags-field">
+          <span class="story__label">태그 <em>✕ 로 카드에서 빼요</em></span>
+          <div id="story-tags" class="story__tokens"></div>
+        </div>
+        <div class="story__field">
+          <span class="story__label">해시태그</span>
+          <form id="story-hash-form" class="story__hash-row" autocomplete="off">
+            <input id="story-hash-input" class="story__input" type="text" maxlength="20"
+                   placeholder="#데이트" enterkeyhint="done">
+            <button type="submit" class="story__hash-add">추가</button>
+          </form>
+          <div id="story-hashtags" class="story__tokens"></div>
+        </div>
       </div>
 
       <button type="button" id="story-save" class="btn-primary story__save">

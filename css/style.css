@@ -2959,7 +2959,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .story__thumb[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2.5px #fff; }
 .story__thumb:active { transform: scale(.94); }
 
-.story__opts { display: flex; gap: 8px; }
 .story__chip {
   height: 34px; padding: 0 16px;
   border-radius: 99px;
@@ -2969,11 +2968,80 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 13px; font-weight: 400; letter-spacing: -.01em;
   transition: background .16s var(--ease), color .16s var(--ease), border-color .16s var(--ease);
 }
-.story__chip[aria-pressed="true"] {
+.story__chip[aria-expanded="true"] {
   background: #fff;
   border-color: #fff;
   color: var(--brand-700);
 }
+
+/* 카드 내용 고치기 — 펼쳐도 미리보기가 너무 작아지지 않게 높이를 묶고 안에서 스크롤한다. */
+.story__edit {
+  display: flex; flex-direction: column; gap: 12px;
+  width: 100%;
+  max-height: 38vh; max-height: 38dvh;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+}
+.story__edit[hidden] { display: none; }
+.story__field { display: flex; flex-direction: column; gap: 6px; }
+.story__field[hidden] { display: none; }
+.story__label {
+  display: flex; align-items: center; gap: 6px;
+  color: rgba(255,255,255,.80);
+  font-size: 12.5px; letter-spacing: -.01em;
+}
+.story__label em { font-style: normal; color: rgba(255,255,255,.42); }
+.story__link {
+  margin-left: auto;
+  color: #BFE2FF; font-size: 12.5px;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.story__link[hidden] { display: none; }
+/* 16px 미만이면 iOS 가 입력할 때 화면을 확대한다. */
+.story__input {
+  width: 100%; min-width: 0;
+  height: 42px; padding: 0 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #fff;
+  font-size: 16px; letter-spacing: -.01em;
+  outline: none;
+  transition: border-color .16s var(--ease), background .16s var(--ease);
+}
+.story__input::placeholder { color: rgba(255,255,255,.35); }
+.story__input:focus { border-color: rgba(255,255,255,.55); background: rgba(255,255,255,.12); }
+.story__input--area { height: auto; padding: 10px 12px; resize: none; line-height: 1.45; }
+
+.story__hash-row { display: flex; gap: 8px; }
+.story__hash-add {
+  flex: none;
+  height: 42px; padding: 0 16px;
+  border-radius: 12px;
+  background: #fff; color: var(--brand-700);
+  font-size: 14px;
+}
+.story__hash-add:active { transform: scale(.96); }
+
+.story__tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+.story__tokens:empty { display: none; }
+.story__token {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 30px; padding: 0 4px 0 12px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.12);
+  color: #fff; font-size: 13px;
+}
+.story__token-x {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 99px;
+  color: rgba(255,255,255,.6); font-size: 11px;
+}
+.story__token-x:hover { background: rgba(255,255,255,.14); color: #fff; }
 
 .story__save { width: 100%; height: 52px; }
 .story__save.is-busy { opacity: .6; }

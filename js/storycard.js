@@ -23,6 +23,7 @@ const INK      = '#FFFFFF';
 const INK_DIM  = 'rgba(255,255,255,.62)';
 const INK_SOFT = 'rgba(255,255,255,.80)';
 const FAV_INK  = '#FFDCE6';
+const HASH_INK = '#BFE2FF';
 
 const PIN_PATH   = 'M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z';
 const HEART_PATH = 'M12 20.6s-7.4-4.5-9.4-9.1C1 7.9 3.1 4.4 6.6 4.4c2.1 0 3.6 1.1 5.4 3 1.8-1.9 3.3-3 5.4-3 3.5 0 5.6 3.5 4 7.1-2 4.6-9.4 9.1-9.4 9.1z';
@@ -260,7 +261,8 @@ function layoutText(ctx, card) {
   }
 
   if (card.tags && card.tags.length) {
-    blocks.push({ h: 66, gap: 38, draw: (y) => {
+    const hashNext = card.hashtags && card.hashtags.length;   // 해시태그는 칩에 바짝 붙인다
+    blocks.push({ h: 66, gap: hashNext ? 22 : 38, draw: (y) => {
       let x = TEXT_X;
       for (const t of card.tags) {
         ctx.font = font(400, 33);
@@ -271,6 +273,18 @@ function layoutText(ctx, card) {
           fill: 'rgba(255,255,255,.10)', stroke: null, color: INK
         }) + 14;
       }
+    } });
+  }
+
+  // 인스타처럼 태그 칩 아래 한 줄 글자로 이어 쓴다. 넘치면 두 줄까지.
+  if (card.hashtags && card.hashtags.length) {
+    ctx.font = font(400, 36);
+    const lines = clampLines(ctx, card.hashtags.join(' '), TEXT_W, 2);
+    const lh = 54;
+    blocks.push({ h: lines.length * lh, gap: 34, draw: (y) => {
+      ctx.font = font(400, 36);
+      ctx.fillStyle = HASH_INK;
+      lines.forEach((l, i) => ctx.fillText(l, TEXT_X, y + 40 + i * lh));
     } });
   }
 
@@ -369,7 +383,7 @@ function paintHeader(ctx, dateText) {
 }
 
 /**
- * card: { name, address, dateText, favNote, tags: [label], memo, footer, photo: dataUrl | '' }
+ * card: { name, address, dateText, favNote, tags: [label], hashtags: ['#…'], memo, photo: dataUrl | '' }
  * address · memo 는 보여줄 때만 넘긴다(빈 값이면 줄 자체를 뺀다).
  */
 export async function drawStoryCard(canvas, card) {
@@ -377,8 +391,8 @@ export async function drawStoryCard(canvas, card) {
   canvas.height = STORY_H;
   const ctx = canvas.getContext('2d');
 
-  const sample = [card.name, card.address, card.memo, card.favNote, card.footer, card.dateText,
-    (card.tags || []).join(''), 'PinLog…“”'].join('');
+  const sample = [card.name, card.address, card.memo, card.favNote, card.dateText,
+    (card.tags || []).join(''), (card.hashtags || []).join(''), 'PinLog…“”#'].join('');
   const [img] = await Promise.all([loadImage(card.photo), ensureFonts(sample)]);
 
   ctx.clearRect(0, 0, STORY_W, STORY_H);
@@ -388,8 +402,7 @@ export async function drawStoryCard(canvas, card) {
   const { blocks, height: textH } = layoutText(ctx, card);
 
   // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 줄어든다.
-  const footerRoom = card.footer ? 110 : 0;
-  const avail = SAFE_BOTTOM - SAFE_TOP - footerRoom;
+  const avail = SAFE_BOTTOM - SAFE_TOP;
   const photoW = CARD_W - CARD_PAD * 2;
   const photoMax = img ? Math.round(photoW * (img.height > img.width ? 1.05 : 0.86)) : 420;
   const photoH = Math.max(img ? 460 : 320, Math.min(photoMax, avail - textH - CARD_PAD * 2 - 44));
@@ -404,14 +417,6 @@ export async function drawStoryCard(canvas, card) {
   for (const b of blocks) {
     b.draw(y);
     y += b.h + b.gap;
-  }
-
-  if (card.footer) {
-    ctx.font = font(400, 39);
-    ctx.fillStyle = INK_DIM;
-    ctx.textAlign = 'center';
-    ctx.fillText(card.footer, STORY_W / 2, cardY + cardH + 92);
-    ctx.textAlign = 'left';
   }
 }
 

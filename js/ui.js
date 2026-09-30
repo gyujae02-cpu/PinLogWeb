@@ -190,8 +190,17 @@ export const el = {
   storyCanvas:     $('#story-canvas'),
   storyClose:      $('#story-close'),
   storyPhotos:     $('#story-photos'),
-  storyOptAddress: $('#story-opt-address'),
-  storyOptMemo:    $('#story-opt-memo'),
+  storyEditToggle: $('#story-edit-toggle'),
+  storyEdit:       $('#story-edit'),
+  storyName:       $('#story-name'),
+  storyAddress:    $('#story-address'),
+  storyMemo:       $('#story-memo'),
+  storyMemoFill:   $('#story-memo-fill'),
+  storyTagsField:  $('#story-tags-field'),
+  storyTags:       $('#story-tags'),
+  storyHashForm:   $('#story-hash-form'),
+  storyHashInput:  $('#story-hash-input'),
+  storyHashtags:   $('#story-hashtags'),
   storySave:       $('#story-save'),
 
   btnAbout:      $('#btn-about'),
@@ -258,6 +267,7 @@ let lightboxIndex = 0;
 // iOS 는 탭 직후가 아니면 공유 시트를 막아서, 누른 순간 바로 넘겨야 한다.
 let story = null;
 let storySeq = 0;
+let storyRenderTimer = 0;
 
 let myId = '';
 let userIds = [];
@@ -495,8 +505,27 @@ export function initUI(handlers) {
   });
 
   el.storyClose.addEventListener('click', () => closeStoryCard());
-  el.storyOptAddress.addEventListener('click', () => toggleStoryOpt('address'));
-  el.storyOptMemo.addEventListener('click', () => toggleStoryOpt('memo'));
+  el.storyEditToggle.addEventListener('click', () => {
+    const open = el.storyEdit.hidden;
+    el.storyEdit.hidden = !open;
+    el.storyEditToggle.setAttribute('aria-expanded', String(open));
+  });
+  for (const [input, key] of [[el.storyName, 'name'], [el.storyAddress, 'address'], [el.storyMemo, 'memo']]) {
+    input.addEventListener('input', () => {
+      if (!story) return;
+      story[key] = input.value;
+      renderStorySoon();
+    });
+  }
+  el.storyMemoFill.addEventListener('click', () => {
+    if (!story) return;
+    el.storyMemo.value = story.memo = story.pin.memo || '';
+    renderStory();
+  });
+  el.storyHashForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    addStoryHashtags(el.storyHashInput.value);
+  });
   el.storySave.addEventListener('click', () => {
     if (!story) return;
     if (!story.blob) { toast('카드를 그리는 중이에요. 잠시만요.'); return; }
@@ -1764,19 +1793,28 @@ export function isLightboxOpen() { return !el.lightbox.hidden; }
 export function openStoryCard(pin, photos) {
   const list = Array.isArray(photos) ? photos : [];
 
+  // 이름 · 주소 · 메모 · 태그 · 해시태그는 이 창에서만 고친다. 핀에는 저장하지 않는다.
   story = {
     pin,
     photos: list,
     photoIndex: 0,
-    address: !!pin.address,
-    memo: false,
+    name: cleanPlaceName(pin.name) || pin.name,   // 대괄호뿐인 이름이면 그대로 둔다
+    address: pin.address || '',
+    memo: '',                                      // 메모는 기본으로 빼고, 필요하면 가져온다
+    tags: (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean),
+    hashtags: [],
     blob: null,
     filename: storyFilename(pin)
   };
 
-  el.storyOptAddress.hidden = !pin.address;
-  el.storyOptMemo.hidden = !pin.memo;
-  paintStoryOpts();
+  el.storyName.value = story.name;
+  el.storyAddress.value = story.address;
+  el.storyMemo.value = '';
+  el.storyMemoFill.hidden = !pin.memo;
+  el.storyHashInput.value = '';
+  el.storyEdit.hidden = true;
+  el.storyEditToggle.setAttribute('aria-expanded', 'false');
+  renderStoryTokens();
   renderStoryPhotos();
 
   el.story.hidden = false;
@@ -1788,6 +1826,7 @@ export function closeStoryCard() {
   if (el.story.hidden) return;
 
   storySeq++;
+  clearTimeout(storyRenderTimer);
   story = null;
   el.story.classList.remove('is-on');
   setTimeout(() => {
@@ -1799,16 +1838,65 @@ export function closeStoryCard() {
 
 export function isStoryCardOpen() { return !el.story.hidden; }
 
-function toggleStoryOpt(key) {
+// 글자를 칠 때마다 다시 그리면 휴대폰에서 버벅인다. 손을 멈추면 그린다.
+function renderStorySoon() {
+  // 기다리는 사이 저장을 누르면 고치기 전 카드가 나가지 않게 먼저 막아둔다.
+  story.blob = null;
+  el.storySave.classList.add('is-busy');
+  clearTimeout(storyRenderTimer);
+  storyRenderTimer = setTimeout(renderStory, 250);
+}
+
+// '#성수 데이트, #카페' 처럼 여러 개를 한 번에 넣어도 나눠 담는다.
+// 해시태그는 띄어쓰기가 없어야 해서 공백 · 쉼표 · # 을 경계로 본다.
+const STORY_HASHTAG_MAX = 10;
+
+function addStoryHashtags(raw) {
   if (!story) return;
-  story[key] = !story[key];
-  paintStoryOpts();
+  const words = String(raw).split(/[\s,#]+/).map((w) => w.trim()).filter(Boolean);
+  el.storyHashInput.value = '';
+  if (!words.length) return;
+
+  let full = false;
+  for (const w of words) {
+    if (story.hashtags.includes(w)) continue;
+    if (story.hashtags.length >= STORY_HASHTAG_MAX) { full = true; break; }
+    story.hashtags.push(w.slice(0, 20));
+  }
+  if (full) toast(`해시태그는 ${STORY_HASHTAG_MAX}개까지 넣을 수 있어요.`);
+  renderStoryTokens();
   renderStory();
 }
 
-function paintStoryOpts() {
-  el.storyOptAddress.setAttribute('aria-pressed', String(story.address));
-  el.storyOptMemo.setAttribute('aria-pressed', String(story.memo));
+function renderStoryTokens() {
+  const token = (label, onRemove) => {
+    const chip = h('span', 'story__token', label);
+    const x = h('button', 'story__token-x', '✕');
+    x.type = 'button';
+    x.setAttribute('aria-label', `${label} 빼기`);
+    x.addEventListener('click', onRemove);
+    chip.appendChild(x);
+    return chip;
+  };
+
+  el.storyTags.innerHTML = '';
+  el.storyTagsField.hidden = !story.tags.length;
+  story.tags.forEach((t, i) => {
+    el.storyTags.appendChild(token(t, () => {
+      story.tags.splice(i, 1);
+      renderStoryTokens();
+      renderStory();
+    }));
+  });
+
+  el.storyHashtags.innerHTML = '';
+  story.hashtags.forEach((t, i) => {
+    el.storyHashtags.appendChild(token('#' + t, () => {
+      story.hashtags.splice(i, 1);
+      renderStoryTokens();
+      renderStory();
+    }));
+  });
 }
 
 function renderStoryPhotos() {
@@ -1872,21 +1960,18 @@ async function renderStory() {
 
 function storyCardData(s) {
   const { pin } = s;
-  const isWish = pin.category === 'wish';
   const d = parseDateValue(pin.visitedAt);
   const p = (v) => String(v).padStart(2, '0');
-
-  const footer = isWish ? '언젠가 같이 갈 곳' : '';
   const photo = s.photos[s.photoIndex];
 
   return {
-    name: cleanPlaceName(pin.name) || pin.name,   // 대괄호뿐인 이름이면 그대로 둔다
+    name: s.name.trim() || cleanPlaceName(pin.name) || pin.name,   // 이름을 다 지우면 원래 이름으로
     dateText: d ? `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}` : '',
-    address: s.address ? pin.address : '',
-    memo: s.memo ? pin.memo : '',
+    address: s.address.trim(),
+    memo: s.memo.trim(),
     favNote: storyFavNote(pin.favoritedBy || []),
-    tags: (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean),
-    footer,
+    tags: s.tags.slice(),
+    hashtags: s.hashtags.map((t) => '#' + t),
     photo: photo ? photo.dataUrl : ''
   };
 }
