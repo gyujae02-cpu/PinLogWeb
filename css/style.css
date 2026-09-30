@@ -2890,17 +2890,23 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .cs-results .result-item__ico.is-visited { background: var(--brand-50); color: var(--brand-600); }
 
 /* 상세 시트 '코스에 담기' — 길찾기 · 검색 로고 옆에 조용히 붙는다. */
+/* 코스에 담기 · 카드 만들기. 아래 태그(연한 파란 알약)와 헷갈리지 않게
+   흰 바탕 · 회색 테두리 · 진한 글씨의 보조 버튼으로, 두 개가 한 줄을 반씩 채운다. */
+.detail-actions--sub > .detail-course { flex: 1 1 0; min-width: 0; }
 .detail-course {
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 32px; padding: 0 12px 0 10px;
-  border-radius: 10px;
-  background: var(--brand-50);
-  color: var(--brand-600);
-  font-size: 12.5px; font-weight: 400; letter-spacing: -.015em;
-  transition: background .16s var(--ease), transform .16s var(--ease);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 40px; padding: 0 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-900);
+  font-size: 13.5px; font-weight: 400; letter-spacing: -.015em;
+  white-space: nowrap;
+  transition: background .16s var(--ease), border-color .16s var(--ease), transform .16s var(--ease);
 }
-.detail-course:hover  { background: var(--brand-100); }
-.detail-course:active { transform: scale(.96); }
+.detail-course svg { color: var(--brand-600); flex: none; }
+.detail-course:hover  { background: var(--surface-sunken); border-color: var(--brand-200); }
+.detail-course:active { transform: scale(.97); }
 
 /* ── 스토리 카드 미리보기 ─────────────────────────────────────
    lightbox 와 같은 어두운 무대. 캔버스는 9:16 을 지키며 남는 높이를 다 쓴다. */

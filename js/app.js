@@ -240,7 +240,7 @@ async function enterMap() {
 
 function greet() {
   const name = displayName(FB.currentUserId());
-  if (name) UI.toast(`안녕하세요, ${name} 님 !.!`, 2600);
+  if (name) UI.toast(`안녕하세요, ${name} 님 ❤️`, 2600);
 }
 
 async function locateInitial() {
