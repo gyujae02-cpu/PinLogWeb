@@ -89,7 +89,9 @@ UI.initUI({
   onCourseStopDetail,
   onCourseFocusClear,
   onCourseStep,
-  onAddToCourse
+  onAddToCourse,
+  onMakeCard,
+  onSaveStoryCard
 });
 
 if (!FB.isConfigured) {
@@ -302,6 +304,7 @@ function leaveMap() {
   UI.closeCourses(true);
   UI.hideCourseBar();
   UI.closeLightbox();
+  UI.closeStoryCard();
   UI.clearSearch();
   UI.resetTagFilter();
   UI.setCounts(0, 0);
@@ -700,8 +703,59 @@ async function onExport() {
   }
 }
 
+function onMakeCard() {
+  const pin = findPin(state.selectedId);
+  if (!pin) return;
+
+  if (state.detailPhotos === null) {
+    UI.toast('사진을 불러오는 중이에요. 잠시 후 다시 눌러주세요.');
+    return;
+  }
+
+  UI.openStoryCard(pin, state.detailPhotos, visitOrdinal(pin));
+}
+
+// 가본 곳을 다녀온 날 순(같은 날이면 등록 순)으로 세워 몇 번째인지 구한다.
+// 날짜가 없는 핀은 순서를 매길 수 없어서 0 을 돌려준다.
+function visitOrdinal(pin) {
+  if (pin.category !== 'visited' || !pin.visitedAt) return 0;
+
+  const created = (p) => (p.createdAt instanceof Date ? p.createdAt.getTime() : Infinity);
+  const visited = state.pins
+    .filter((p) => p.category === 'visited' && p.visitedAt)
+    .sort((a, b) => (a.visitedAt < b.visitedAt ? -1 : a.visitedAt > b.visitedAt ? 1 : created(a) - created(b)));
+
+  return visited.findIndex((p) => p.id === pin.id) + 1;
+}
+
+// 휴대폰은 공유 시트로 넘겨야 사진 앱에 저장하거나 인스타로 바로 보낼 수 있다.
+// iOS 는 탭 직후에만 공유를 허락하므로, 여기까지 await 없이 곧장 와야 한다.
+async function onSaveStoryCard(blob, filename) {
+  const file = new File([blob], filename, { type: 'image/jpeg' });
+
+  if (IS_MOBILE && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;   // 사용자가 공유 시트를 닫았다
+      console.warn('[PinLog] 공유 실패, 다운로드로 대신합니다:', err);
+    }
+  }
+
+  downloadBlob(blob, filename);
+  UI.toast('카드 이미지를 저장했어요.');
+}
+
 function downloadJson(data, filename) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, filename);
+
+  const mb = blob.size / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)}MB` : `${Math.max(1, Math.round(blob.size / 1024))}KB`;
+}
+
+function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement('a');
@@ -712,9 +766,6 @@ function downloadJson(data, filename) {
   a.remove();
 
   setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-  const mb = blob.size / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)}MB` : `${Math.max(1, Math.round(blob.size / 1024))}KB`;
 }
 
 async function onSearch(keyword) {

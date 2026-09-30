@@ -1,4 +1,5 @@
 import { compressPhoto, MAX_PHOTOS } from './photo.js';
+import { drawStoryCard, storyCardBlob } from './storycard.js';
 import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
@@ -184,6 +185,15 @@ export const el = {
   lightboxNext:  $('#lightbox-next'),
   lightboxCount: $('#lightbox-count'),
 
+  detailCard:      $('#detail-card'),
+  story:           $('#story'),
+  storyCanvas:     $('#story-canvas'),
+  storyClose:      $('#story-close'),
+  storyPhotos:     $('#story-photos'),
+  storyOptAddress: $('#story-opt-address'),
+  storyOptMemo:    $('#story-opt-memo'),
+  storySave:       $('#story-save'),
+
   btnAbout:      $('#btn-about'),
   about:         $('#about'),
   aboutDays:     $('#about-days'),
@@ -242,6 +252,11 @@ let feedError = false;
 
 let lightboxPhotos = [];
 let lightboxIndex = 0;
+
+// 스토리 카드 미리보기 상태. blob 은 그릴 때마다 미리 만들어 둔다 —
+// iOS 는 탭 직후가 아니면 공유 시트를 막아서, 누른 순간 바로 넘겨야 한다.
+let story = null;
+let storySeq = 0;
 
 let myId = '';
 let userIds = [];
@@ -365,6 +380,7 @@ export function initUI(handlers) {
   el.detailVisit.addEventListener('click', () => cb.onMarkVisited && cb.onMarkVisited());
   el.detailRoute.addEventListener('click', () => cb.onRoute && cb.onRoute());
   el.detailCourse.addEventListener('click', () => cb.onAddToCourse && cb.onAddToCourse());
+  el.detailCard.addEventListener('click', () => cb.onMakeCard && cb.onMakeCard());
   el.detailFav.addEventListener('click', () => cb.onToggleFavorite && cb.onToggleFavorite());
 
   document.querySelectorAll('[data-close-courses]').forEach((n) => {
@@ -477,7 +493,21 @@ export function initUI(handlers) {
     if (e.target === el.lightbox) closeLightbox();
   });
 
+  el.storyClose.addEventListener('click', () => closeStoryCard());
+  el.storyOptAddress.addEventListener('click', () => toggleStoryOpt('address'));
+  el.storyOptMemo.addEventListener('click', () => toggleStoryOpt('memo'));
+  el.storySave.addEventListener('click', () => {
+    if (!story) return;
+    if (!story.blob) { toast('카드를 그리는 중이에요. 잠시만요.'); return; }
+    cb.onSaveStoryCard && cb.onSaveStoryCard(story.blob, story.filename);
+  });
+
   document.addEventListener('keydown', (e) => {
+    if (!el.story.hidden) {
+      if (e.key === 'Escape') closeStoryCard();
+      return;
+    }
+
     if (!el.lightbox.hidden) {
       if (e.key === 'Escape')     { closeLightbox(); return; }
       if (e.key === 'ArrowLeft')  { stepLightbox(-1); return; }
@@ -1723,6 +1753,156 @@ export function closeLightbox() {
 }
 
 export function isLightboxOpen() { return !el.lightbox.hidden; }
+
+// ── 스토리 카드 ───────────────────────────────────────────
+// ordinal 은 '우리의 N번째 장소' 의 N. 가본 곳인데 날짜가 없으면 0 이 와서 문구를 뺀다.
+export function openStoryCard(pin, photos, ordinal) {
+  const list = Array.isArray(photos) ? photos : [];
+
+  story = {
+    pin,
+    photos: list,
+    photoIndex: 0,
+    address: !!pin.address,
+    memo: false,
+    ordinal,
+    blob: null,
+    filename: storyFilename(pin)
+  };
+
+  el.storyOptAddress.hidden = !pin.address;
+  el.storyOptMemo.hidden = !pin.memo;
+  paintStoryOpts();
+  renderStoryPhotos();
+
+  el.story.hidden = false;
+  requestAnimationFrame(() => el.story.classList.add('is-on'));
+  renderStory();
+}
+
+export function closeStoryCard() {
+  if (el.story.hidden) return;
+
+  storySeq++;
+  story = null;
+  el.story.classList.remove('is-on');
+  setTimeout(() => {
+    if (story) return;   // 닫히는 사이 다시 열렸다
+    el.story.hidden = true;
+    el.storyPhotos.innerHTML = '';
+  }, 240);
+}
+
+export function isStoryCardOpen() { return !el.story.hidden; }
+
+function toggleStoryOpt(key) {
+  if (!story) return;
+  story[key] = !story[key];
+  paintStoryOpts();
+  renderStory();
+}
+
+function paintStoryOpts() {
+  el.storyOptAddress.setAttribute('aria-pressed', String(story.address));
+  el.storyOptMemo.setAttribute('aria-pressed', String(story.memo));
+}
+
+function renderStoryPhotos() {
+  el.storyPhotos.innerHTML = '';
+  el.storyPhotos.hidden = story.photos.length < 2;
+  if (el.storyPhotos.hidden) return;
+
+  story.photos.forEach((p, i) => {
+    const btn = h('button', 'story__thumb');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', `사진 ${i + 1} 쓰기`);
+    btn.setAttribute('aria-pressed', String(i === story.photoIndex));
+
+    const img = document.createElement('img');
+    img.src = p.dataUrl;
+    img.alt = '';
+    btn.appendChild(img);
+
+    btn.addEventListener('click', () => {
+      if (!story || story.photoIndex === i) return;
+      story.photoIndex = i;
+      el.storyPhotos.querySelectorAll('.story__thumb').forEach((b, j) => {
+        b.setAttribute('aria-pressed', String(j === i));
+      });
+      renderStory();
+    });
+    el.storyPhotos.appendChild(btn);
+  });
+}
+
+async function renderStory() {
+  if (!story) return;
+  const seq = ++storySeq;
+  const s = story;
+
+  s.blob = null;
+  el.storySave.classList.add('is-busy');
+  el.story.classList.add('is-drawing');
+
+  // 옵션을 연달아 누르면 마지막 것만 남도록, 그리는 캔버스는 매번 새로 만든다.
+  const canvas = document.createElement('canvas');
+  try {
+    await drawStoryCard(canvas, storyCardData(s));
+    if (seq !== storySeq) return;
+
+    const ctx = el.storyCanvas.getContext('2d');
+    ctx.clearRect(0, 0, el.storyCanvas.width, el.storyCanvas.height);
+    ctx.drawImage(canvas, 0, 0);
+    el.story.classList.remove('is-drawing');
+
+    const blob = await storyCardBlob(canvas);
+    if (seq !== storySeq) return;
+    s.blob = blob;
+    el.storySave.classList.remove('is-busy');
+  } catch (err) {
+    if (seq !== storySeq) return;
+    console.error('[PinLog] 스토리 카드 그리기 실패:', err);
+    toast('카드를 만들지 못했어요.', 3000);
+  }
+}
+
+function storyCardData(s) {
+  const { pin } = s;
+  const isWish = pin.category === 'wish';
+  const d = parseDateValue(pin.visitedAt);
+  const p = (v) => String(v).padStart(2, '0');
+
+  let footer = '';
+  if (isWish) footer = '언젠가 같이 갈 곳';
+  else if (s.ordinal > 0) footer = `우리의 ${s.ordinal}번째 장소`;
+
+  const photo = s.photos[s.photoIndex];
+
+  return {
+    name: pin.name,
+    category: pin.category,
+    dateText: d ? `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}` : '',
+    address: s.address ? pin.address : '',
+    memo: s.memo ? pin.memo : '',
+    favNote: storyFavNote(pin.favoritedBy || []),
+    tags: (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean),
+    footer,
+    photo: photo ? photo.dataUrl : ''
+  };
+}
+
+// 스토리는 둘 밖의 사람이 본다. '내 즐겨찾기' 대신 이름으로 적는다.
+function storyFavNote(favs) {
+  if (favs.length >= 2) return '둘 다 좋아하는 곳';
+  if (favs.length === 1) return `${displayName(favs[0])} 님이 좋아하는 곳`;
+  return '';
+}
+
+function storyFilename(pin) {
+  const name = String(pin.name || 'pin').replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(pin.visitedAt || '') ? pin.visitedAt : todayValue();
+  return `pinlog-${name || 'pin'}-${date.replace(/-/g, '')}.jpg`;
+}
 
 /* ── 댓글 모아보기 ─────────────────────────────────────────── */
 

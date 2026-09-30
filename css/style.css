@@ -105,6 +105,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .timeline,
 .confirm,
 .lightbox,
+.story,
 .toast {
   touch-action: pan-x pan-y;
 }
@@ -2866,6 +2867,83 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .detail-course:hover  { background: var(--brand-100); }
 .detail-course:active { transform: scale(.96); }
+
+/* ── 스토리 카드 미리보기 ─────────────────────────────────────
+   lightbox 와 같은 어두운 무대. 캔버스는 9:16 을 지키며 남는 높이를 다 쓴다. */
+.story {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: calc(66px + var(--safe-t)) 16px calc(16px + var(--safe-b));
+  background: rgba(10, 16, 22, .93);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity .24s var(--ease);
+}
+.story.is-on { opacity: 1; }
+
+.story__stage {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+}
+.story__canvas {
+  height: 100%; max-height: 100%;
+  width: auto; max-width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 16px;
+  background: #061E33;
+  box-shadow: 0 24px 70px rgba(0,0,0,.5);
+  transform: scale(.96);
+  transition: transform .28s var(--ease), opacity .2s var(--ease);
+}
+.story.is-on .story__canvas { transform: none; }
+.story.is-drawing .story__canvas { opacity: .55; }
+
+.story__panel {
+  flex: none;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  width: 100%; max-width: 400px;
+}
+
+.story__photos {
+  display: flex; gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 3px;
+  scrollbar-width: none;
+}
+.story__photos::-webkit-scrollbar { display: none; }
+.story__thumb {
+  flex: none;
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  opacity: .55;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.18);
+  transition: opacity .16s var(--ease), box-shadow .16s var(--ease), transform .16s var(--ease);
+}
+.story__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.story__thumb[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2.5px #fff; }
+.story__thumb:active { transform: scale(.94); }
+
+.story__opts { display: flex; gap: 8px; }
+.story__chip {
+  height: 34px; padding: 0 16px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.20);
+  color: rgba(255,255,255,.62);
+  font-size: 13px; font-weight: 700; letter-spacing: -.01em;
+  transition: background .16s var(--ease), color .16s var(--ease), border-color .16s var(--ease);
+}
+.story__chip[aria-pressed="true"] {
+  background: #fff;
+  border-color: #fff;
+  color: var(--brand-700);
+}
+
+.story__save { width: 100%; height: 52px; }
+.story__save.is-busy { opacity: .6; }
 
 /* 코스 고르기 대화상자 */
 .cp-list {
