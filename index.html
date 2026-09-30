@@ -856,6 +856,21 @@
     <div class="story__panel">
       <div id="story-photos" class="story__photos" role="group" aria-label="카드에 쓸 사진"></div>
 
+      <!-- 사진 위치 조절: 미리보기 사진을 끌어 옮기고, 두 손가락 · 휠 · 슬라이더로 확대 -->
+      <div id="story-crop" class="story__crop" hidden>
+        <svg viewBox="0 0 24 24" fill="none" class="story__crop-ico" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 11h6M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input id="story-zoom" class="story__zoom" type="range" min="100" max="300" step="1" value="100"
+               aria-label="사진 확대">
+        <svg viewBox="0 0 24 24" fill="none" class="story__crop-ico" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 11h6M11 8v6M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <button type="button" id="story-crop-reset" class="story__crop-reset">원위치</button>
+      </div>
+
       <div id="story-formats" class="story__formats" role="group" aria-label="카드 비율">
         <!-- 파일이 아직 없으면 깨진 그림 대신 숨긴다 -->
         <img class="story__formats-logo" src="img/instagram.png" alt="" aria-hidden="true"
@@ -907,6 +922,10 @@
           </form>
           <div id="story-hashtags" class="story__tokens"></div>
         </div>
+        <label class="story__switch-row">
+          <span class="story__label">저작권 표시 <em>카드 맨 아래 © 2026 JAEGYU LEE</em></span>
+          <input id="story-copyright" class="story__switch" type="checkbox" role="switch" checked>
+        </label>
       </div>
 
       <button type="button" id="story-save" class="btn-primary story__save">

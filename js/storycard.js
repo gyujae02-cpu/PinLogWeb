@@ -19,7 +19,7 @@ export const CARD_FORMATS = {
 
 // 서비스 설명은 로고 바로 아래에 붙는다(사진이 있으면 왼쪽 위 로고, 없으면 사진 자리 큰 로고).
 const TAGLINE      = '너와 나의 모든 장소';
-const TAGLINE_INK  = 'rgba(255,255,255,.60)';
+const TAGLINE_INK  = 'rgba(255,255,255,.78)';   // Regular 로 쓰고, 작은 크기에서도 또렷하게
 const TAGLINE_ROOM = 40;    // 왼쪽 위 로고 아래 설명 줄 때문에 카드를 내리는 만큼
 const COPYRIGHT    = '© 2026 JAEGYU LEE';
 const FOOTER_ROOM  = 70;    // 저작권 기준선에서 카드 아래 끝까지 (한 줄 높이 + 카드와의 간격)
@@ -100,9 +100,48 @@ function drawCover(ctx, img, x, y, w, h) {
   ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h);
 }
 
+// ── 사진 위치 조절 ────────────────────────────────────────
+// crop = { zoom, cx, cy }. zoom 1 은 칸에 꽉 차는 크기, cx · cy 는 칸 가운데에 올 사진 위 지점(0~1).
+// 칸 모양이 바뀌어도(비율 전환) 같은 지점을 가운데로 보여준다.
+export const CROP_ZOOM_MAX = 3;
+export const DEFAULT_CROP = Object.freeze({ zoom: 1, cx: 0.5, cy: 0.5 });
+
+// 사진이 칸 밖으로 밀려 빈 곳이 생기지 않게 가운데 지점과 배율을 범위 안으로 되돌린다.
+export function clampCrop(crop, slotW, slotH, imgW, imgH) {
+  const zoom = Math.min(CROP_ZOOM_MAX, Math.max(1, crop.zoom || 1));
+  const s = Math.max(slotW / imgW, slotH / imgH) * zoom;   // 사진 1px 이 칸에서 차지하는 크기
+  const halfX = slotW / s / imgW / 2;                        // 보이는 폭의 절반(0~1 단위)
+  const halfY = slotH / s / imgH / 2;
+  const clamp = (v, half) => Math.min(1 - half, Math.max(half, v));
+  return { zoom, cx: clamp(crop.cx ?? 0.5, halfX), cy: clamp(crop.cy ?? 0.5, halfY) };
+}
+
+// 칸 크기 기준 배율. 드래그한 거리(캔버스 px)를 사진 좌표(0~1)로 바꿀 때 쓴다.
+export function cropScale(zoom, slotW, slotH, imgW, imgH) {
+  return Math.max(slotW / imgW, slotH / imgH) * zoom;
+}
+
+function drawCropped(ctx, img, x, y, w, h, crop) {
+  const c = clampCrop(crop || DEFAULT_CROP, w, h, img.width, img.height);
+  const s = cropScale(c.zoom, w, h, img.width, img.height);
+  const sw = w / s;
+  const sh = h / s;
+  ctx.drawImage(img, c.cx * img.width - sw / 2, c.cy * img.height - sh / 2, sw, sh, x, y, w, h);
+}
+
 // ctx.filter 는 구형 iOS Safari 에 없다. 아주 작게 줄였다가 단계적으로 키우면
 // 어느 브라우저에서나 같은 블러가 나온다.
+// 사진 위치를 끌 때마다 다시 그리므로, 같은 사진 · 같은 높이의 흐린 배경은 한 번만 만든다.
+const backdropCache = new WeakMap();
+
 function blurredBackdrop(img, H) {
+  let byH = backdropCache.get(img);
+  if (!byH) backdropCache.set(img, (byH = new Map()));
+  if (!byH.has(H)) byH.set(H, makeBackdrop(img, H));
+  return byH.get(H);
+}
+
+function makeBackdrop(img, H) {
   const k = H / STORY_W;   // 캔버스 비율대로 줄여야 늘어나 보이지 않는다
   const tiny = document.createElement('canvas');
   tiny.width = 27; tiny.height = Math.round(27 * k);
@@ -404,25 +443,26 @@ function paintGlass(ctx, y, h) {
   ctx.stroke();
 }
 
-function paintPhoto(ctx, img, x, y, w, h) {
+function paintPhoto(ctx, img, x, y, w, h, crop) {
   const r = CARD_R - CARD_PAD;
   ctx.save();
   roundRectPath(ctx, x, y, w, h, r);
   ctx.clip();
   if (img) {
     ctx.imageSmoothingQuality = 'high';
-    drawCover(ctx, img, x, y, w, h);
+    drawCropped(ctx, img, x, y, w, h, crop);
   } else {
     ctx.fillStyle = 'rgba(255,255,255,.08)';
     ctx.fillRect(x, y, w, h);
     // 사진이 없으면 로그인 화면 로고 색의 'P(핀)nLog' 워드마크와 설명 한 줄을 묶어 가운데에 둔다.
-    const em = Math.round(Math.min(h * 0.3, w * 0.16));
+    // 칸 높이의 27% · 너비의 14% 중 작은 쪽. 로고 폭이 칸 너비의 40% 안팎이라 가운데에 여유가 남는다.
+    const em = Math.round(Math.min(h * 0.27, w * 0.14));
     const tagSize = Math.max(24, Math.round(em * 0.3));
     const gap = Math.round(em * 0.28);
     const top = y + (h - (em + gap + tagSize)) / 2;   // 로고 + 간격 + 설명 묶음의 위 끝
     paintBrand(ctx, x + (w - brandWidth(ctx, em)) / 2, top + em / 2, em, BRAND_ACCENT);
 
-    ctx.font = font(300, tagSize);
+    ctx.font = font(400, tagSize);
     ctx.fillStyle = TAGLINE_INK;
     ctx.textAlign = 'center';
     ctx.fillText(TAGLINE, x + w / 2, top + em + gap + tagSize * 0.86);
@@ -518,7 +558,7 @@ function paintFooter(ctx, baseline) {
 function paintHeader(ctx, cy, dateText, withBrand) {
   if (withBrand) {
     paintBrand(ctx, MARGIN, cy);
-    ctx.font = font(300, 26);
+    ctx.font = font(400, 26);
     ctx.fillStyle = TAGLINE_INK;
     ctx.fillText(TAGLINE, MARGIN, cy + 62);
   }
@@ -537,7 +577,9 @@ function paintHeader(ctx, cy, dateText, withBrand) {
 /**
  * card: { name, address, dateText, tags: [label], hashtags: ['#…'], memo, photo: dataUrl | '',
  *         theme: 'photo' | 'charcoal' | 'blue' | 'rose' | 'dusk',
- *         format: 'story' | 'feed45' | 'square' }
+ *         format: 'story' | 'feed45' | 'square', copyright: boolean(기본 true),
+ *         crop: { zoom, cx, cy } (사진 위치 · 배율, 없으면 가운데) }
+ * 돌려주는 값: { photoRect: {x, y, w, h} | null, imgW, imgH } — 사진 칸 위치(캔버스 px)
  * address · memo 는 보여줄 때만 넘긴다(빈 값이면 줄 자체를 뺀다).
  */
 export async function drawStoryCard(canvas, card) {
@@ -553,12 +595,14 @@ export async function drawStoryCard(canvas, card) {
   ctx.clearRect(0, 0, STORY_W, F.h);
   paintBackground(ctx, img, card.theme || (img ? 'photo' : 'charcoal'));
   paintHeader(ctx, F.headerY, card.dateText, !!img);
-  paintFooter(ctx, F.footerY);
+  const withCopyright = card.copyright !== false;
+  if (withCopyright) paintFooter(ctx, F.footerY);
 
   // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 먼저 줄고,
   // 사진이 최소 높이에 닿아도 넘치면 글자를 조금씩 줄이고, 그래도 넘치면 LINE_CUTS 로 줄 수를 줄인다.
   const top = F.top + (img ? TAGLINE_ROOM : 0);
-  const avail = F.footerY - FOOTER_ROOM - top;
+  // 저작권 줄을 끄면 그 자리까지 카드가 쓴다(footerY 는 화면 아래 끝 여백 안쪽이다).
+  const avail = F.footerY - (withCopyright ? FOOTER_ROOM : 0) - top;
   const chrome = CARD_PAD * 2 + 44 + 20;   // 카드 위아래 여백 + 사진과 글 사이
   const photoW = CARD_W - CARD_PAD * 2;
   const photoMin = img ? F.photoMin : F.emptyMin;
@@ -584,14 +628,18 @@ export async function drawStoryCard(canvas, card) {
 
   const cardY = Math.round(top + Math.max(0, (avail - cardH) / 2));
 
+  const photoRect = { x: CARD_X + CARD_PAD, y: cardY + CARD_PAD, w: photoW, h: photoH };
   paintGlass(ctx, cardY, cardH);
-  paintPhoto(ctx, img, CARD_X + CARD_PAD, cardY + CARD_PAD, photoW, photoH);
+  paintPhoto(ctx, img, photoRect.x, photoRect.y, photoW, photoH, card.crop);
 
   let y = cardY + CARD_PAD + photoH + 44;
   for (const b of blocks) {
     b.draw(y);
     y += b.h + b.gap;
   }
+
+  // 미리보기에서 사진을 끌어 옮길 수 있도록 사진 칸 위치와 원본 크기를 알려준다.
+  return img ? { photoRect, imgW: img.width, imgH: img.height } : { photoRect: null };
 }
 
 export function storyCardBlob(canvas) {

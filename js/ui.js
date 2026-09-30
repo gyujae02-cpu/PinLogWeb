@@ -1,5 +1,5 @@
 import { compressPhoto, MAX_PHOTOS } from './photo.js';
-import { drawStoryCard, storyCardBlob } from './storycard.js';
+import { drawStoryCard, storyCardBlob, clampCrop, cropScale, DEFAULT_CROP, CROP_ZOOM_MAX } from './storycard.js';
 import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
@@ -192,6 +192,9 @@ export const el = {
   storyPhotos:     $('#story-photos'),
   storyFormats:    $('#story-formats'),
   storyThemes:     $('#story-themes'),
+  storyCrop:       $('#story-crop'),
+  storyZoom:       $('#story-zoom'),
+  storyCropReset:  $('#story-crop-reset'),
   storyEditToggle: $('#story-edit-toggle'),
   storyEdit:       $('#story-edit'),
   storyName:       $('#story-name'),
@@ -203,6 +206,7 @@ export const el = {
   storyHashForm:   $('#story-hash-form'),
   storyHashInput:  $('#story-hash-input'),
   storyHashtags:   $('#story-hashtags'),
+  storyCopyright:  $('#story-copyright'),
   storySave:       $('#story-save'),
 
   btnAbout:      $('#btn-about'),
@@ -537,6 +541,12 @@ export function initUI(handlers) {
   el.storyMemoFill.addEventListener('click', () => {
     if (!story) return;
     el.storyMemo.value = story.memo = story.pin.memo || '';
+    renderStory();
+  });
+  bindStoryCropGestures();
+  el.storyCopyright.addEventListener('change', () => {
+    if (!story) return;
+    story.copyright = el.storyCopyright.checked;
     renderStory();
   });
   el.storyHashForm.addEventListener('submit', (e) => {
@@ -1822,6 +1832,9 @@ export function openStoryCard(pin, photos) {
     hashtags: [],
     theme: list.length ? 'photo' : 'charcoal',   // 고른 배경 · 비율은 기억하지 않는다
     format: 'story',
+    copyright: true,   // 맨 아래 저작권 줄. 기본 켜짐, 기억하지 않는다
+    crops: {},         // 사진별 위치 · 배율 { [photoIndex]: { zoom, cx, cy } }. 창을 닫으면 사라진다
+    layout: null,      // 마지막으로 그린 카드의 사진 칸 위치 (drawStoryCard 가 돌려준 값)
     blob: null,
     filename: storyFilename(pin, 'story')
   };
@@ -1831,12 +1844,14 @@ export function openStoryCard(pin, photos) {
   el.storyMemo.value = '';
   el.storyMemoFill.hidden = !pin.memo;
   el.storyHashInput.value = '';
+  el.storyCopyright.checked = true;
   el.storyEdit.hidden = true;
   el.storyEditToggle.setAttribute('aria-expanded', 'false');
   renderStoryTokens();
   renderStoryPhotos();
   paintStoryFormats();
   paintStoryThemes();
+  paintStoryCrop();
 
   el.story.hidden = false;
   requestAnimationFrame(() => el.story.classList.add('is-on'));
@@ -1862,6 +1877,146 @@ export function isStoryCardOpen() { return !el.story.hidden; }
 function paintStoryFormats() {
   el.storyFormats.querySelectorAll('[data-format]').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.format === story.format));
+  });
+}
+
+// ── 사진 위치 조절 ────────────────────────────────────────
+// 미리보기 사진 칸을 한 손가락(마우스)으로 끌면 옮기고, 두 손가락 · 휠 · 슬라이더로 확대한다.
+// 위치는 사진마다 story.crops 에 { zoom, cx, cy } 로 둔다(storycard.js 의 clampCrop 참고).
+
+function currentCrop() {
+  return story.crops[story.photoIndex] || DEFAULT_CROP;
+}
+
+// 지금 사진 칸 크기에 맞춰 범위 안으로 되돌려 저장하고 슬라이더를 맞춘다.
+function setCrop(next) {
+  const L = story.layout;
+  const c = L && L.photoRect
+    ? clampCrop(next, L.photoRect.w, L.photoRect.h, L.imgW, L.imgH)
+    : { ...next, zoom: Math.min(CROP_ZOOM_MAX, Math.max(1, next.zoom)) };
+  story.crops[story.photoIndex] = c;
+  el.storyZoom.value = String(Math.round(c.zoom * 100));
+}
+
+function paintStoryCrop() {
+  el.storyCrop.hidden = !storyPhoto(story);
+  el.storyZoom.value = String(Math.round(currentCrop().zoom * 100));
+}
+
+// 손을 움직이는 동안은 화면에 한 번씩만 가볍게 그린다.
+let cropFrame = 0;
+let cropSettle = 0;
+function renderCropLive() {
+  if (!cropFrame) {
+    cropFrame = requestAnimationFrame(() => {
+      cropFrame = 0;
+      renderStory({ quick: true });
+    });
+  }
+}
+function renderCropDone() {
+  cancelAnimationFrame(cropFrame);
+  cropFrame = 0;
+  renderStory();
+}
+
+function bindStoryCropGestures() {
+  const cv = el.storyCanvas;
+  const pointers = new Map();
+  let gesture = null;
+
+  // 화면 좌표 → 캔버스 좌표(1080 폭 기준)
+  const toCanvas = (e) => {
+    const r = cv.getBoundingClientRect();
+    const k = cv.width / r.width;
+    return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k };
+  };
+  const photoRect = () => (story && storyPhoto(story) && story.layout && story.layout.photoRect) || null;
+  const inPhoto = (p) => {
+    const R = photoRect();
+    return !!R && p.x >= R.x && p.x <= R.x + R.w && p.y >= R.y && p.y <= R.y + R.h;
+  };
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  // 손가락 수가 바뀔 때마다 지금 상태를 출발점으로 다시 잡는다.
+  const restart = () => {
+    const pts = [...pointers.values()];
+    const crop0 = { ...currentCrop() };
+    if (pts.length === 1) gesture = { mode: 'pan', start: pts[0], crop0 };
+    else if (pts.length >= 2) gesture = { mode: 'pinch', d0: dist(pts[0], pts[1]) || 1, crop0 };
+    else gesture = null;
+  };
+
+  cv.addEventListener('pointerdown', (e) => {
+    if (!photoRect()) return;
+    const p = toCanvas(e);
+    if (!pointers.size && !inPhoto(p)) return;   // 첫 손가락은 사진 칸 안에서 시작해야 한다
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch { /* 캡처가 안 돼도 캔버스 안에서는 움직임을 받는다 */ }
+    pointers.set(e.pointerId, p);
+    cv.classList.add('is-grabbing');
+    restart();
+  });
+
+  cv.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) {
+      // 마우스를 올려두면 사진 칸 위에서만 손 모양 커서
+      if (e.pointerType === 'mouse') cv.classList.toggle('is-grab', inPhoto(toCanvas(e)));
+      return;
+    }
+    pointers.set(e.pointerId, toCanvas(e));
+    const L = story.layout;
+    if (!gesture || !L || !L.photoRect) return;
+    const { w, h } = L.photoRect;
+
+    if (gesture.mode === 'pan') {
+      const p = pointers.get(e.pointerId);
+      const s = cropScale(gesture.crop0.zoom, w, h, L.imgW, L.imgH);
+      setCrop({
+        zoom: gesture.crop0.zoom,
+        cx: gesture.crop0.cx - (p.x - gesture.start.x) / s / L.imgW,
+        cy: gesture.crop0.cy - (p.y - gesture.start.y) / s / L.imgH
+      });
+    } else {
+      const [a, b] = [...pointers.values()];
+      setCrop({ ...gesture.crop0, zoom: gesture.crop0.zoom * (dist(a, b) / gesture.d0) });
+    }
+    renderCropLive();
+  });
+
+  const end = (e) => {
+    if (!pointers.delete(e.pointerId)) return;
+    if (pointers.size) { restart(); return; }
+    gesture = null;
+    cv.classList.remove('is-grabbing');
+    if (story) renderCropDone();
+  };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+
+  // PC: 사진 칸 위에서 휠로 확대 · 축소. 멈추면 저장용으로 한 번 더 그린다.
+  cv.addEventListener('wheel', (e) => {
+    if (!inPhoto(toCanvas(e))) return;
+    e.preventDefault();
+    const c = currentCrop();
+    setCrop({ ...c, zoom: c.zoom * Math.exp(-e.deltaY * 0.0015) });
+    renderCropLive();
+    clearTimeout(cropSettle);
+    cropSettle = setTimeout(() => story && renderCropDone(), 250);
+  }, { passive: false });
+
+  el.storyZoom.addEventListener('input', () => {
+    if (!story) return;
+    setCrop({ ...currentCrop(), zoom: Number(el.storyZoom.value) / 100 });
+    renderCropLive();
+  });
+  el.storyZoom.addEventListener('change', () => story && renderCropDone());
+
+  el.storyCropReset.addEventListener('click', () => {
+    if (!story) return;
+    delete story.crops[story.photoIndex];
+    el.storyZoom.value = '100';
+    renderStory();
   });
 }
 
@@ -1967,6 +2122,7 @@ function renderStoryPhotos() {
         b.setAttribute('aria-pressed', String(Number(b.dataset.index) === i));
       });
       paintStoryThemes();
+      paintStoryCrop();
       renderStory();
     });
     el.storyPhotos.appendChild(btn);
@@ -1989,20 +2145,23 @@ function renderStoryPhotos() {
   });
 }
 
-async function renderStory() {
+// quick 은 사진을 끄는 중에 쓰는 가벼운 다시 그리기: 흐리게 하지 않고, 저장용 JPG 도 만들지 않는다.
+// 손을 떼면 quick 없이 한 번 더 불러 저장할 수 있게 만든다.
+async function renderStory({ quick = false } = {}) {
   if (!story) return;
   const seq = ++storySeq;
   const s = story;
 
   s.blob = null;
   el.storySave.classList.add('is-busy');
-  el.story.classList.add('is-drawing');
+  if (!quick) el.story.classList.add('is-drawing');
 
   // 옵션을 연달아 누르면 마지막 것만 남도록, 그리는 캔버스는 매번 새로 만든다.
   const canvas = document.createElement('canvas');
   try {
-    await drawStoryCard(canvas, storyCardData(s));
+    const info = await drawStoryCard(canvas, storyCardData(s));
     if (seq !== storySeq) return;
+    s.layout = info;   // 사진 칸 위치 — 미리보기에서 끌어 옮길 때 쓴다
 
     // 비율이 바뀌면 크기를 다시 맞춘다(크기를 넣으면 캔버스가 비워진다).
     const view = el.storyCanvas;
@@ -2014,6 +2173,7 @@ async function renderStory() {
     ctx.clearRect(0, 0, view.width, view.height);
     ctx.drawImage(canvas, 0, 0);
     el.story.classList.remove('is-drawing');
+    if (quick) return;
 
     const blob = await storyCardBlob(canvas);
     if (seq !== storySeq) return;
@@ -2041,6 +2201,8 @@ function storyCardData(s) {
     hashtags: s.hashtags.map((t) => '#' + t),
     theme: s.theme,
     format: s.format,
+    copyright: s.copyright,
+    crop: s.crops[s.photoIndex] || DEFAULT_CROP,
     photo: photo ? photo.dataUrl : ''
   };
 }

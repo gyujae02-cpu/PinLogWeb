@@ -2930,7 +2930,34 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   transform: scale(.96);
   transition: transform .28s var(--ease), opacity .2s var(--ease);
 }
-.story.is-on .story__canvas { transform: none; }.story.is-drawing .story__canvas { opacity: .55; }
+.story.is-on .story__canvas { transform: none; }
+/* 사진을 손가락으로 끌어 옮기므로 캔버스 위에서는 브라우저 스크롤 · 확대를 막는다 */
+.story__canvas { touch-action: none; }
+.story__canvas.is-grab { cursor: grab; }
+.story__canvas.is-grabbing { cursor: grabbing; }
+
+/* 사진 위치 조절 줄 */
+.story__crop {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; max-width: 320px;
+}
+.story__crop[hidden] { display: none; }
+.story__crop-ico { flex: none; width: 18px; height: 18px; color: rgba(255,255,255,.62); }
+.story__zoom {
+  flex: 1 1 auto; min-width: 0;
+  accent-color: #fff;
+  height: 26px;
+}
+.story__crop-reset {
+  flex: none;
+  height: 28px; padding: 0 12px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.20);
+  color: rgba(255,255,255,.80);
+  font-size: 12.5px;
+}
+.story__crop-reset:active { transform: scale(.96); }.story.is-drawing .story__canvas { opacity: .55; }
 
 .story__panel {
   flex: none;
@@ -3074,6 +3101,31 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 14px;
 }
 .story__hash-add:active { transform: scale(.96); }
+
+.story__switch-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  cursor: pointer;
+}
+/* 켜짐/꺼짐 스위치. 체크박스 자체를 트랙으로 그리고 ::before 를 손잡이로 쓴다. */
+.story__switch {
+  appearance: none; -webkit-appearance: none;
+  position: relative; flex: none;
+  width: 44px; height: 26px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.18);
+  cursor: pointer;
+  transition: background .18s var(--ease);
+}
+.story__switch::before {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 99px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform .18s var(--ease);
+}
+.story__switch:checked { background: var(--brand-500); }
+.story__switch:checked::before { transform: translateX(18px); }
+.story__switch:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .story__tokens { display: flex; flex-wrap: wrap; gap: 6px; }
 .story__tokens:empty { display: none; }
