@@ -47,7 +47,7 @@ function loadImage(src) {
 async function ensureFonts(sample) {
   if (!document.fonts || !document.fonts.load) return;
   try {
-    await Promise.all([300, 400, 700].map((w) => document.fonts.load(`${w} 40px ${FONT}`, sample)));
+    await Promise.all([300, 400].map((w) => document.fonts.load(`${w} 40px ${FONT}`, sample)));
   } catch { /* 폰트가 없어도 기본 서체로 그린다 */ }
 }
 
@@ -246,11 +246,11 @@ function layoutText(ctx, card) {
     }
   } });
 
-  ctx.font = font(700, 84);
+  ctx.font = font(400, 84);
   const nameLines = clampLines(ctx, card.name, TEXT_W, 2);
   const nameLH = 100;
   blocks.push({ h: nameLines.length * nameLH, gap: 18, draw: (y) => {
-    ctx.font = font(700, 84);
+    ctx.font = font(400, 84);
     ctx.fillStyle = INK;
     nameLines.forEach((l, i) => ctx.fillText(l, TEXT_X - 2, y + 80 + i * nameLH));
   } });
@@ -360,7 +360,7 @@ function paintPhoto(ctx, img, x, y, w, h) {
 function paintHeader(ctx, dateText) {
   const y = SAFE_TOP - 50;
   drawIcon(ctx, PIN_PATH, MARGIN - 4, y - 38, 48, INK);
-  ctx.font = font(700, 42);
+  ctx.font = font(400, 42);
   ctx.fillStyle = INK;
   ctx.fillText('PinLog', MARGIN + 46, y);
 

@@ -198,6 +198,7 @@ export const el = {
   about:         $('#about'),
   aboutDays:     $('#about-days'),
   aboutNotice:   $('#about-notice'),
+  aboutFont:     $('#about-font'),
   aboutClose:    $('#about-close'),
 
   export:        $('#export'),
@@ -598,6 +599,7 @@ function openAbout() {
 
   // 항상 접힌 상태로 열리게 한다.
   el.aboutNotice.open = false;
+  el.aboutFont.open = false;
 
   el.about.hidden = false;
   requestAnimationFrame(() => el.about.classList.add('is-on'));

@@ -19,7 +19,6 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <link rel="preload" href="/fonts/SebangGothic-Regular.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="/fonts/SebangGothic-Bold.woff2" as="font" type="font/woff2" crossorigin />
 
   <style>
     /* ?몃갑怨좊뵓 2.0. 源딆? 寃쎈줈?먯꽌???⑤?濡?猷⑦듃 ?덈?寃쎈줈濡?嫄대떎. */
@@ -33,11 +32,7 @@
       src: url('/fonts/SebangGothic-Regular.woff2') format('woff2');
       font-weight: 400; font-style: normal; font-display: swap;
     }
-    @font-face {
-      font-family: 'Sebang Gothic';
-      src: url('/fonts/SebangGothic-Bold.woff2') format('woff2');
-      font-weight: 700; font-style: normal; font-display: swap;
-    }
+    html { font-synthesis-weight: none; }
     :root {
       --brand-200: #B8DEFF;
       --brand-500: #2E9BE6;
@@ -185,7 +180,7 @@
     .code {
       margin: 0;
       font-size: clamp(56px, 18vw, 72px);
-      font-weight: 700; letter-spacing: -.05em; line-height: 1;
+      font-weight: 400; letter-spacing: -.05em; line-height: 1;
       color: var(--login-ink);
       text-shadow: 0 1px 2px rgba(3,14,26,.55), 0 2px 14px rgba(3,14,26,.28);
     }
@@ -193,7 +188,7 @@
     .title {
       margin: 14px 0 0;
       font-size: clamp(19px, 5.4vw, 22px);
-      font-weight: 700; letter-spacing: -.03em; line-height: 1.35;
+      font-weight: 400; letter-spacing: -.03em; line-height: 1.35;
       color: var(--login-ink);
     }
 
@@ -210,7 +205,7 @@
       border-radius: 16px;
       background: linear-gradient(180deg, var(--brand-500), var(--brand-600));
       color: #fff;
-      font-size: 15px; font-weight: 700; letter-spacing: -.01em;
+      font-size: 15px; font-weight: 400; letter-spacing: -.01em;
       text-decoration: none;
       box-shadow:
         0 16px 36px rgba(3, 14, 26, .48),
@@ -224,7 +219,7 @@
     /* 로그인 화면과 같은 워드마크 — 'i' 자리를 핀이 대신한다. */
     .mark {
       margin: 44px 0 0;
-      font-size: 17px; font-weight: 700; letter-spacing: -.035em; line-height: 1;
+      font-size: 17px; font-weight: 400; letter-spacing: -.035em; line-height: 1;
       color: var(--login-ink);
       user-select: none;
     }

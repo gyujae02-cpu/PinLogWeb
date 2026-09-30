@@ -9,7 +9,6 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
   <link rel="preload" href="fonts/SebangGothic-Regular.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="fonts/SebangGothic-Bold.woff2" as="font" type="font/woff2" crossorigin />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -376,7 +375,7 @@
     <div class="timeline__panel">
       <header class="timeline__head">
         <div class="min-w-0">
-          <h2 class="text-[20px] font-bold tracking-[-.03em] leading-none">핀 모아보기</h2>
+          <h2 class="text-[20px] font-normal tracking-[-.03em] leading-none">핀 모아보기</h2>
           <p id="timeline-sub" class="mt-2 text-[12px] text-ink-400 tracking-tight">불러오는 중…</p>
         </div>
         <div class="timeline__head-actions">
@@ -439,7 +438,7 @@
     <div class="timeline__panel">
       <header class="timeline__head">
         <div class="min-w-0">
-          <h2 class="text-[20px] font-bold tracking-[-.03em] leading-none">댓글 모아보기</h2>
+          <h2 class="text-[20px] font-normal tracking-[-.03em] leading-none">댓글 모아보기</h2>
           <p id="feed-sub" class="mt-2 text-[12px] text-ink-400 tracking-tight">불러오는 중…</p>
         </div>
         <div class="timeline__head-actions">
@@ -488,7 +487,7 @@
     <div class="timeline__panel">
       <header class="timeline__head">
         <div class="min-w-0">
-          <h2 class="text-[20px] font-bold tracking-[-.03em] leading-none">데이트 코스</h2>
+          <h2 class="text-[20px] font-normal tracking-[-.03em] leading-none">데이트 코스</h2>
           <p id="courses-sub" class="mt-2 text-[12px] text-ink-400 tracking-tight">불러오는 중…</p>
         </div>
         <div class="timeline__head-actions">
@@ -871,7 +870,7 @@
 
   <div id="confirm" class="confirm" hidden role="dialog" aria-modal="true">
     <div class="confirm__box">
-      <h3 id="confirm-title" class="text-[17px] font-bold tracking-tight">핀을 삭제할까요?</h3>
+      <h3 id="confirm-title" class="text-[17px] font-normal tracking-tight">핀을 삭제할까요?</h3>
       <p id="confirm-desc" class="mt-2 text-[13.5px] text-ink-500 leading-relaxed">삭제한 핀은 되돌릴 수 없어요.</p>
       <div class="flex gap-2.5 mt-5">
         <button id="confirm-cancel" type="button" class="btn-ghost flex-1 h-12">취소</button>
@@ -913,6 +912,19 @@
         </div>
       </details>
 
+      <details id="about-font" class="about__notice">
+        <summary class="about__notice-head">
+          폰트 저작권
+          <svg class="about__chev" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </summary>
+        <div class="about__notice-body">
+          <p>이 서비스에는 세방그룹이 배포한 세방고딕 2.0 폰트가 사용되었습니다.</p>
+          <p>Copyright(c) SEBANG GROUP., LTD ALL RIGHT RESERVED</p>
+        </div>
+      </details>
+
       <p class="about__by">© 2026 JAEGYU LEE</p>
       <p class="about__ver">v20260930</p>
 
@@ -922,7 +934,7 @@
 
   <div id="export" class="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="export-title">
     <div class="confirm__box">
-      <h3 id="export-title" class="text-[17px] font-bold tracking-tight">기록을 내보낼까요?</h3>
+      <h3 id="export-title" class="text-[17px] font-normal tracking-tight">기록을 내보낼까요?</h3>
       <p class="mt-2 text-[13.5px] text-ink-500 leading-relaxed">
         핀·사진·댓글은 모두 서버에만 있어요. 실수로 지우거나 계정에 문제가 생기면
         되돌릴 방법이 없으니, 가끔 파일로 받아두면 안심할 수 있어요.
@@ -941,7 +953,7 @@
 
   <div id="course-pick" class="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="course-pick-title">
     <div class="confirm__box">
-      <h3 id="course-pick-title" class="text-[17px] font-bold tracking-tight">어느 코스에 담을까요?</h3>
+      <h3 id="course-pick-title" class="text-[17px] font-normal tracking-tight">어느 코스에 담을까요?</h3>
       <p id="course-pick-desc" class="mt-2 text-[13.5px] text-ink-500 leading-relaxed"></p>
 
       <ul id="course-pick-list" class="cp-list scroll-y"></ul>
