@@ -1828,7 +1828,7 @@ export function openStoryCard(pin, photos) {
     name: cleanPlaceName(pin.name) || pin.name,   // 대괄호뿐인 이름이면 그대로 둔다
     address: pin.address || '',
     memo: '',                                      // 메모는 기본으로 빼고, 필요하면 가져온다
-    tags: (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean),
+    tags: storyPinTags(pin),
     hashtags: [],
     theme: list.length ? 'photo' : 'charcoal',   // 고른 배경 · 비율은 기억하지 않는다
     format: 'story',
@@ -2069,6 +2069,10 @@ function addStoryHashtags(raw) {
   renderStory();
 }
 
+function storyPinTags(pin) {
+  return (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean);
+}
+
 function renderStoryTokens() {
   const token = (label, onRemove) => {
     const chip = h('span', 'story__token', label);
@@ -2080,8 +2084,22 @@ function renderStoryTokens() {
     return chip;
   };
 
+  // 핀에 태그가 있으면 다 빼도 칸은 남기고, 한 번에 되돌릴 수 있게 한다.
+  // 핀에 처음부터 태그가 없을 때만 칸을 숨긴다.
+  const pinTags = storyPinTags(story.pin);
   el.storyTags.innerHTML = '';
-  el.storyTagsField.hidden = !story.tags.length;
+  el.storyTagsField.hidden = !pinTags.length;
+  if (pinTags.length && !story.tags.length) {
+    el.storyTags.appendChild(h('span', 'story__tokens-empty', '태그를 모두 뺐어요'));
+    const back = h('button', 'story__link', '다시 넣기');
+    back.type = 'button';
+    back.addEventListener('click', () => {
+      story.tags = storyPinTags(story.pin);
+      renderStoryTokens();
+      renderStory();
+    });
+    el.storyTags.appendChild(back);
+  }
   story.tags.forEach((t, i) => {
     el.storyTags.appendChild(token(t, () => {
       story.tags.splice(i, 1);

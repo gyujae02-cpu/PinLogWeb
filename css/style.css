@@ -3129,6 +3129,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .story__tokens { display: flex; flex-wrap: wrap; gap: 6px; }
 .story__tokens:empty { display: none; }
+.story__tokens { align-items: center; }
+.story__tokens-empty { color: rgba(255,255,255,.45); font-size: 13px; }
+.story__tokens .story__link { margin-left: 6px; }
 .story__token {
   display: inline-flex; align-items: center; gap: 2px;
   height: 30px; padding: 0 4px 0 12px;
