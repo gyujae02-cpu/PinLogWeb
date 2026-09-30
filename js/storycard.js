@@ -101,14 +101,23 @@ function blurredBackdrop(img) {
   return mid;
 }
 
-function paintBackground(ctx, img) {
-  if (img) {
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(blurredBackdrop(img), 0, 0, STORY_W, STORY_H);
-  } else {
-    paintLightBeams(ctx);
-    return;   // 무채색 배경이라 블루 스크림 · 틴트를 얹지 않는다
+// 배경 테마. 'photo' 는 사진을 흐리게 깔고, 나머지는 색 위에 빛줄기를 얹는다.
+// 글자 · 유리 카드가 흰색 기준이라 모두 어두운 톤으로만 둔다.
+const THEME_COLORS = {
+  charcoal: ['#0F1114'],
+  blue:     ['#04192C', '#0A3F6B', '#0B5E9C'],
+  rose:     ['#240914', '#5A1631', '#8A2A4E'],
+  dusk:     ['#1B1238', '#5A1E5C', '#A8492F']
+};
+
+function paintBackground(ctx, img, theme) {
+  if (theme !== 'photo' || !img) {
+    paintLightBeams(ctx, THEME_COLORS[theme] || THEME_COLORS.charcoal);
+    return;   // 스크림 · 틴트는 사진용이다
   }
+
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(blurredBackdrop(img), 0, 0, STORY_W, STORY_H);
 
   // 가독성 스크림 + 브랜드 블루 틴트 (로그인 화면과 같은 값)
   const scrim = ctx.createLinearGradient(0, 0, 0, STORY_H);
@@ -123,16 +132,23 @@ function paintBackground(ctx, img) {
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 }
 
-// 사진이 없을 때의 배경. 유리 뒤에 비칠 게 있어야 투명해 보여서
-// 차콜 위로 창문 빛처럼 사선 빛줄기를 깐다. 블러 대신 가로 그라데이션으로 가장자리를 푼다.
+// 색 테마 배경. 유리 뒤에 비칠 게 있어야 투명해 보여서
+// 바탕색 위로 창문 빛처럼 사선 빛줄기를 깐다. 블러 대신 가로 그라데이션으로 가장자리를 푼다.
 const BEAMS = [
   { x: 216, w: 324, a: 0.20 },
   { x: 648, w: 184, a: 0.15 },
   { x: 918, w: 130, a: 0.11 }
 ];
 
-function paintLightBeams(ctx) {
-  ctx.fillStyle = '#0F1114';
+function paintLightBeams(ctx, colors) {
+  if (colors.length === 1) {
+    ctx.fillStyle = colors[0];
+  } else {
+    // 왼쪽 위에서 오른쪽 아래로 살짝 기울여 흐르게 한다.
+    const g = ctx.createLinearGradient(0, 0, STORY_W * 0.45, STORY_H);
+    colors.forEach((c, i) => g.addColorStop(i / (colors.length - 1), c));
+    ctx.fillStyle = g;
+  }
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 
   const cy = STORY_H * 0.48;
@@ -366,12 +382,11 @@ function paintPhoto(ctx, img, x, y, w, h) {
   ctx.stroke();
 }
 
-// 메인 화면 왼쪽 위 .brand 를 그대로 옮긴다: 흰 유리 알약 + 'P(핀)nLog' 워드마크.
-// 크기는 화면의 17px · 46px 알약을 BRAND_SCALE 배로 키운 값이다.
+// 메인 화면 왼쪽 위 'P(핀)nLog' 워드마크. 카드는 배경이 어두워서 알약 없이 전부 흰색으로 쓴다.
+// 크기는 화면의 17px 글자를 BRAND_SCALE 배로 키운 값이다.
 const BRAND_SCALE = 2.6;
-const BRAND_INK   = '#16202B';   // --ink-900
-const BRAND_BLUE  = '#0B6FB5';   // --brand-600
-const BRAND_STEM  = '#64748B';   // --ink-500
+const BRAND_INK   = INK;
+const BRAND_STEM  = 'rgba(255,255,255,.72)';   // 로그인 화면 워드마크의 기둥과 같은 값
 
 // index.html 의 .wordmark-pin (viewBox 0 0 10 20) 과 같은 모양. 아래 끝이 글자 기준선에 닿는다.
 function drawWordmarkPin(ctx, x, baseline, em) {
@@ -386,11 +401,7 @@ function drawWordmarkPin(ctx, x, baseline, em) {
   ctx.fill();
   ctx.beginPath();
   ctx.arc(5, 5, 5, 0, Math.PI * 2);
-  ctx.fillStyle = BRAND_BLUE;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(3.3, 3.3, 1.6, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,.3)';
+  ctx.fillStyle = BRAND_INK;
   ctx.fill();
   ctx.restore();
   return w;
@@ -398,47 +409,20 @@ function drawWordmarkPin(ctx, x, baseline, em) {
 
 function paintBrand(ctx, x, cy) {
   const em = Math.round(17 * BRAND_SCALE);
-  const h = Math.round(46 * BRAND_SCALE);
-  const padX = Math.round(16 * BRAND_SCALE);
   const gap = em * 0.04;
 
   ctx.save();
   ctx.font = font(400, em);
   if ('letterSpacing' in ctx) ctx.letterSpacing = `${(-0.035 * em).toFixed(1)}px`;
+  ctx.fillStyle = BRAND_INK;
 
-  const wP = ctx.measureText('P').width;
-  const wN = ctx.measureText('n').width;
-  const wLog = ctx.measureText('Log').width;
-  const textW = wP + gap + em * 0.39 + gap + wN + wLog;
-  const w = Math.ceil(textW + padX * 2);
-  const y = cy - h / 2;
-
-  // 유리 알약: --glass-l1 배경, --glass-l-bd 테두리, --sh-card 그림자
-  ctx.save();
-  ctx.shadowColor = 'rgba(22,32,43,.18)';
-  ctx.shadowBlur = 30 * BRAND_SCALE / 2;
-  ctx.shadowOffsetY = 10 * BRAND_SCALE / 2;
-  roundRectPath(ctx, x, y, w, h, 15 * BRAND_SCALE);
-  ctx.fillStyle = 'rgba(255,255,255,.62)';
-  ctx.fill();
-  ctx.restore();
-  roundRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 15 * BRAND_SCALE - 1);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(255,255,255,.7)';
-  ctx.stroke();
-
-  // 글자: 폰트 줄높이 1 기준으로 가운데 맞춤
+  // 폰트 줄높이 1 기준으로 cy 에 가운데 맞춤
   const baseline = cy + em * 0.36;
-  let tx = x + padX;
-  ctx.fillStyle = BRAND_INK;
+  let tx = x;
   ctx.fillText('P', tx, baseline);
-  tx += wP + gap;
+  tx += ctx.measureText('P').width + gap;
   tx += drawWordmarkPin(ctx, tx, baseline, em) + gap;
-  ctx.fillStyle = BRAND_INK;
-  ctx.fillText('n', tx, baseline);
-  tx += wN;
-  ctx.fillStyle = BRAND_BLUE;
-  ctx.fillText('Log', tx, baseline);
+  ctx.fillText('nLog', tx, baseline);
   ctx.restore();
 }
 
@@ -458,7 +442,8 @@ function paintHeader(ctx, dateText) {
 }
 
 /**
- * card: { name, address, dateText, favNote, tags: [label], hashtags: ['#…'], memo, photo: dataUrl | '' }
+ * card: { name, address, dateText, favNote, tags: [label], hashtags: ['#…'], memo, photo: dataUrl | '',
+ *         theme: 'photo' | 'charcoal' | 'blue' | 'rose' | 'dusk' }
  * address · memo 는 보여줄 때만 넘긴다(빈 값이면 줄 자체를 뺀다).
  */
 export async function drawStoryCard(canvas, card) {
@@ -471,7 +456,7 @@ export async function drawStoryCard(canvas, card) {
   const [img] = await Promise.all([loadImage(card.photo), ensureFonts(sample)]);
 
   ctx.clearRect(0, 0, STORY_W, STORY_H);
-  paintBackground(ctx, img);
+  paintBackground(ctx, img, card.theme || (img ? 'photo' : 'charcoal'));
   paintHeader(ctx, card.dateText);
 
   const { blocks, height: textH } = layoutText(ctx, card);

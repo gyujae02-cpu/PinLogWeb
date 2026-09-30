@@ -190,6 +190,7 @@ export const el = {
   storyCanvas:     $('#story-canvas'),
   storyClose:      $('#story-close'),
   storyPhotos:     $('#story-photos'),
+  storyThemes:     $('#story-themes'),
   storyEditToggle: $('#story-edit-toggle'),
   storyEdit:       $('#story-edit'),
   storyName:       $('#story-name'),
@@ -505,6 +506,13 @@ export function initUI(handlers) {
   });
 
   el.storyClose.addEventListener('click', () => closeStoryCard());
+  el.storyThemes.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-theme]');
+    if (!btn || !story || story.theme === btn.dataset.theme) return;
+    story.theme = btn.dataset.theme;
+    paintStoryThemes();
+    renderStory();
+  });
   el.storyEditToggle.addEventListener('click', () => {
     const open = el.storyEdit.hidden;
     el.storyEdit.hidden = !open;
@@ -1803,6 +1811,7 @@ export function openStoryCard(pin, photos) {
     memo: '',                                      // 메모는 기본으로 빼고, 필요하면 가져온다
     tags: (pin.tags || []).map((id) => tagById(id)?.label).filter(Boolean),
     hashtags: [],
+    theme: list.length ? 'photo' : 'charcoal',   // 고른 배경은 기억하지 않는다
     blob: null,
     filename: storyFilename(pin)
   };
@@ -1816,6 +1825,7 @@ export function openStoryCard(pin, photos) {
   el.storyEditToggle.setAttribute('aria-expanded', 'false');
   renderStoryTokens();
   renderStoryPhotos();
+  paintStoryThemes();
 
   el.story.hidden = false;
   requestAnimationFrame(() => el.story.classList.add('is-on'));
@@ -1837,6 +1847,18 @@ export function closeStoryCard() {
 }
 
 export function isStoryCardOpen() { return !el.story.hidden; }
+
+// '사진' 견본은 지금 고른 사진을 보여주고, 사진이 없는 핀에서는 숨긴다.
+function paintStoryThemes() {
+  const photo = story.photos[story.photoIndex];
+  el.storyThemes.querySelectorAll('[data-theme]').forEach((btn) => {
+    if (btn.dataset.theme === 'photo') {
+      btn.hidden = !photo;
+      btn.style.backgroundImage = photo ? `url("${photo.dataUrl}")` : '';
+    }
+    btn.setAttribute('aria-pressed', String(btn.dataset.theme === story.theme));
+  });
+}
 
 // 글자를 칠 때마다 다시 그리면 휴대폰에서 버벅인다. 손을 멈추면 그린다.
 function renderStorySoon() {
@@ -1921,6 +1943,7 @@ function renderStoryPhotos() {
       el.storyPhotos.querySelectorAll('.story__thumb').forEach((b, j) => {
         b.setAttribute('aria-pressed', String(j === i));
       });
+      paintStoryThemes();
       renderStory();
     });
     el.storyPhotos.appendChild(btn);
@@ -1972,6 +1995,7 @@ function storyCardData(s) {
     favNote: storyFavNote(pin.favoritedBy || []),
     tags: s.tags.slice(),
     hashtags: s.hashtags.map((t) => '#' + t),
+    theme: s.theme,
     photo: photo ? photo.dataUrl : ''
   };
 }

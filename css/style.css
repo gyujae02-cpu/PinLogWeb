@@ -2959,6 +2959,24 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .story__thumb[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2.5px #fff; }
 .story__thumb:active { transform: scale(.94); }
 
+/* 배경 테마 견본. 색은 storycard.js 의 THEME_COLORS 와 맞춘다. */
+.story__themes { display: flex; gap: 10px; padding: 3px; }
+.story__swatch {
+  width: 30px; height: 30px;
+  border-radius: 99px;
+  background-size: cover; background-position: center;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.22);
+  transition: box-shadow .16s var(--ease), transform .16s var(--ease);
+}
+.story__swatch[hidden] { display: none; }
+.story__swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px rgba(10,16,22,.93), 0 0 0 4px #fff; }
+.story__swatch:active { transform: scale(.92); }
+.story__swatch--photo    { background-color: #2A3440; }
+.story__swatch--charcoal { background: linear-gradient(135deg, #0F1114 45%, #3A3D42 55%, #0F1114 65%); }
+.story__swatch--blue     { background: linear-gradient(160deg, #04192C, #0A3F6B, #0B5E9C); }
+.story__swatch--rose     { background: linear-gradient(160deg, #240914, #5A1631, #8A2A4E); }
+.story__swatch--dusk     { background: linear-gradient(160deg, #1B1238, #5A1E5C, #A8492F); }
+
 .story__chip {
   height: 34px; padding: 0 16px;
   border-radius: 99px;
