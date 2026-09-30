@@ -12,8 +12,8 @@ const FONT = "'Sebang Gothic', system-ui, -apple-system, sans-serif";
 // 스토리는 위(프로필) · 아래(답장 입력창)를 앱 UI 가 덮어서 넉넉히 비운다. 피드는 가리는 게 없다.
 // 피드는 세로가 좁아 글이 많으면 LAYOUT_STEPS 순서로 줄 수를 줄여 넣는다.
 export const CARD_FORMATS = {
-  story:  { h: 1920, headerY: 186, top: 250, footerY: 1600, photoMin: 460, emptyPhoto: 420, emptyMin: 320 },
-  feed45: { h: 1350, headerY: 96,  top: 168, footerY: 1306, photoMin: 300, emptyPhoto: 340, emptyMin: 240 },
+  story:  { h: 1920, headerY: 186, top: 250, footerY: 1600, photoMin: 460, emptyPhoto: 460, emptyMin: 320 },
+  feed45: { h: 1350, headerY: 96,  top: 168, footerY: 1306, photoMin: 300, emptyPhoto: 410, emptyMin: 240 },
   square: { h: 1080, headerY: 88,  top: 146, footerY: 1040, photoMin: 200, emptyPhoto: 320, emptyMin: 200 }
 };
 
@@ -384,7 +384,7 @@ function paintPhoto(ctx, img, x, y, w, h) {
     ctx.fillStyle = 'rgba(255,255,255,.08)';
     ctx.fillRect(x, y, w, h);
     // 사진이 없으면 로그인 화면 로고 색의 'P(핀)nLog' 워드마크와 설명 한 줄을 묶어 가운데에 둔다.
-    const em = Math.round(Math.min(h * 0.3, w * 0.13));
+    const em = Math.round(Math.min(h * 0.3, w * 0.16));
     const tagSize = Math.max(24, Math.round(em * 0.3));
     const gap = Math.round(em * 0.28);
     const top = y + (h - (em + gap + tagSize)) / 2;   // 로고 + 간격 + 설명 묶음의 위 끝
