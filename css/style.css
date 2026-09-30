@@ -585,6 +585,15 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 #screen-login .field__input { color: var(--login-ink); caret-color: var(--brand-200); }
 #screen-login .field__input::placeholder { font-weight: 300; color: rgba(255,255,255,.46); }
 
+/* 바깥 .field 가 이미 포커스 링을 그린다. 전역 :focus-visible 이 input 에도
+   걸리면 칸 안에 파란 상자가 하나 더 생기므로 input 쪽은 끈다. */
+#screen-login .field__input:focus-visible { outline: none; }
+
+/* 세방고딕의 • (U+2022) 는 빈 글리프라, 브라우저가 비밀번호를 가리는 점이
+   투명하게 그려진다. 비밀번호 칸만 시스템 폰트로 돌리고 안내 문구는 그대로 둔다. */
+#screen-login .field__input[type="password"] { font-family: system-ui, -apple-system, sans-serif; }
+#screen-login .field__input[type="password"]::placeholder { font-family: 'Sebang Gothic', system-ui, sans-serif; }
+
 /* 크롬 자동완성이 인풋에 흰 배경을 강제로 칠해 글래스를 깬다.
    background-color 전이를 사실상 무한히 늦춰 원래 배경을 유지시킨다. */
 #screen-login .field__input:-webkit-autofill,
@@ -1998,13 +2007,23 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
    다만 여기서는 가로 스크롤 대신 줄바꿈을 쓴다.
    패널 폭이 좁아 칩이 잘리는데, PC 에서는 가로 스크롤을 끌기가 번거롭다.
-   세로로는 자리가 넉넉하니 접었다 펴도 다 보인다. */
+   세로로는 자리가 넉넉하니 접었다 펴도 다 보인다.
+
+   단, 폰(바텀시트)에서는 칩이 3~4줄로 쌓여 목록을 가린다.
+   폰은 손가락으로 밀면 되니 지도처럼 한 줄 가로 스크롤로 되돌린다. */
 .timeline__filter {
   margin-top: 5px;
   flex-shrink: 0;
   flex-wrap: wrap;
   row-gap: 8px;
   overflow: visible;
+}
+@media (max-width: 639px) {
+  .timeline__filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
 }
 
 .timeline__list {
