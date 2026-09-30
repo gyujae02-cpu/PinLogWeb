@@ -1391,10 +1391,14 @@ export function setFormLoading(on) {
   el.formDelete.disabled = on;
 }
 
-// 핀 이름을 네이버에 넘기되, '[양식] 식당1' 의 [양식] 같은 대괄호 머리말은 뗀다.
-// 떼고 나서 비면 주소로 찾는다.
+// '[양식] 식당1' 의 [양식] 같은 대괄호 머리말을 뗀 이름. 네이버 검색 · 스토리 카드가 같이 쓴다.
+function cleanPlaceName(name) {
+  return String(name || '').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// 핀 이름을 네이버에 넘기되 대괄호 머리말은 뗀다. 떼고 나서 비면 주소로 찾는다.
 function searchUrl(pin) {
-  const name = (pin.name || '').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+  const name = cleanPlaceName(pin.name);
   const query = name || pin.address || '';
   return 'https://search.naver.com/search.naver?query=' + encodeURIComponent(query);
 }
@@ -1879,7 +1883,7 @@ function storyCardData(s) {
   const photo = s.photos[s.photoIndex];
 
   return {
-    name: pin.name,
+    name: cleanPlaceName(pin.name) || pin.name,   // 대괄호뿐인 이름이면 그대로 둔다
     category: pin.category,
     dateText: d ? `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}` : '',
     address: s.address ? pin.address : '',
@@ -1899,7 +1903,7 @@ function storyFavNote(favs) {
 }
 
 function storyFilename(pin) {
-  const name = String(pin.name || 'pin').replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  const name = (cleanPlaceName(pin.name) || String(pin.name || 'pin')).replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const date = /^\d{4}-\d{2}-\d{2}$/.test(pin.visitedAt || '') ? pin.visitedAt : todayValue();
   return `pinlog-${name || 'pin'}-${date.replace(/-/g, '')}.jpg`;
 }

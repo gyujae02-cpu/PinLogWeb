@@ -105,22 +105,8 @@ function paintBackground(ctx, img) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(blurredBackdrop(img), 0, 0, STORY_W, STORY_H);
   } else {
-    // 사진이 없으면 로그인 화면의 폴백 배경(딥 블루)을 그대로 쓴다.
-    const lin = ctx.createLinearGradient(0, 0, 0, STORY_H);
-    lin.addColorStop(0,    '#072B4A');
-    lin.addColorStop(0.28, '#0B4A79');
-    lin.addColorStop(0.48, '#0B6FB5');
-    lin.addColorStop(0.64, '#0C4C7C');
-    lin.addColorStop(0.82, '#072B4A');
-    lin.addColorStop(1,    '#061E33');
-    ctx.fillStyle = lin;
-    ctx.fillRect(0, 0, STORY_W, STORY_H);
-
-    const glow = ctx.createRadialGradient(STORY_W / 2, STORY_H * 0.6, 0, STORY_W / 2, STORY_H * 0.6, STORY_W * 0.9);
-    glow.addColorStop(0,    'rgba(133,198,250,.50)');
-    glow.addColorStop(0.62, 'rgba(133,198,250,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, STORY_W, STORY_H);
+    paintLightBeams(ctx);
+    return;   // 무채색 배경이라 블루 스크림 · 틴트를 얹지 않는다
   }
 
   // 가독성 스크림 + 브랜드 블루 틴트 (로그인 화면과 같은 값)
@@ -133,6 +119,44 @@ function paintBackground(ctx, img) {
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 
   ctx.fillStyle = 'rgba(11,111,181,.20)';
+  ctx.fillRect(0, 0, STORY_W, STORY_H);
+}
+
+// 사진이 없을 때의 배경. 유리 뒤에 비칠 게 있어야 투명해 보여서
+// 차콜 위로 창문 빛처럼 사선 빛줄기를 깐다. 블러 대신 가로 그라데이션으로 가장자리를 푼다.
+const BEAMS = [
+  { x: 216, w: 324, a: 0.20 },
+  { x: 648, w: 184, a: 0.15 },
+  { x: 918, w: 130, a: 0.11 }
+];
+
+function paintLightBeams(ctx) {
+  ctx.fillStyle = '#0F1114';
+  ctx.fillRect(0, 0, STORY_W, STORY_H);
+
+  const cy = STORY_H * 0.48;
+  const len = STORY_H * 1.6;
+  for (const b of BEAMS) {
+    ctx.save();
+    ctx.translate(b.x + b.w / 2, cy);
+    ctx.rotate((28 * Math.PI) / 180);
+
+    const g = ctx.createLinearGradient(-b.w, 0, b.w, 0);
+    g.addColorStop(0,    'rgba(255,255,255,0)');
+    g.addColorStop(0.5,  `rgba(255,255,255,${b.a})`);
+    g.addColorStop(1,    'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(-b.w, -len / 2, b.w * 2, len);
+    ctx.restore();
+  }
+
+  // 위아래를 살짝 눌러 헤더 · 문구가 빛에 묻히지 않게 한다.
+  const shade = ctx.createLinearGradient(0, 0, 0, STORY_H);
+  shade.addColorStop(0,    'rgba(0,0,0,.35)');
+  shade.addColorStop(0.25, 'rgba(0,0,0,0)');
+  shade.addColorStop(0.75, 'rgba(0,0,0,0)');
+  shade.addColorStop(1,    'rgba(0,0,0,.40)');
+  ctx.fillStyle = shade;
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 }
 
