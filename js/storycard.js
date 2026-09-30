@@ -7,8 +7,8 @@ const STORY_W = 1080;
 
 const FONT = "'Sebang Gothic', system-ui, -apple-system, sans-serif";
 
-// top 은 카드를 놓을 세로 범위의 위, headerY 는 PinLog · 날짜 줄의 가운데,
-// footerY 는 맨 아래 문구(설명 · 저작권) 두 줄 중 아랫줄의 기준선. 카드는 문구 위까지만 쓴다.
+// top 은 카드를 놓을 세로 범위의 위(헤더 로고 아래 설명 줄이 있으면 TAGLINE_ROOM 만큼 더 내린다),
+// headerY 는 PinLog · 날짜 줄의 가운데, footerY 는 맨 아래 저작권 줄의 기준선. 카드는 그 위까지만 쓴다.
 // 스토리는 위(프로필) · 아래(답장 입력창)를 앱 UI 가 덮어서 넉넉히 비운다. 피드는 가리는 게 없다.
 // 피드는 세로가 좁아 글이 많으면 LAYOUT_STEPS 순서로 줄 수를 줄여 넣는다.
 export const CARD_FORMATS = {
@@ -17,9 +17,12 @@ export const CARD_FORMATS = {
   square: { h: 1080, headerY: 88,  top: 146, footerY: 1040, photoMin: 200, emptyPhoto: 260, emptyMin: 200 }
 };
 
-const FOOTER_TAGLINE   = '우리가 함께 찍어가는 지도';
-const FOOTER_COPYRIGHT = '© 2026 JAEGYU LEE';
-const FOOTER_ROOM = 120;   // 아랫줄 기준선에서 카드 아래 끝까지 (두 줄 높이 + 카드와의 간격)
+// 서비스 설명은 로고 바로 아래에 붙는다(사진이 있으면 왼쪽 위 로고, 없으면 사진 자리 큰 로고).
+const TAGLINE      = '너와 나의 모든 장소';
+const TAGLINE_INK  = 'rgba(255,255,255,.60)';
+const TAGLINE_ROOM = 40;    // 왼쪽 위 로고 아래 설명 줄 때문에 카드를 내리는 만큼
+const COPYRIGHT    = '© 2026 JAEGYU LEE';
+const FOOTER_ROOM  = 70;    // 저작권 기준선에서 카드 아래 끝까지 (한 줄 높이 + 카드와의 간격)
 
 const LAYOUT_STEPS = [
   { name: 2, hash: 2, memo: 3 },
@@ -380,9 +383,18 @@ function paintPhoto(ctx, img, x, y, w, h) {
   } else {
     ctx.fillStyle = 'rgba(255,255,255,.08)';
     ctx.fillRect(x, y, w, h);
-    // 사진이 없으면 로그인 화면 로고 색의 'P(핀)nLog' 워드마크를 크게 가운데에 둔다.
-    const em = Math.round(Math.min(h * 0.34, w * 0.13));
-    paintBrand(ctx, x + (w - brandWidth(ctx, em)) / 2, y + h / 2, em, BRAND_ACCENT);
+    // 사진이 없으면 로그인 화면 로고 색의 'P(핀)nLog' 워드마크와 설명 한 줄을 묶어 가운데에 둔다.
+    const em = Math.round(Math.min(h * 0.3, w * 0.13));
+    const tagSize = Math.max(24, Math.round(em * 0.3));
+    const gap = Math.round(em * 0.28);
+    const top = y + (h - (em + gap + tagSize)) / 2;   // 로고 + 간격 + 설명 묶음의 위 끝
+    paintBrand(ctx, x + (w - brandWidth(ctx, em)) / 2, top + em / 2, em, BRAND_ACCENT);
+
+    ctx.font = font(300, tagSize);
+    ctx.fillStyle = TAGLINE_INK;
+    ctx.textAlign = 'center';
+    ctx.fillText(TAGLINE, x + w / 2, top + em + gap + tagSize * 0.86);
+    ctx.textAlign = 'left';
   }
   ctx.restore();
 
@@ -459,24 +471,25 @@ function paintBrand(ctx, x, cy, em = Math.round(17 * BRAND_SCALE), c = BRAND_WHI
   ctx.restore();
 }
 
-// 맨 아래 가운데 두 줄: 서비스 설명 + 저작권. 저작권은 서명처럼 더 작고 흐리게.
+// 맨 아래 가운데 저작권 한 줄. 서명처럼 작고 흐리게.
 function paintFooter(ctx, baseline) {
   ctx.save();
   ctx.textAlign = 'center';
-
-  ctx.font = font(300, 34);
-  ctx.fillStyle = INK_SOFT;
-  ctx.fillText(FOOTER_TAGLINE, STORY_W / 2, baseline - 46);
-
   ctx.font = font(400, 24);
   if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
   ctx.fillStyle = 'rgba(255,255,255,.45)';
-  ctx.fillText(FOOTER_COPYRIGHT, STORY_W / 2, baseline);
+  ctx.fillText(COPYRIGHT, STORY_W / 2, baseline);
   ctx.restore();
 }
 
-function paintHeader(ctx, cy, dateText) {
-  paintBrand(ctx, MARGIN, cy);
+// 사진이 없으면 사진 자리에 큰 로고(+설명)가 들어가므로 왼쪽 위 로고 · 설명은 뺀다. 날짜는 그대로 둔다.
+function paintHeader(ctx, cy, dateText, withBrand) {
+  if (withBrand) {
+    paintBrand(ctx, MARGIN, cy);
+    ctx.font = font(300, 26);
+    ctx.fillStyle = TAGLINE_INK;
+    ctx.fillText(TAGLINE, MARGIN, cy + 62);
+  }
 
   if (dateText) {
     ctx.font = font(400, 38);
@@ -502,17 +515,18 @@ export async function drawStoryCard(canvas, card) {
   const ctx = canvas.getContext('2d');
 
   const sample = [card.name, card.address, card.memo, card.dateText,
-    (card.tags || []).join(''), (card.hashtags || []).join(''), FOOTER_TAGLINE, FOOTER_COPYRIGHT, 'PinLog…“”#'].join('');
+    (card.tags || []).join(''), (card.hashtags || []).join(''), TAGLINE, COPYRIGHT, 'PinLog…“”#'].join('');
   const [img] = await Promise.all([loadImage(card.photo), ensureFonts(sample)]);
 
   ctx.clearRect(0, 0, STORY_W, F.h);
   paintBackground(ctx, img, card.theme || (img ? 'photo' : 'charcoal'));
-  paintHeader(ctx, F.headerY, card.dateText);
+  paintHeader(ctx, F.headerY, card.dateText, !!img);
   paintFooter(ctx, F.footerY);
 
   // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 먼저 줄고,
   // 사진이 최소 높이에 닿아도 넘치면 메모 → 해시태그 → 이름 순으로 줄 수를 줄인다.
-  const avail = F.footerY - FOOTER_ROOM - F.top;
+  const top = F.top + (img ? TAGLINE_ROOM : 0);
+  const avail = F.footerY - FOOTER_ROOM - top;
   const chrome = CARD_PAD * 2 + 44 + 20;   // 카드 위아래 여백 + 사진과 글 사이
   const photoW = CARD_W - CARD_PAD * 2;
   const photoMin = img ? F.photoMin : F.emptyMin;
@@ -528,7 +542,7 @@ export async function drawStoryCard(canvas, card) {
   const photoH = Math.max(photoMin, Math.min(photoMax, avail - textH - chrome + 20));
   const cardH = chrome + photoH + textH;
 
-  const cardY = Math.round(F.top + Math.max(0, (avail - cardH) / 2));
+  const cardY = Math.round(top + Math.max(0, (avail - cardH) / 2));
 
   paintGlass(ctx, cardY, cardH);
   paintPhoto(ctx, img, CARD_X + CARD_PAD, cardY + CARD_PAD, photoW, photoH);
