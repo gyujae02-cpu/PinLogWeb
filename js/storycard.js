@@ -25,11 +25,12 @@ const COPYRIGHT    = '© 2026 JAEGYU LEE';
 const FOOTER_ROOM  = 70;    // 저작권 기준선에서 카드 아래 끝까지 (한 줄 높이 + 카드와의 간격)
 
 const LAYOUT_STEPS = [
-  { name: 2, hash: 2, memo: 3 },
-  { name: 2, hash: 2, memo: 2 },
-  { name: 2, hash: 2, memo: 1 },
-  { name: 2, hash: 1, memo: 1 },
-  { name: 1, hash: 1, memo: 1 }
+  { name: 2, addr: 2, hash: 2, memo: 3 },
+  { name: 2, addr: 2, hash: 2, memo: 2 },
+  { name: 2, addr: 2, hash: 2, memo: 1 },
+  { name: 2, addr: 2, hash: 1, memo: 1 },
+  { name: 1, addr: 2, hash: 1, memo: 1 },
+  { name: 1, addr: 1, hash: 1, memo: 1 }
 ];
 
 const MARGIN = 72;
@@ -266,7 +267,7 @@ function pill(ctx, x, y, text, { size, padX, h, fill, stroke, color }) {
 }
 
 // 카드 안 글자 영역을 미리 재서 높이를 알아낸다. 그리기는 draw 콜백이 한다.
-// max 는 이름 · 해시태그 · 메모의 최대 줄 수 (LAYOUT_STEPS 한 칸).
+// max 는 이름 · 주소 · 해시태그 · 메모의 최대 줄 수 (LAYOUT_STEPS 한 칸).
 function layoutText(ctx, card, max) {
   const blocks = [];
 
@@ -279,12 +280,16 @@ function layoutText(ctx, card, max) {
     nameLines.forEach((l, i) => ctx.fillText(l, TEXT_X - 2, y + 69 + i * nameLH));
   } });
 
+  // 주소가 길면 아래 줄로 넘긴다. 둘째 줄도 핀 아이콘 오른쪽에 맞춰 들여 쓴다.
   if (card.address) {
-    blocks.push({ h: 48, gap: 38, draw: (y) => {
+    ctx.font = font(300, 39);
+    const lines = clampLines(ctx, card.address, TEXT_W - 48, max.addr);
+    const lh = 52;
+    blocks.push({ h: 48 + (lines.length - 1) * lh, gap: 38, draw: (y) => {
       drawIcon(ctx, PIN_PATH, TEXT_X - 4, y + 4, 38, INK_DIM);
       ctx.font = font(300, 39);
       ctx.fillStyle = INK_DIM;
-      ctx.fillText(ellipsize(ctx, card.address, TEXT_W - 48), TEXT_X + 44, y + 38);
+      lines.forEach((l, i) => ctx.fillText(l, TEXT_X + 44, y + 38 + i * lh));
     } });
   }
 
@@ -524,7 +529,7 @@ export async function drawStoryCard(canvas, card) {
   paintFooter(ctx, F.footerY);
 
   // 사진 높이는 글자가 차지하고 남는 만큼 준다. 글이 길면 사진이 먼저 줄고,
-  // 사진이 최소 높이에 닿아도 넘치면 메모 → 해시태그 → 이름 순으로 줄 수를 줄인다.
+  // 사진이 최소 높이에 닿아도 넘치면 메모 → 해시태그 → 이름 → 주소 순으로 줄 수를 줄인다.
   const top = F.top + (img ? TAGLINE_ROOM : 0);
   const avail = F.footerY - FOOTER_ROOM - top;
   const chrome = CARD_PAD * 2 + 44 + 20;   // 카드 위아래 여백 + 사진과 글 사이
