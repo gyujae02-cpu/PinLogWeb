@@ -2260,8 +2260,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .about__notice-body p + p { margin-top: 6px; }
 .about__notice-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-top: 8px;
+  display: flex; align-items: center; gap: 4px;
+  width: fit-content;
+  margin: 8px auto 0;
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--ink-200);
@@ -2271,6 +2272,13 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .about__notice-link svg { width: 11px; height: 11px; }
 .about__notice-link:hover { color: var(--brand-600); border-color: var(--brand-500); }
+
+/* 폰트 저작권 문구와 바로가기는 세방전지 CI 색(C35 M0 Y0 K90)으로 쓴다. */
+#about-font { --sebang-ci: #111A1A; }
+#about-font .about__notice-body,
+#about-font .about__notice-link,
+#about-font .about__notice-link:hover { color: var(--sebang-ci); }
+#about-font .about__notice-link:hover { border-color: var(--sebang-ci); }
 
 /* 원본 색 그대로. 두 로고의 너비가 비슷해 보이도록 높이를 따로 정했다. */
 .about__font-logos {
