@@ -2274,7 +2274,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 /* 원본 색 그대로. 두 로고의 너비가 비슷해 보이도록 높이를 따로 정했다. */
 .about__font-logos {
-  display: flex; align-items: center; gap: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
   margin-top: 12px;
 }
 .about__font-logos img { width: auto; }
