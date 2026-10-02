@@ -300,16 +300,12 @@ export function initUI(handlers) {
   });
 
   // 계정은 관리자가 직접 만들고 관리하므로 안내 팝업만 띄운다.
-  el.loginSignup.addEventListener('click', () => confirmDialog({
-    title: '회원가입은 관리자에게 문의해 주세요',
-    desc: 'PinLog는 초대된 사람만 사용할 수 있어요.',
+  const askAdmin = () => confirmDialog({
+    title: '시스템 관리자에게 문의하세요.',
     okText: '확인', cancelText: null, tone: 'primary',
-  }));
-  el.loginFindPw.addEventListener('click', () => confirmDialog({
-    title: '비밀번호 찾기는 관리자에게 문의해 주세요',
-    desc: '계정 정보는 관리자가 직접 관리하고 있어요.',
-    okText: '확인', cancelText: null, tone: 'primary',
-  }));
+  });
+  el.loginSignup.addEventListener('click', askAdmin);
+  el.loginFindPw.addEventListener('click', askAdmin);
 
   initLoginBg();
   initCardTilt();
@@ -2870,7 +2866,8 @@ function hideToast() {
 export function confirmDialog({ title, desc, okText = '삭제', cancelText = '취소', tone = 'danger' }) {
   return new Promise((resolve) => {
     el.confirmTitle.textContent = title;
-    el.confirmDesc.textContent = desc;
+    el.confirmDesc.textContent = desc ?? '';
+    el.confirmDesc.hidden = !desc;
     el.confirmOk.textContent = okText;
     el.confirmCancel.hidden = cancelText == null;
     el.confirmCancel.textContent = cancelText ?? '취소';

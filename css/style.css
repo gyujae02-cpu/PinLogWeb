@@ -417,7 +417,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 
 .login-title {
-  margin-bottom: 30px;
+  margin-bottom: 11px;
   font-size: 40px; font-weight: 400; letter-spacing: -.035em; line-height: 1;
   color: var(--login-ink);
   /* 좁고 진한 그림자로 글자 윤곽을 세우고, 넓은 그림자는 옅게 깔아
@@ -428,6 +428,15 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
     0 2px 14px rgba(3, 14, 26, .28);
 }
 .login-title em { font-style: normal; color: var(--brand-200); }
+
+/* 공유 카드의 로고 아래 설명과 같은 비율(로고의 0.3배 크기, 0.28배 간격)과 색. */
+.login-tagline {
+  margin-bottom: 30px;
+  text-align: center;
+  font-size: 12px; font-weight: 400; letter-spacing: -.01em; line-height: 1.2;
+  color: rgba(255,255,255,.78);
+  text-shadow: 0 1px 2px rgba(3, 14, 26, .55);
+}
 
 /* 핀 SVG 는 원이 currentColor, 기둥이 var(--ink-500) 이다.
    기둥 색은 지역 변수 재정의로 밝게 바꾼다. */
@@ -517,13 +526,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 @media (max-width: 359px) {
   .login-links { gap: 6px; }
   .check__label, .login-link { font-size: 12px; }
-}
-
-.login-note {
-  margin-top: 22px;
-  text-align: center;
-  font-size: 11.5px; font-weight: 300; letter-spacing: -.01em;
-  color: var(--login-mute);
 }
 
 .field {
@@ -675,10 +677,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 @media (max-height: 700px) {
   .login-card { padding: 28px 26px 24px; }
-  .login-title { margin-bottom: 20px; font-size: 32px; }
+  .login-title { margin-bottom: 9px; font-size: 32px; }
+  .login-tagline { margin-bottom: 20px; }
   .login-form { gap: 10px; }
-  .login-note { margin-top: 16px; }
-
 }
 
 @media (min-width: 1024px) and (min-height: 760px) {
@@ -2258,6 +2259,18 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   color: var(--ink-400);
 }
 .about__notice-body p + p { margin-top: 6px; }
+.about__notice-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-200);
+  font-size: 10.5px; font-weight: 400; letter-spacing: -.01em;
+  color: var(--ink-500);
+  transition: color .18s var(--ease), border-color .18s var(--ease);
+}
+.about__notice-link svg { width: 11px; height: 11px; }
+.about__notice-link:hover { color: var(--brand-600); border-color: var(--brand-500); }
 
 .about__by {
   margin-top: 22px;
