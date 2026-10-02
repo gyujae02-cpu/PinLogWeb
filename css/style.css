@@ -431,12 +431,27 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 /* 공유 카드의 로고 아래 설명과 같은 비율(로고의 0.3배 크기, 0.28배 간격)과 색. */
 .login-tagline {
-  margin-bottom: 30px;
+  margin-bottom: 16px;
   text-align: center;
   font-size: 12px; font-weight: 400; letter-spacing: -.01em; line-height: 1.2;
   color: rgba(255,255,255,.78);
   text-shadow: 0 1px 2px rgba(3, 14, 26, .55);
 }
+
+/* 원본 로고가 짙은 남색이라 어두운 배경에 묻힌다.
+   흰 실루엣으로 바꾸고 설명 줄과 같은 투명도로 맞춘다.
+   두 로고의 너비가 비슷해 보이도록 높이를 따로 정했다. */
+.login-partners {
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  margin-bottom: 30px;
+}
+.login-partners img {
+  width: auto;
+  filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(3, 14, 26, .55));
+  opacity: .78;
+}
+.login-partners__sebang { height: 18px; }
+.login-partners__rocket { height: 16px; }
 
 /* 핀 SVG 는 원이 currentColor, 기둥이 var(--ink-500) 이다.
    기둥 색은 지역 변수 재정의로 밝게 바꾼다. */
@@ -678,7 +693,8 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 @media (max-height: 700px) {
   .login-card { padding: 28px 26px 24px; }
   .login-title { margin-bottom: 9px; font-size: 32px; }
-  .login-tagline { margin-bottom: 20px; }
+  .login-tagline { margin-bottom: 12px; }
+  .login-partners { margin-bottom: 20px; }
   .login-form { gap: 10px; }
 }
 

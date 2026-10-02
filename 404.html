@@ -234,6 +234,15 @@
       --ink-500: rgba(255,255,255,.72);
     }
 
+    /* 공유 카드의 로고 아래 설명과 같은 색과 간격(로고의 0.28배).
+       크기는 로고의 0.3배면 너무 작아서 저작권 줄과 같은 11px 로 둔다. */
+    .tagline {
+      margin: 5px 0 0;
+      font-size: 11px; font-weight: 400; letter-spacing: -.01em; line-height: 1.2;
+      color: rgba(255,255,255,.78);
+      user-select: none;
+    }
+
     .copyright {
       margin: 12px 0 0;
       font-size: 11px; font-weight: 400; letter-spacing: .02em;
@@ -292,6 +301,7 @@
     </div><!-- /.card -->
 
     <p class="mark" aria-label="PinLog">P<svg class="wordmark-pin" viewBox="0 0 10 20" aria-hidden="true"><rect x="3.7" y="8" width="2.6" height="12" rx="1.3" fill="var(--ink-500)"/><circle cx="5" cy="5" r="5" fill="currentColor"/><circle cx="3.3" cy="3.3" r="1.6" fill="#fff" fill-opacity=".3"/></svg>n<em>Log</em></p>
+    <p class="tagline">너와 나의 모든 장소</p>
 
     <p class="copyright">© 2026 JAEGYU LEE</p>
   </main>
