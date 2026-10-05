@@ -1176,8 +1176,16 @@ export function renderSearchResults(list) {
     el.searchResults.appendChild(frag);
   }
 
+  // PC 폭에선 상세 시트가 검색창 바로 아래 왼쪽에 붙어 결과를 덮는다.
+  // 시트는 #screen-map 바깥이라 z-index 로는 못 올리니, 상세 보기만 닫는다.
+  // 폼·코스 편집은 입력이 날아가므로 그대로 둔다.
+  if (sheetMode === 'detail' && DESKTOP_SHEET.matches) closeSheet();
+
   el.searchPanel.hidden = false;
 }
+
+// style.css 에서 .sheet 가 왼쪽 패널로 바뀌는 기준과 같다.
+const DESKTOP_SHEET = window.matchMedia('(min-width: 1024px)');
 
 function fmtDistance(meters) {
   if (meters < 1000) return `${Math.round(meters)}m`;
