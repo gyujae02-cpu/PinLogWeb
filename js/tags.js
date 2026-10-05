@@ -3,7 +3,7 @@ export const MAX_TAGS = 3;
 export const DEFAULT_TAG = 'etc';
 
 export const TAGS = [
-  { id: 'food',    label: '맛집',   emoji: '🍜' },
+  { id: 'food',    label: '음식점', emoji: '🍜' },
   { id: 'cafe',    label: '카페',   emoji: '☕' },
   { id: 'date',    label: '놀거리', emoji: '🎡' },
   { id: 'culture', label: '문화',   emoji: '🎬' },
