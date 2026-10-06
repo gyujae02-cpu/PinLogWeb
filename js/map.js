@@ -230,6 +230,8 @@ function unwatchContainerSize() {
   lastSize = '';
 }
 
+// 중심이 아니라 화면 가장자리를 PAN_BOUNDS 안에 가둔다.
+// 중심만 막으면 화면 절반만큼이 범위 밖으로 나가 타일 없는 흰 바탕이 보인다.
 function clampCenter() {
   if (!map) return;
 
@@ -237,12 +239,25 @@ function clampCenter() {
   const lat = c.getLat();
   const lng = c.getLng();
 
-  const nextLat = Math.min(PAN_BOUNDS.maxLat, Math.max(PAN_BOUNDS.minLat, lat));
-  const nextLng = Math.min(PAN_BOUNDS.maxLng, Math.max(PAN_BOUNDS.minLng, lng));
+  const b = map.getBounds();
+  const sw = b.getSouthWest();
+  const ne = b.getNorthEast();
 
-  if (nextLat === lat && nextLng === lng) return;
+  const nextLat = clampAxis(lat, sw.getLat(), ne.getLat(), PAN_BOUNDS.minLat, PAN_BOUNDS.maxLat);
+  const nextLng = clampAxis(lng, sw.getLng(), ne.getLng(), PAN_BOUNDS.minLng, PAN_BOUNDS.maxLng);
+
+  if (Math.abs(nextLat - lat) < 1e-7 && Math.abs(nextLng - lng) < 1e-7) return;
 
   map.setCenter(new kakao.maps.LatLng(nextLat, nextLng));
+}
+
+// 화면이 범위보다 넓으면 양끝을 오가며 떨리지 않게 한가운데에 둔다.
+// 위도는 메르카토르라 넘친 만큼 옮겨도 딱 맞지 않지만, idle 에서 한 번 더 불려 맞춰진다.
+function clampAxis(center, lo, hi, min, max) {
+  if (hi - lo >= max - min) return (min + max) / 2;
+  if (lo < min) return center + (min - lo);
+  if (hi > max) return center - (hi - max);
+  return center;
 }
 
 export function destroyMap() {
