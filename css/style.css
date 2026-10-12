@@ -1264,7 +1264,8 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .pin__fav.is-both { background: var(--wish-500); }
 
 /* 묶음 — 축소했을 때 겹친 핀은 대표 핀 대신 좌표 한가운데에 파란 원과 핀 개수.
-   크기는 개수에 따라 map.js 가 인라인으로 정한다. */
+   원 크기 · 바깥 링 두께(--bubble-ring) · 숫자 크기(--bubble-fs)는
+   개수에 따라 map.js 가 인라인으로 정한다. */
 .pin__bubble { display: none; }
 .pin.is-bubble .pin__body { display: none; }
 .pin.is-bubble .pin__bubble {
@@ -1274,17 +1275,32 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   display: grid; place-items: center;
   border-radius: 50%;
   border: 2.5px solid #fff;
-  /* brand-500 은 흰 숫자와 대비가 3:1 남짓이라 지도 위에서 흐리다. */
-  background: var(--brand-600);
+  /* 위는 밝고 아래는 진한 구슬 느낌. 숫자가 놓이는 한가운데가 brand-600 쯤이라
+     흰 숫자 대비가 유지된다. brand-500 단색은 대비가 3:1 남짓이라 흐렸다. */
+  background: linear-gradient(180deg, var(--brand-500), var(--brand-700));
   color: #fff;
-  font-size: 13px; font-weight: 700; line-height: 1;
-  letter-spacing: -.02em;
+  font-size: var(--bubble-fs, 13px); font-weight: 700; line-height: 1;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 1px rgba(var(--ink-rgb), .25);
   box-shadow:
-    0 0 0 4px rgba(var(--brand-rgb), .22),
+    inset 0 1.5px 0 rgba(255, 255, 255, .45),
+    inset 0 -2px 4px rgba(var(--ink-rgb), .18),
+    0 0 0 var(--bubble-ring, 4px) rgba(var(--brand-rgb), .22),
     0 4px 10px rgba(var(--ink-rgb), .22);
   transition: transform .2s var(--ease);
 }
-.pin.is-bubble:hover .pin__bubble { transform: translate(-50%, -50%) scale(1.06); }
+.pin.is-bubble:hover .pin__bubble  { transform: translate(-50%, -50%) scale(1.06); }
+.pin.is-bubble:active .pin__bubble { transform: translate(-50%, -50%) scale(.94); transition-duration: .08s; }
+
+/* 새로 묶였을 때만 한 번 튀어나온다. 화면 밖으로 떼었다 다시 붙일 때는
+   is-bubble-seen 이 남아 있어 반복되지 않는다. */
+.pin.is-bubble:not(.is-bubble-seen) .pin__bubble { animation: bubbleIn .42s var(--ease) both; }
+@keyframes bubbleIn {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 
 .pin__label {
   font-size: 12.5px; font-weight: 400; letter-spacing: -.02em;

@@ -510,12 +510,27 @@ function paintBubble(entry) {
   const bubble = total > 1;
 
   const bubbleEl = entry.el.querySelector('.pin__bubble');
+
+  // 새로 원이 될 때만 등장 효과가 돌도록 표시를 지운다.
+  if (bubble && !entry.el.classList.contains('is-bubble')) {
+    entry.el.classList.remove('is-bubble-seen');
+  }
   entry.el.classList.toggle('is-bubble', bubble);
-  bubbleEl.textContent = bubble ? (total > 999 ? '999+' : String(total)) : '';
+
+  const text = bubble ? (total > 999 ? '999+' : String(total)) : '';
+  bubbleEl.textContent = text;
   if (bubble) {
     // 2개면 가장 작고, 개수가 두 배가 될 때마다 6px 씩 커진다.
     const size = Math.min(BUBBLE_MAX_PX, BUBBLE_MIN_PX + 6 * Math.log2(total / 2));
     bubbleEl.style.width = bubbleEl.style.height = `${Math.round(size)}px`;
+
+    // 바깥 링은 가장 작은 원 3px 에서 가장 큰 원 6px 까지 두꺼워진다.
+    const grow = (size - BUBBLE_MIN_PX) / (BUBBLE_MAX_PX - BUBBLE_MIN_PX);
+    bubbleEl.style.setProperty('--bubble-ring', `${(3 + 3 * grow).toFixed(1)}px`);
+
+    // 자릿수가 늘면 숫자를 줄여 원 안에 여유를 남긴다.
+    const fs = text.length <= 1 ? 14 : text.length === 2 ? 13 : 11;
+    bubbleEl.style.setProperty('--bubble-fs', `${fs}px`);
   }
 }
 
@@ -612,6 +627,7 @@ function createPinElement(pin) {
 
   el.addEventListener('animationend', (e) => {
     if (e.target === el) el.classList.add('is-seen');
+    else if (e.target.classList.contains('pin__bubble')) el.classList.add('is-bubble-seen');
   });
 
   const stop = (e) => e.stopPropagation();
