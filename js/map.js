@@ -9,14 +9,12 @@ const MAX_LEVEL = 12;
 
 const COMPACT_FROM_LEVEL = 6;
 
-// 이 단계 이상 축소하면 가까운 핀을 하나로 묶고, 대표 핀에 "+N" 을 단다.
-// 화면에서 CLUSTER_CELL_PX 크기 칸에 함께 든 핀끼리 한 묶음이다.
+// 이 단계 이상 축소하면 가까운 핀을 하나로 묶어, 파란 원 안에 핀 개수를 쓴다.
+// 화면에서 CLUSTER_CELL_PX 안에 든 핀끼리 한 묶음이다.
 const CLUSTER_FROM_LEVEL = COMPACT_FROM_LEVEL;
 const CLUSTER_CELL_PX = 56;
 
-// 이 개수 이상 묶이면 대표 핀 대신 파란 원 안에 전체 개수를 쓴다.
 // 원은 개수가 많을수록 BUBBLE_MIN_PX 에서 BUBBLE_MAX_PX 까지 커진다.
-const BUBBLE_FROM = 5;
 const BUBBLE_MIN_PX = 36;
 const BUBBLE_MAX_PX = 52;
 
@@ -483,7 +481,7 @@ function applyClusters() {
     if (members.length > 1) lead.members = members;
   });
 
-  overlays.forEach(paintMore);
+  overlays.forEach(paintBubble);
   syncVisiblePins();
 }
 
@@ -506,23 +504,17 @@ function clusterCell() {
   return cell;
 }
 
-// 2~4개 묶음은 대표 핀에 "+N", 그 이상은 대표 핀을 감추고 원에 전체 개수.
-function paintMore(entry) {
+// 묶음 대표는 핀 모양을 감추고 원에 묶음 전체 개수를 쓴다.
+function paintBubble(entry) {
   const total = entry.members ? entry.members.length : 0;
-  const bubble = total >= BUBBLE_FROM;
-  const n = total > 1 && !bubble ? total - 1 : 0;
-
-  const more = entry.el.querySelector('.pin__more');
-  more.hidden = !n;
-  more.textContent = n ? `+${n}` : '';
-  entry.el.classList.toggle('is-grouped', n > 0);
+  const bubble = total > 1;
 
   const bubbleEl = entry.el.querySelector('.pin__bubble');
   entry.el.classList.toggle('is-bubble', bubble);
   bubbleEl.textContent = bubble ? (total > 999 ? '999+' : String(total)) : '';
   if (bubble) {
-    // 5개면 가장 작고, 개수가 두 배가 될 때마다 6px 씩 커진다.
-    const size = Math.min(BUBBLE_MAX_PX, BUBBLE_MIN_PX + 6 * Math.log2(total / BUBBLE_FROM));
+    // 2개면 가장 작고, 개수가 두 배가 될 때마다 6px 씩 커진다.
+    const size = Math.min(BUBBLE_MAX_PX, BUBBLE_MIN_PX + 6 * Math.log2(total / 2));
     bubbleEl.style.width = bubbleEl.style.height = `${Math.round(size)}px`;
   }
 }
@@ -613,7 +605,6 @@ function createPinElement(pin) {
       '</span>' +
       '<span class="pin__tail"></span>' +
       '<span class="pin__no" hidden></span>' +
-      '<span class="pin__more" hidden></span>' +
     '</div>' +
     '<div class="pin__bubble"></div>';
 

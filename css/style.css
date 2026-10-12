@@ -1263,25 +1263,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .pin__fav.is-both { background: var(--wish-500); }
 
-/* 묶음 — 축소했을 때 대표 핀 오른쪽 위에 "+N" 으로 가려진 핀 수를 단다.
-   대표 핀의 즐겨찾기 표시는 묶음 전체를 대표하지 않으니 그동안 감춘다. */
-.pin__more {
-  position: absolute;
-  right: -10px; top: -9px;
-  min-width: 22px; height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 2px solid #fff;
-  background: var(--ink-900);
-  color: #fff;
-  font-size: 11px; font-weight: 700; line-height: 16px;
-  text-align: center;
-  letter-spacing: -.02em;
-  box-shadow: 0 1px 3px rgba(var(--ink-rgb), .3);
-}
-.pin.is-grouped .pin__fav { display: none; }
-
-/* 큰 묶음 — 5개 이상이면 대표 핀 대신 좌표 한가운데에 파란 원과 전체 개수.
+/* 묶음 — 축소했을 때 겹친 핀은 대표 핀 대신 좌표 한가운데에 파란 원과 핀 개수.
    크기는 개수에 따라 map.js 가 인라인으로 정한다. */
 .pin__bubble { display: none; }
 .pin.is-bubble .pin__body { display: none; }
