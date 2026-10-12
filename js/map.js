@@ -9,6 +9,11 @@ const MAX_LEVEL = 12;
 
 const COMPACT_FROM_LEVEL = 6;
 
+// 이 단계 이상 축소하면 가까운 핀을 하나로 묶고, 대표 핀에 "+N" 을 단다.
+// 화면에서 CLUSTER_CELL_PX 크기 칸에 함께 든 핀끼리 한 묶음이다.
+const CLUSTER_FROM_LEVEL = COMPACT_FROM_LEVEL;
+const CLUSTER_CELL_PX = 56;
+
 // 화면에서 먼 핀은 지도에서 떼어 둔다. 붙어 있는 오버레이는 지도를 끌 때마다
 // 카카오맵이 전부 위치를 다시 잡기 때문이다.
 // 조금 끌어서 가장자리 핀이 튀어나오지 않게, 화면 크기의 절반만큼 사방을 더 본다.
@@ -38,6 +43,10 @@ let rvOverlay = null;
 let rvClient = null;
 let roadview = null;
 let rvContainer = null;
+
+// 단계별 묶음 칸 크기(위도 · 경도). 지도를 끌 때마다 화면에서 재면
+// 값이 미세하게 흔들려 묶음이 바뀌므로, 단계마다 처음 잰 값을 계속 쓴다.
+let cellByLevel = new Map();
 
 // 코스 보기 — 켜져 있는 동안 코스에 든 핀에 번호를 달고 선으로 잇는다.
 // courseNos: 핀 id → 순번(1부터). 비어 있으면 코스 보기가 꺼진 상태다.
@@ -154,7 +163,9 @@ export function createMap(el, center, cbs = {}) {
 
   on(map, 'zoom_changed', applyCompactPins);
 
-  on(map, 'idle', syncVisiblePins);
+  // 묶음은 확대 · 축소 애니메이션이 끝난 뒤에 다시 짠다.
+  // 도중에는 화면 영역이 아직 바뀌는 중이라 칸 크기를 잘못 잴 수 있다.
+  on(map, 'idle', applyClusters);
   on(map, 'bounds_changed', scheduleCull);
 
   watchContainerSize();
@@ -286,6 +297,7 @@ export function destroyMap() {
   handlers.onMapClick = null;
   handlers.onPinClick = null;
   activeId = null;
+  cellByLevel = new Map();
   places = null;
   geocoder = null;
 }
@@ -361,6 +373,7 @@ export function renderPins(pins) {
     const exist = overlays.get(pin.id);
 
     if (exist) {
+      exist.t = pinTime(pin);
       if (exist.sig !== sig) {
         paintPinElement(exist.el, pin);
         exist.overlay.setPosition(new kakao.maps.LatLng(pin.lat, pin.lng));
@@ -386,12 +399,80 @@ export function renderPins(pins) {
       zIndex: z
     });
     // 지도에 붙이는 건 아래 syncVisiblePins 가 화면 근처 핀만 골라서 한다.
-    overlays.set(pin.id, { overlay, el, sig, z, lat: pin.lat, lng: pin.lng, attached: false });
+    overlays.set(pin.id, {
+      overlay, el, sig, z, lat: pin.lat, lng: pin.lng, attached: false,
+      t: pinTime(pin), members: null, grouped: false
+    });
   });
 
-  syncVisiblePins();
+  applyClusters();
   applyActiveClass();
   applyCompactPins();
+}
+
+// 묶음의 대표는 가장 최근 핀이다. 시각이 없는 핀(저장 전 미리보기 등)은
+// 가려지면 안 되니 가장 최근으로 친다.
+function pinTime(pin) {
+  const t = pin.createdAt instanceof Date ? pin.createdAt.getTime() : NaN;
+  return Number.isFinite(t) ? t : Infinity;
+}
+
+// 축소돼 있으면 같은 칸에 든 핀을 묶어 대표 핀 하나만 남긴다.
+// 선택된 핀은 카드와 이어져 있으니 묶지 않고, 코스 보기 중에는
+// 코스 핀이 모두 보여야 하므로 묶지 않는다.
+function applyClusters() {
+  if (!map) return;
+
+  const cell = clusterCell();
+  const groups = new Map();
+
+  overlays.forEach((entry, id) => {
+    entry.members = null;
+    entry.grouped = false;
+    if (!cell || id === activeId) return;
+
+    const key = Math.floor(entry.lat / cell.lat) + ':' + Math.floor(entry.lng / cell.lng);
+    const g = groups.get(key);
+    if (g) g.push(entry);
+    else groups.set(key, [entry]);
+  });
+
+  groups.forEach((g) => {
+    if (g.length < 2) return;
+    const lead = g.reduce((a, b) => (b.t > a.t ? b : a));
+    lead.members = g;
+    g.forEach((e) => { if (e !== lead) e.grouped = true; });
+  });
+
+  overlays.forEach(paintMore);
+  syncVisiblePins();
+}
+
+function clusterCell() {
+  const level = getLevel();
+  if (level < CLUSTER_FROM_LEVEL || courseNos.size) return null;
+
+  const cached = cellByLevel.get(level);
+  if (cached) return cached;
+
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  const b = map.getBounds();
+  const dLat = b.getNorthEast().getLat() - b.getSouthWest().getLat();
+  const dLng = b.getNorthEast().getLng() - b.getSouthWest().getLng();
+  if (!(w > 0) || !(h > 0) || !(dLat > 0) || !(dLng > 0)) return null;
+
+  const cell = { lat: dLat / h * CLUSTER_CELL_PX, lng: dLng / w * CLUSTER_CELL_PX };
+  cellByLevel.set(level, cell);
+  return cell;
+}
+
+function paintMore(entry) {
+  const n = entry.members ? entry.members.length - 1 : 0;
+  const more = entry.el.querySelector('.pin__more');
+  more.hidden = !n;
+  more.textContent = n ? `+${n}` : '';
+  entry.el.classList.toggle('is-grouped', n > 0);
 }
 
 // 지도를 끄는 동안에도 가끔씩 맞춰서, 멀리 끌고 손을 뗄 때 핀이 한꺼번에 튀어나오지 않게 한다.
@@ -409,10 +490,11 @@ function syncVisiblePins() {
   const box = cullBox();
   overlays.forEach((entry, id) => {
     // 선택된 핀은 카드와 이어져 있으니 화면 밖이어도 떼지 않는다.
-    const want = !box || id === activeId || (
+    // 묶음 안에 가려진 핀은 대표 핀이 대신 보여주니 붙이지 않는다.
+    const want = !entry.grouped && (!box || id === activeId || (
       entry.lat >= box.minLat && entry.lat <= box.maxLat &&
       entry.lng >= box.minLng && entry.lng <= box.maxLng
-    );
+    ));
     if (want === entry.attached) return;
     entry.overlay.setMap(want ? map : null);
     entry.attached = want;
@@ -479,6 +561,7 @@ function createPinElement(pin) {
       '</span>' +
       '<span class="pin__tail"></span>' +
       '<span class="pin__no" hidden></span>' +
+      '<span class="pin__more" hidden></span>' +
     '</div>';
 
   paintPinElement(el, pin);
@@ -492,6 +575,15 @@ function createPinElement(pin) {
   el.addEventListener('touchstart', stop, { passive: true });
   el.addEventListener('click', (e) => {
     e.stopPropagation();
+
+    // 묶음 대표를 누르면 묶인 핀이 모두 들어오게 확대한다.
+    // 한 자리에 겹쳐 있으면 최대로 확대되면서 묶음이 풀리고, 그때 핀을 고르면 된다.
+    const entry = overlays.get(pin.id);
+    if (entry && entry.members) {
+      fitPoints(entry.members);
+      return;
+    }
+
     if (handlers.onPinClick) handlers.onPinClick(pin.id);
   });
 
@@ -534,7 +626,7 @@ export function clearPins() {
 
 export function setActivePin(id) {
   activeId = id;
-  syncVisiblePins();
+  applyClusters();
   applyActiveClass();
 }
 
@@ -608,6 +700,7 @@ export function showCourse(stops, opts = {}) {
     courseLine.setMap(map);
   }
 
+  applyClusters();
   applyActiveClass();
 }
 
@@ -616,6 +709,7 @@ export function clearCourse() {
   courseFocusId = null;
   if (!courseNos.size) return;
   courseNos = new Map();
+  applyClusters();
   applyActiveClass();
 }
 
