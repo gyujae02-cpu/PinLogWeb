@@ -14,6 +14,12 @@ const COMPACT_FROM_LEVEL = 6;
 const CLUSTER_FROM_LEVEL = COMPACT_FROM_LEVEL;
 const CLUSTER_CELL_PX = 56;
 
+// 이 개수 이상 묶이면 대표 핀 대신 파란 원 안에 전체 개수를 쓴다.
+// 원은 개수가 많을수록 BUBBLE_MIN_PX 에서 BUBBLE_MAX_PX 까지 커진다.
+const BUBBLE_FROM = 5;
+const BUBBLE_MIN_PX = 36;
+const BUBBLE_MAX_PX = 52;
+
 // 화면에서 먼 핀은 지도에서 떼어 둔다. 붙어 있는 오버레이는 지도를 끌 때마다
 // 카카오맵이 전부 위치를 다시 잡기 때문이다.
 // 조금 끌어서 가장자리 핀이 튀어나오지 않게, 화면 크기의 절반만큼 사방을 더 본다.
@@ -417,31 +423,64 @@ function pinTime(pin) {
   return Number.isFinite(t) ? t : Infinity;
 }
 
-// 축소돼 있으면 같은 칸에 든 핀을 묶어 대표 핀 하나만 남긴다.
+// 축소돼 있으면 가까운 핀을 묶어 대표 핀 하나만 남긴다.
+// 최근 핀부터 차례로 대표가 되어, 화면에서 CLUSTER_CELL_PX 안에 있는
+// 아직 묶이지 않은 핀을 끌어온다. 칸 하나만 보면 경계 양쪽의 가까운 핀이
+// 따로 놀기 때문에, 대표가 든 칸과 둘레 여덟 칸까지 함께 찾아본다.
 // 선택된 핀은 카드와 이어져 있으니 묶지 않고, 코스 보기 중에는
 // 코스 핀이 모두 보여야 하므로 묶지 않는다.
 function applyClusters() {
   if (!map) return;
 
   const cell = clusterCell();
-  const groups = new Map();
+  const cand = [];
+  const buckets = new Map();
 
   overlays.forEach((entry, id) => {
     entry.members = null;
     entry.grouped = false;
     if (!cell || id === activeId) return;
 
-    const key = Math.floor(entry.lat / cell.lat) + ':' + Math.floor(entry.lng / cell.lng);
-    const g = groups.get(key);
-    if (g) g.push(entry);
-    else groups.set(key, [entry]);
+    // 칸 좌표는 1칸 = CLUSTER_CELL_PX 인 화면 거리 단위다.
+    entry.cy = entry.lat / cell.lat;
+    entry.cx = entry.lng / cell.lng;
+    cand.push(entry);
+
+    const key = Math.floor(entry.cy) + ':' + Math.floor(entry.cx);
+    const b = buckets.get(key);
+    if (b) b.push(entry);
+    else buckets.set(key, [entry]);
   });
 
-  groups.forEach((g) => {
-    if (g.length < 2) return;
-    const lead = g.reduce((a, b) => (b.t > a.t ? b : a));
-    lead.members = g;
-    g.forEach((e) => { if (e !== lead) e.grouped = true; });
+  // t 가 Infinity 인 핀끼리 빼면 NaN 이 되므로 크기 비교로 정렬한다.
+  cand.sort((a, b) => (b.t > a.t) - (b.t < a.t));
+
+  const taken = new Set();
+  cand.forEach((lead) => {
+    if (taken.has(lead)) return;
+    taken.add(lead);
+
+    const members = [lead];
+    const gy = Math.floor(lead.cy);
+    const gx = Math.floor(lead.cx);
+
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const b = buckets.get((gy + dy) + ':' + (gx + dx));
+        if (!b) continue;
+        b.forEach((e) => {
+          if (taken.has(e)) return;
+          const ddy = e.cy - lead.cy;
+          const ddx = e.cx - lead.cx;
+          if (ddx * ddx + ddy * ddy > 1) return;
+          taken.add(e);
+          e.grouped = true;
+          members.push(e);
+        });
+      }
+    }
+
+    if (members.length > 1) lead.members = members;
   });
 
   overlays.forEach(paintMore);
@@ -467,12 +506,25 @@ function clusterCell() {
   return cell;
 }
 
+// 2~4개 묶음은 대표 핀에 "+N", 그 이상은 대표 핀을 감추고 원에 전체 개수.
 function paintMore(entry) {
-  const n = entry.members ? entry.members.length - 1 : 0;
+  const total = entry.members ? entry.members.length : 0;
+  const bubble = total >= BUBBLE_FROM;
+  const n = total > 1 && !bubble ? total - 1 : 0;
+
   const more = entry.el.querySelector('.pin__more');
   more.hidden = !n;
   more.textContent = n ? `+${n}` : '';
   entry.el.classList.toggle('is-grouped', n > 0);
+
+  const bubbleEl = entry.el.querySelector('.pin__bubble');
+  entry.el.classList.toggle('is-bubble', bubble);
+  bubbleEl.textContent = bubble ? (total > 999 ? '999+' : String(total)) : '';
+  if (bubble) {
+    // 5개면 가장 작고, 개수가 두 배가 될 때마다 6px 씩 커진다.
+    const size = Math.min(BUBBLE_MAX_PX, BUBBLE_MIN_PX + 6 * Math.log2(total / BUBBLE_FROM));
+    bubbleEl.style.width = bubbleEl.style.height = `${Math.round(size)}px`;
+  }
 }
 
 // 지도를 끄는 동안에도 가끔씩 맞춰서, 멀리 끌고 손을 뗄 때 핀이 한꺼번에 튀어나오지 않게 한다.
@@ -562,7 +614,8 @@ function createPinElement(pin) {
       '<span class="pin__tail"></span>' +
       '<span class="pin__no" hidden></span>' +
       '<span class="pin__more" hidden></span>' +
-    '</div>';
+    '</div>' +
+    '<div class="pin__bubble"></div>';
 
   paintPinElement(el, pin);
 
