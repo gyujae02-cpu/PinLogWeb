@@ -350,6 +350,8 @@ export function initUI(handlers) {
     clearTimeout(searchTimer);
     if (!kw.trim()) { hideSearchPanel(); return; }
 
+    // 내 장소는 바로 거르고, 카카오 검색은 타자가 멈춘 뒤에 한 번만 보낸다.
+    paintSearch();
     searchTimer = setTimeout(() => cb.onSearch && cb.onSearch(kw), 280);
   });
 
@@ -1123,65 +1125,190 @@ export function resetTagFilter() {
   paintFilters();
 }
 
-export function renderSearchResults(list) {
-  el.searchResults.innerHTML = '';
+/* 상단 검색 — 위에는 내 장소, 아래에는 카카오 '새 장소' */
 
-  if (!list.length) {
-    el.searchEmpty.hidden = false;
-    el.searchCount.textContent = '검색 결과';
-  } else {
-    el.searchEmpty.hidden = true;
-    el.searchCount.textContent = `검색 결과 ${list.length}곳`;
+const SEARCH_MINE_MAX = 8;
 
-    const frag = document.createDocumentFragment();
-    list.forEach((place) => {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'result-item';
+let searchPinList = [];
+let searchVisibleIds = new Set();
+let searchPlaces = null;       // 카카오 검색 결과. null 이면 아직 없음(또는 검색 중)
+let searchPlacesFor = '';      // 위 결과가 어떤 검색어의 것인지
 
-      btn.innerHTML =
-        '<span class="result-item__ico">' +
-          '<svg viewBox="0 0 24 24" fill="none" class="w-[17px] h-[17px]">' +
-            '<path d="M12 21s7-5.686 7-11a7 7 0 1 0-14 0c0 5.314 7 11 7 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>' +
-            '<circle cx="12" cy="10" r="2.3" fill="currentColor"/>' +
-          '</svg>' +
-        '</span>' +
-        '<span class="min-w-0 flex-1">' +
-          '<span class="result-item__name block"></span>' +
-          '<span class="result-item__addr block"></span>' +
-          '<span class="result-item__cat"></span>' +
-          '<span class="result-item__dist"></span>' +
-        '</span>';
+// 핀 목록이나 필터가 바뀔 때마다 app 이 넘겨준다. 패널이 열려 있으면 바로 다시 그린다.
+export function setSearchPins(pins, visibleIds) {
+  searchPinList = Array.isArray(pins) ? pins : [];
+  searchVisibleIds = visibleIds || new Set();
+  if (!el.searchPanel.hidden) paintSearch();
+}
 
-      btn.querySelector('.result-item__name').textContent = place.name;
-      btn.querySelector('.result-item__addr').textContent = place.roadAddress || place.address || '';
+export function renderSearchResults(list, keyword) {
+  if (keyword.trim() !== el.searchInput.value.trim()) return;   // 늦게 온 옛 검색 결과
 
-      const catEl = btn.querySelector('.result-item__cat');
-      if (place.category) catEl.textContent = place.category;
-      else catEl.remove();
+  searchPlaces = Array.isArray(list) ? list : [];
+  searchPlacesFor = keyword.trim();
+  paintSearch();
+}
 
-      const distEl = btn.querySelector('.result-item__dist');
-      if (Number.isFinite(place.distance)) distEl.textContent = fmtDistance(place.distance);
-      else distEl.remove();
+// 이름 · 주소 · 메모 · 태그 · 조건 이름에서 찾는다. 이름에 걸린 곳을 먼저, 그중에서도 앞부분이 같은 곳을 먼저.
+function findMyPins(kw) {
+  const scored = [];
 
-      btn.addEventListener('click', () => {
-        hideSearchPanel();
-        cb.onSelectPlace && cb.onSelectPlace(place);
-      });
+  searchPinList.forEach((p) => {
+    const name = p.name.toLowerCase();
+    let rank;
+    if (name.startsWith(kw)) rank = 0;
+    else if (name.includes(kw)) rank = 1;
+    else {
+      const labels = [
+        ...p.tags.map((t) => (tagById(t) || {}).label),
+        ...p.features.map((x) => (featureById(x) || {}).label)
+      ].filter(Boolean).join(' ');
+      if (!`${p.address} ${p.memo} ${labels}`.toLowerCase().includes(kw)) return;
+      rank = 2;
+    }
+    scored.push({ p, rank });
+  });
 
-      li.appendChild(btn);
-      frag.appendChild(li);
+  return scored.sort((a, b) => a.rank - b.rank).map((x) => x.p);
+}
+
+// 카카오 검색 결과가 이미 핀으로 있는 곳인지 본다. (코스 편집의 pinForPlace 와 같은 기준)
+function searchPinForPlace(place) {
+  return searchPinList.find((p) => {
+    const d = distanceMeters(p.lat, p.lng, place.lat, place.lng);
+    return d < 15 || (d < 200 && p.name.trim() === place.name.trim());
+  }) || null;
+}
+
+function paintSearch() {
+  const kw = el.searchInput.value.trim().toLowerCase();
+  if (!kw) { hideSearchPanel(); return; }
+
+  const mine = findMyPins(kw);
+  const loaded = searchPlaces !== null && searchPlacesFor.toLowerCase() === kw;
+
+  // 카카오 결과 중 이미 핀인 곳은 '새 장소' 에서 빼고 내 장소 쪽에 붙인다.
+  const places = [];
+  if (loaded) {
+    const shown = new Set(mine.map((p) => p.id));
+    searchPlaces.forEach((place) => {
+      const pin = searchPinForPlace(place);
+      if (!pin) { places.push(place); return; }
+      if (shown.has(pin.id)) return;
+      shown.add(pin.id);
+      mine.push(pin);
     });
-    el.searchResults.appendChild(frag);
   }
+
+  el.searchResults.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  if (mine.length) {
+    frag.appendChild(searchHead('내 장소', mine.length));
+    mine.slice(0, SEARCH_MINE_MAX).forEach((pin) => frag.appendChild(mySearchItem(pin)));
+  }
+
+  if (!loaded) {
+    frag.appendChild(searchHead('새 장소', null, '찾는 중…'));
+  } else if (places.length) {
+    frag.appendChild(searchHead('새 장소', places.length, '선택하면 핀을 추가해요'));
+    places.forEach((place) => frag.appendChild(placeSearchItem(place)));
+  } else if (mine.length) {
+    frag.appendChild(searchHead('새 장소', null, '더 찾은 곳이 없어요'));
+  }
+
+  el.searchResults.appendChild(frag);
+
+  const total = mine.length + places.length;
+  el.searchEmpty.hidden = !(loaded && total === 0);
+  el.searchCount.textContent = total ? `검색 결과 ${total}곳` : '검색 결과';
 
   // PC 폭에선 상세 시트가 검색창 바로 아래 왼쪽에 붙어 결과를 덮는다.
   // 시트는 #screen-map 바깥이라 z-index 로는 못 올리니, 상세 보기만 닫는다.
   // 폼·코스 편집은 입력이 날아가므로 그대로 둔다.
-  if (sheetMode === 'detail' && DESKTOP_SHEET.matches) closeSheet();
+  if (el.searchPanel.hidden && sheetMode === 'detail' && DESKTOP_SHEET.matches) closeSheet();
 
   el.searchPanel.hidden = false;
+}
+
+function searchHead(title, count, note) {
+  const li = h('li', 'search-panel__group', title);
+  if (count) li.appendChild(h('b', null, String(count)));
+  if (note) li.appendChild(h('small', null, note));
+  return li;
+}
+
+function mySearchItem(pin) {
+  const isWish = pin.category === 'wish';
+  const li = document.createElement('li');
+  const btn = h('button', 'result-item');
+  btn.type = 'button';
+
+  btn.innerHTML =
+    `<span class="result-item__ico ${isWish ? 'is-wish' : 'is-visited'}">${ICON_PIN}</span>` +
+    '<span class="min-w-0 flex-1">' +
+      '<span class="result-item__name block"></span>' +
+      '<span class="result-item__addr block"></span>' +
+    '</span>';
+
+  btn.querySelector('.result-item__name').textContent = pin.name;
+
+  const meta = [isWish ? '가볼 곳' : '가본 곳'];
+  if (pin.favoritedBy.length) meta.push('★');
+  if (pin.address) meta.push(pin.address);
+  btn.querySelector('.result-item__addr').textContent = meta.join(' · ');
+
+  if (!searchVisibleIds.has(pin.id)) {
+    btn.lastElementChild.appendChild(h('span', 'result-item__cat', '필터로 숨김'));
+  }
+
+  btn.addEventListener('click', () => {
+    clearSearch();
+    cb.onSelectSearchPin && cb.onSelectSearchPin(pin.id);
+  });
+
+  li.appendChild(btn);
+  return li;
+}
+
+function placeSearchItem(place) {
+  const li = document.createElement('li');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'result-item';
+
+  btn.innerHTML =
+    '<span class="result-item__ico">' +
+      '<svg viewBox="0 0 24 24" fill="none" class="w-[17px] h-[17px]">' +
+        '<path d="M12 21s7-5.686 7-11a7 7 0 1 0-14 0c0 5.314 7 11 7 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>' +
+        '<circle cx="12" cy="10" r="2.3" fill="currentColor"/>' +
+      '</svg>' +
+    '</span>' +
+    '<span class="min-w-0 flex-1">' +
+      '<span class="result-item__name block"></span>' +
+      '<span class="result-item__addr block"></span>' +
+      '<span class="result-item__cat"></span>' +
+      '<span class="result-item__dist"></span>' +
+    '</span>';
+
+  btn.querySelector('.result-item__name').textContent = place.name;
+  btn.querySelector('.result-item__addr').textContent = place.roadAddress || place.address || '';
+
+  const catEl = btn.querySelector('.result-item__cat');
+  if (place.category) catEl.textContent = place.category;
+  else catEl.remove();
+
+  const distEl = btn.querySelector('.result-item__dist');
+  if (Number.isFinite(place.distance)) distEl.textContent = fmtDistance(place.distance);
+  else distEl.remove();
+
+  btn.addEventListener('click', () => {
+    hideSearchPanel();
+    cb.onSelectPlace && cb.onSelectPlace(place);
+  });
+
+  li.appendChild(btn);
+  return li;
 }
 
 // style.css 에서 .sheet 가 왼쪽 패널로 바뀌는 기준과 같다.
@@ -1202,6 +1329,8 @@ export function clearSearch() {
   el.searchInput.value = '';
   el.searchClear.hidden = true;
   el.searchResults.innerHTML = '';
+  searchPlaces = null;
+  searchPlacesFor = '';
   hideSearchPanel();
 }
 

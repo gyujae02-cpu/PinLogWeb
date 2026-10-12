@@ -775,6 +775,19 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .search-panel__list::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 99px; }
 .search-panel__empty { padding: 22px 16px 26px; text-align: center; font-size: 13px; color: var(--ink-400); }
 
+/* 검색 결과 구역 머리 — 내 장소 / 새 장소 */
+.search-panel__group {
+  display: flex; align-items: baseline; gap: 6px;
+  margin: 10px 8px 4px;
+  font-size: 11.5px; font-weight: 400; letter-spacing: -.01em;
+  color: var(--ink-500);
+}
+.search-panel__group:first-child { margin-top: 0; }
+.search-panel__group b { font-weight: 400; color: var(--brand-600); }
+.search-panel__group small { margin-left: auto; font-size: 11px; color: var(--ink-400); }
+.search-panel .result-item__ico.is-wish    { background: var(--wish-50);  color: var(--wish-600); }
+.search-panel .result-item__ico.is-visited { background: var(--brand-50); color: var(--brand-600); }
+
 .result-item {
   display: flex; align-items: flex-start; gap: 12px;
   width: 100%;

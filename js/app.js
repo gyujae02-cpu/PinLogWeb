@@ -40,6 +40,7 @@ const state = {
   roadviewHinted: false,
   entering: false,
   selectedId: null,
+  peekId: null,
   detailSig: '',
   detailPhotos: null,
   editingId: null,
@@ -61,6 +62,7 @@ UI.initUI({
   onFilterChange,
   onSearch,
   onSelectPlace,
+  onSelectSearchPin,
   onSubmitPin,
   onDeletePin,
   onEditPin,
@@ -287,6 +289,7 @@ function leaveMap() {
   state.courseFocusId = null;
   state.mapReady = false;
   state.selectedId = null;
+  state.peekId = null;
   state.skyview = false;
   UI.setMapTypeState(false);
   state.roadview = false;
@@ -376,8 +379,9 @@ function passesUserFilter(f, pin) {
 function refreshMarkers() {
   const list = visiblePins();
 
-  MapCtl.renderPins(withCoursePins(list));
+  MapCtl.renderPins(withPeekPin(withCoursePins(list)));
   if (UI.isTimelineOpen()) UI.renderTimeline(list);
+  UI.setSearchPins(state.pins, new Set(list.map((p) => p.id)));
 
   const visited = state.pins.filter((p) => p.category === 'visited').length;
   const wish    = state.pins.length - visited;
@@ -475,6 +479,8 @@ async function openRoadviewAt(lat, lng) {
 function handlePinClick(id) {
   const pin = findPin(id);
   if (!pin) return;
+
+  if (state.peekId && state.peekId !== id) clearPeek();
 
   state.selectedId = id;
   state.editingId = null;
@@ -755,14 +761,46 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
+// 내 장소는 UI 가 바로 거르고, 여기서는 카카오 '새 장소' 만 받아 넘긴다.
 async function onSearch(keyword) {
-  if (!state.mapReady) return;
+  if (!state.mapReady) { UI.renderSearchResults([], keyword); return; }
   try {
     const list = await MapCtl.searchPlaces(keyword);
-    UI.renderSearchResults(list);
+    UI.renderSearchResults(list, keyword);
   } catch (err) {
+    UI.renderSearchResults([], keyword);
     UI.toast(err.message || '검색에 실패했어요.');
   }
+}
+
+function onSelectSearchPin(id) {
+  const pin = findPin(id);
+  if (!pin) return;
+
+  // 필터로 숨겨진 핀이면 상세를 닫을 때까지 그 핀만 지도에 띄워 둔다.
+  const hidden = !visiblePins().some((p) => p.id === id);
+  if (hidden) {
+    state.peekId = id;
+    refreshMarkers();
+  }
+
+  MapCtl.moveTo(pin.lat, pin.lng, 3);
+  handlePinClick(id);
+
+  if (hidden) UI.toast('필터로 숨겨진 핀이라 잠깐 보여드려요.', 2800);
+}
+
+function withPeekPin(list) {
+  if (!state.peekId || list.some((p) => p.id === state.peekId)) return list;
+
+  const pin = findPin(state.peekId);
+  return pin ? list.concat(pin) : list;
+}
+
+function clearPeek() {
+  if (!state.peekId) return;
+  state.peekId = null;
+  refreshMarkers();
 }
 
 function onSelectPlace(place) {
@@ -1049,6 +1087,7 @@ function onSheetClose() {
   state.detailPhotos = null;
   detachPinExtras();
   MapCtl.setActivePin(null);
+  clearPeek();
 }
 
 /* ── 데이트 코스 ───────────────────────────────────────────── */
