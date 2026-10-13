@@ -4,7 +4,7 @@ import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normaliz
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
 import { provinceOf, daysTogether, computeStats, PERIODS } from './stats.js';
-import { openFrame, closeFrame, isFrameOpen } from './frame.js';
+import { openFrame, closeFrame, escapeFrame, isFrameOpen } from './frame.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -598,9 +598,10 @@ export function initUI(handlers) {
   });
 
   document.addEventListener('keydown', (e) => {
-    // 액자가 모든 창을 덮고 있으니 뒤쪽 단축키는 막고 Esc 로만 닫는다.
+    // 액자가 모든 창을 덮고 있으니 뒤쪽 단축키는 막는다.
+    // Esc 는 설정 시트가 열려 있으면 시트를, 아니면 액자를 닫는다.
     if (isFrameOpen()) {
-      if (e.key === 'Escape') closeFrame();
+      if (e.key === 'Escape') escapeFrame();
       return;
     }
     if (!el.story.hidden) {

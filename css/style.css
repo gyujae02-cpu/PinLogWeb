@@ -2292,23 +2292,89 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .about__actions .about__mail { margin-top: 0; }
 
 /* ── 액자 모드 ─────────────────────────────────────────
-   로그인 화면과 같은 바다 그라디언트 위에 시계 · 워드마크를 띄운다.
+   배경 · 글씨 톤 · 시계 크기를 data-* 속성으로 바꾼다(js/frame.js 의 applyOpts).
    맨 위(.boot 아래)에 깔아 지도와 모든 창을 덮는다. */
 .frame {
   position: fixed; inset: 0; z-index: 85;
   overflow: hidden;
   touch-action: none;
   cursor: none;
-  color: var(--login-ink);
+  opacity: 0;
+  transition: opacity .4s var(--ease), background .5s var(--ease);
+
+  /* 어두운 배경용 글씨 톤(기본) */
+  --f-ink:    #FFFFFF;
+  --f-dim:    rgba(255,255,255,.62);
+  --f-mute:   rgba(255,255,255,.45);
+  --f-accent: var(--brand-200);
+  --f-stem:   rgba(255,255,255,.72);
+  --f-shadow: 0 2px 24px rgba(3, 14, 26, .30);
+  --f-glass:  rgba(255,255,255,.12);
+  --f-glass-bd: rgba(255,255,255,.22);
+
+  /* 시계 크기. 폭(vw) · 높이(vh) · 최대값 중 가장 작은 쪽을 쓴다. */
+  --t-vw: 22vw;
+  --t-vh: 34vh;
+  --t-max: 200px;
+  --t-k: 1;
+
+  color: var(--f-ink);
+}
+.frame.is-on { opacity: 1; }
+.frame.is-ui,
+.frame:has(.frame-sheet:not([hidden])) { cursor: auto; }
+
+.frame[data-tone="light"] {
+  --f-ink:    var(--ink-900);
+  --f-dim:    var(--ink-500);
+  --f-mute:   var(--ink-400);
+  --f-accent: var(--brand-600);
+  --f-stem:   var(--ink-500);
+  --f-shadow: none;
+  --f-glass:  rgba(22,32,43,.06);
+  --f-glass-bd: rgba(22,32,43,.10);
+}
+
+.frame[data-bg="sea"] {
   background:
     radial-gradient(118% 66% at 50% 60%, rgba(133,198,250,.32) 0%, rgba(133,198,250,0) 62%),
     linear-gradient(180deg,
       #072B4A 0%, #0B4A79 28%, #0B5E9A 48%,
       #0C4C7C 64%, #072B4A 82%, #061E33 100%);
-  opacity: 0;
-  transition: opacity .4s var(--ease);
 }
-.frame.is-on { opacity: 1; }
+.frame[data-bg="sunset"] {
+  --f-accent: #FFD2A8;
+  background:
+    radial-gradient(120% 60% at 50% 100%, rgba(255,178,120,.45) 0%, rgba(255,178,120,0) 65%),
+    linear-gradient(180deg, #2B1B4A 0%, #4A2458 30%, #8E3A64 58%, #D2606A 82%, #F08A5D 100%);
+}
+.frame[data-bg="pink"] {
+  --f-accent: #FFE1EA;
+  --f-dim:    rgba(255,255,255,.75);
+  --f-mute:   rgba(255,255,255,.60);
+  background:
+    radial-gradient(110% 60% at 50% 40%, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, #B8285A 0%, #D63468 45%, #F0628F 100%);
+}
+.frame[data-bg="night"] {
+  --f-ink:    rgba(255,255,255,.88);
+  --f-dim:    rgba(255,255,255,.50);
+  --f-mute:   rgba(255,255,255,.36);
+  --f-accent: var(--brand-300);
+  --f-shadow: none;
+  background: #000;
+}
+.frame[data-bg="light"] {
+  background:
+    radial-gradient(110% 60% at 50% 45%, rgba(184,222,255,.55) 0%, rgba(184,222,255,0) 62%),
+    var(--canvas);
+}
+.frame[data-bg="custom"] { background: var(--frame-custom, #0B4A79); }
+
+.frame[data-sec="same"]                     { --t-vw: 19vw;   --t-max: 170px; }
+.frame[data-size="large"]                   { --t-vw: 25vw;   --t-vh: 40vh; --t-max: 260px; }
+.frame[data-size="large"][data-sec="same"]  { --t-vw: 20.5vw; --t-max: 220px; }
+.frame[data-hour12="true"]                  { --t-k: .88; }
 
 .frame__stage {
   position: absolute;
@@ -2323,18 +2389,41 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .frame__clock { text-align: center; }
 
-.frame__time {
-  font-size: clamp(76px, 24vw, 200px);
-  font-weight: 300; letter-spacing: -.04em; line-height: 1;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 2px 24px rgba(3, 14, 26, .30);
+/* 설정 시트가 열리면 시계를 위로 올려 바뀐 모습을 바로 볼 수 있게 한다. */
+.frame:has(.frame-sheet:not([hidden])) .frame__stage {
+  justify-content: flex-start;
+  padding-top: calc(64px + var(--safe-t));
 }
+
+.frame__time {
+  font-size: clamp(48px, min(calc(var(--t-vw) * var(--t-k)), var(--t-vh)), var(--t-max));
+  font-weight: 300; letter-spacing: 0; line-height: 1;
+  white-space: nowrap;
+  text-shadow: var(--f-shadow);
+}
+.frame[data-weight="regular"] .frame__time { font-weight: 400; }
+
+/* 숫자 폭을 고정해 매초 시계가 좌우로 흔들리지 않게 한다. */
+.frame__d     { display: inline-block; width: .6em; text-align: center; }
+.frame__colon { display: inline-block; width: .3em; text-align: center; transform: translateY(-.06em); }
+.frame__sec {
+  margin-left: .12em;
+  font-size: .36em;
+  color: var(--f-dim);
+}
+.frame__ampm {
+  margin-right: .3em;
+  font-size: .2em; letter-spacing: -.01em;
+  color: var(--f-dim);
+}
+
 .frame__date {
   margin-top: clamp(10px, 2vw, 18px);
   font-size: clamp(15px, 3.6vw, 24px);
   font-weight: 400; letter-spacing: -.01em;
-  color: var(--login-dim);
+  color: var(--f-dim);
 }
+.frame[data-size="large"] .frame__date { font-size: clamp(18px, 4.4vw, 32px); }
 
 .frame__foot {
   position: absolute;
@@ -2345,19 +2434,25 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .frame__mark {
   font-size: clamp(24px, 5vw, 34px);
   font-weight: 400; letter-spacing: -.035em; line-height: 1;
-  color: var(--login-ink);
+  color: var(--f-ink);
 }
-.frame__mark em { font-style: normal; color: var(--brand-200); }
+.frame[data-size="large"] .frame__mark { font-size: clamp(28px, 6vw, 42px); }
+.frame__mark em { font-style: normal; color: var(--f-accent); }
 .frame__mark .wordmark-pin {
-  color: var(--brand-200);
-  --ink-500: rgba(255,255,255,.72);
+  color: var(--f-accent);
+  --ink-500: var(--f-stem);
 }
 .frame__days {
   margin-top: 8px;
   font-size: 12.5px; font-weight: 400; letter-spacing: -.01em;
-  color: var(--login-mute);
+  color: var(--f-mute);
   font-variant-numeric: tabular-nums;
 }
+.frame[data-size="large"] .frame__days { font-size: 14.5px; }
+
+.frame.is-no-date .frame__date { display: none; }
+.frame.is-no-logo .frame__mark { display: none; }
+.frame.is-no-logo .frame__days { margin-top: 0; }
 
 .frame__hint {
   position: absolute;
@@ -2365,10 +2460,10 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   transform: translateX(-50%);
   padding: 8px 14px;
   border-radius: 999px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-bd);
+  background: var(--f-glass);
+  border: 1px solid var(--f-glass-bd);
   font-size: 12.5px; letter-spacing: -.01em;
-  color: var(--login-dim);
+  color: var(--f-dim);
   white-space: nowrap;
   opacity: 0;
   transition: opacity .5s var(--ease);
@@ -2376,16 +2471,184 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .frame__hint.is-on { opacity: 1; }
 
+/* 빈 곳을 누르면 잠깐 나오는 도구 막대 */
+.frame__bar {
+  position: absolute;
+  top: calc(16px + var(--safe-t));
+  right: calc(16px + var(--safe-r));
+  display: flex; gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity .25s var(--ease), transform .25s var(--ease);
+}
+.frame.is-ui .frame__bar { opacity: 1; pointer-events: auto; transform: none; }
+
+.frame__bar-btn {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--f-glass);
+  border: 1px solid var(--f-glass-bd);
+  color: var(--f-ink);
+  -webkit-backdrop-filter: var(--blur-1);
+  backdrop-filter: var(--blur-1);
+  transition: transform .18s var(--ease);
+}
+.frame__bar-btn:active { transform: scale(.94); }
+.frame__bar-btn svg { width: 20px; height: 20px; }
+
+/* 설정 시트. 배경 테마와 상관없이 앱의 밝은 시트와 같은 모양이다. */
+.frame-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + var(--safe-b));
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 24px));
+  max-height: calc(100% - 28px - var(--safe-t) - var(--safe-b));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 8px 18px 16px;
+  border-radius: 22px;
+  background: var(--glass-l4);
+  border: 1px solid var(--glass-l-bd);
+  -webkit-backdrop-filter: var(--blur-3);
+  backdrop-filter: var(--blur-3);
+  box-shadow: var(--sh-lift), var(--glass-l-hi);
+  color: var(--ink-900);
+  cursor: auto;
+  animation: frame-sheet-in .32s var(--ease);
+}
+@keyframes frame-sheet-in {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.frame-sheet__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 52px;
+  padding: 8px 0;
+}
+.frame-sheet__row + .frame-sheet__row { border-top: 1px solid var(--ink-200); }
+
+.frame-sheet__label {
+  flex-shrink: 0;
+  font-size: 14px; letter-spacing: -.01em;
+  color: var(--ink-700);
+}
+.frame-sheet__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-400);
+}
+
+.frame-seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--sunken-glass);
+}
+.frame-seg button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px; letter-spacing: -.01em;
+  color: var(--ink-500);
+  white-space: nowrap;
+  transition: background .18s var(--ease), color .18s var(--ease);
+}
+.frame-seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--brand-600);
+  box-shadow: var(--sh-soft);
+}
+
+.frame-swatches {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px;
+}
+.frame-swatch {
+  position: relative;
+  width: 32px; height: 32px;
+  padding: 3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color .18s var(--ease);
+}
+.frame-swatch i {
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), .14);
+}
+.frame-swatch[aria-pressed="true"] { border-color: var(--brand-500); }
+
+.frame-swatch--pick i {
+  background: conic-gradient(#FF5C8A, #F5B301, #4CD38A, #2E9BE6, #8B6CFF, #FF5C8A);
+}
+.frame-swatch--pick input {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.frame-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px; height: 28px;
+  border-radius: 999px;
+  background: var(--ink-200);
+  transition: background .2s var(--ease);
+}
+.frame-switch i {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), .22);
+  transition: transform .2s var(--ease);
+}
+.frame-switch[aria-checked="true"] { background: var(--brand-500); }
+.frame-switch[aria-checked="true"] i { transform: translateX(18px); }
+
+.frame-sheet__warn {
+  margin: 0 0 8px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: var(--wish-50);
+  font-size: 12px; letter-spacing: -.01em;
+  color: var(--wish-600);
+}
+
+.frame-sheet__reset {
+  width: 100%; height: 40px;
+  margin-top: 6px;
+  border-radius: 12px;
+  background: var(--sunken-glass);
+  font-size: 13px; letter-spacing: -.01em;
+  color: var(--ink-500);
+}
+.frame-sheet__reset:active { transform: translateY(1px); }
+
 /* 가로로 눕힌 폰처럼 낮은 화면에선 아래 워드마크가 시계와 겹치지 않게 줄인다. */
 @media (max-height: 460px) {
-  .frame__time { font-size: clamp(64px, 30vh, 160px); }
+  .frame { --t-vh: 30vh; }
+  .frame[data-size="large"] { --t-vh: 34vh; }
   .frame__foot { bottom: calc(16px + var(--safe-b)); }
-  .frame__mark { font-size: 20px; }
-  .frame__days { margin-top: 4px; font-size: 11px; }
+  .frame__mark,
+  .frame[data-size="large"] .frame__mark { font-size: 20px; }
+  .frame__days,
+  .frame[data-size="large"] .frame__days { margin-top: 4px; font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .frame, .frame__stage, .frame__hint { transition: none; }
+  .frame, .frame__stage, .frame__hint, .frame__bar { transition: none; }
+  .frame-sheet { animation: none; }
 }
 
 .about__notice {
