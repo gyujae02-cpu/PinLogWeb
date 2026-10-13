@@ -2285,6 +2285,109 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .about__mail svg { width: 16px; height: 16px; color: var(--ink-400); }
 .about__mail:hover svg { color: var(--brand-500); }
 
+.about__actions {
+  display: flex; justify-content: center; gap: 8px;
+  margin-top: 18px;
+}
+.about__actions .about__mail { margin-top: 0; }
+
+/* ── 액자 모드 ─────────────────────────────────────────
+   로그인 화면과 같은 바다 그라디언트 위에 시계 · 워드마크를 띄운다.
+   맨 위(.boot 아래)에 깔아 지도와 모든 창을 덮는다. */
+.frame {
+  position: fixed; inset: 0; z-index: 85;
+  overflow: hidden;
+  touch-action: none;
+  cursor: none;
+  color: var(--login-ink);
+  background:
+    radial-gradient(118% 66% at 50% 60%, rgba(133,198,250,.32) 0%, rgba(133,198,250,0) 62%),
+    linear-gradient(180deg,
+      #072B4A 0%, #0B4A79 28%, #0B5E9A 48%,
+      #0C4C7C 64%, #072B4A 82%, #061E33 100%);
+  opacity: 0;
+  transition: opacity .4s var(--ease);
+}
+.frame.is-on { opacity: 1; }
+
+.frame__stage {
+  position: absolute;
+  inset: 0;
+  padding:
+    calc(24px + var(--safe-t)) calc(24px + var(--safe-r))
+    calc(28px + var(--safe-b)) calc(24px + var(--safe-l));
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transform: translate(var(--dx, 0px), var(--dy, 0px));
+  transition: transform 2.4s var(--ease);
+}
+
+.frame__clock { text-align: center; }
+
+.frame__time {
+  font-size: clamp(76px, 24vw, 200px);
+  font-weight: 300; letter-spacing: -.04em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 24px rgba(3, 14, 26, .30);
+}
+.frame__date {
+  margin-top: clamp(10px, 2vw, 18px);
+  font-size: clamp(15px, 3.6vw, 24px);
+  font-weight: 400; letter-spacing: -.01em;
+  color: var(--login-dim);
+}
+
+.frame__foot {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(36px + var(--safe-b));
+  text-align: center;
+}
+.frame__mark {
+  font-size: clamp(24px, 5vw, 34px);
+  font-weight: 400; letter-spacing: -.035em; line-height: 1;
+  color: var(--login-ink);
+}
+.frame__mark em { font-style: normal; color: var(--brand-200); }
+.frame__mark .wordmark-pin {
+  color: var(--brand-200);
+  --ink-500: rgba(255,255,255,.72);
+}
+.frame__days {
+  margin-top: 8px;
+  font-size: 12.5px; font-weight: 400; letter-spacing: -.01em;
+  color: var(--login-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.frame__hint {
+  position: absolute;
+  left: 50%; top: calc(22px + var(--safe-t));
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-bd);
+  font-size: 12.5px; letter-spacing: -.01em;
+  color: var(--login-dim);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .5s var(--ease);
+  pointer-events: none;
+}
+.frame__hint.is-on { opacity: 1; }
+
+/* 가로로 눕힌 폰처럼 낮은 화면에선 아래 워드마크가 시계와 겹치지 않게 줄인다. */
+@media (max-height: 460px) {
+  .frame__time { font-size: clamp(64px, 30vh, 160px); }
+  .frame__foot { bottom: calc(16px + var(--safe-b)); }
+  .frame__mark { font-size: 20px; }
+  .frame__days { margin-top: 4px; font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame, .frame__stage, .frame__hint { transition: none; }
+}
+
 .about__notice {
   margin-top: 10px;
   text-align: left;

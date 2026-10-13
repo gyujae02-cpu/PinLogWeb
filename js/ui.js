@@ -4,6 +4,7 @@ import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normaliz
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
 import { provinceOf, daysTogether, computeStats, PERIODS } from './stats.js';
+import { openFrame, closeFrame, isFrameOpen } from './frame.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -227,6 +228,7 @@ export const el = {
   aboutNotice:   $('#about-notice'),
   aboutFont:     $('#about-font'),
   aboutClose:    $('#about-close'),
+  btnFrame:      $('#btn-frame'),
 
   export:        $('#export'),
   exportPhotos:  $('#export-photos'),
@@ -334,6 +336,7 @@ export function initUI(handlers) {
 
   el.btnAbout.addEventListener('click', openAbout);
   el.aboutClose.addEventListener('click', () => closeAbout());
+  el.btnFrame.addEventListener('click', () => { closeAbout(true); openFrame(); });
   el.about.addEventListener('click', (e) => { if (e.target === el.about) closeAbout(); });
 
   el.brand.addEventListener('click', () => cb.onBrandClick && cb.onBrandClick());
@@ -595,6 +598,11 @@ export function initUI(handlers) {
   });
 
   document.addEventListener('keydown', (e) => {
+    // 액자가 모든 창을 덮고 있으니 뒤쪽 단축키는 막고 Esc 로만 닫는다.
+    if (isFrameOpen()) {
+      if (e.key === 'Escape') closeFrame();
+      return;
+    }
     if (!el.story.hidden) {
       if (e.key === 'Escape') closeStoryCard();
       return;
@@ -804,6 +812,9 @@ function initCardTilt() {
 export function showScreen(name) {
   const next = name === 'map' ? el.screenMap : el.screenLogin;
   const prev = name === 'map' ? el.screenLogin : el.screenMap;
+
+  // 액자는 닫으면서 상단 색을 되돌린다. 아래에서 화면에 맞는 색을 다시 칠하도록 먼저 닫는다.
+  closeFrame();
 
   prev.classList.remove('is-active');
   next.classList.add('is-active');
