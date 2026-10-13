@@ -598,8 +598,8 @@ export function initUI(handlers) {
   });
 
   document.addEventListener('keydown', (e) => {
-    // 액자가 모든 창을 덮고 있으니 뒤쪽 단축키는 막는다.
-    // Esc 는 설정 시트가 열려 있으면 시트를, 아니면 액자를 닫는다.
+    // 시계 모드가 모든 창을 덮고 있으니 뒤쪽 단축키는 막는다.
+    // Esc 는 설정 시트가 열려 있으면 시트를, 아니면 시계 모드를 닫는다.
     if (isFrameOpen()) {
       if (e.key === 'Escape') escapeFrame();
       return;
@@ -814,7 +814,7 @@ export function showScreen(name) {
   const next = name === 'map' ? el.screenMap : el.screenLogin;
   const prev = name === 'map' ? el.screenLogin : el.screenMap;
 
-  // 액자는 닫으면서 상단 색을 되돌린다. 아래에서 화면에 맞는 색을 다시 칠하도록 먼저 닫는다.
+  // 시계 모드는 닫으면서 상단 색을 되돌린다. 아래에서 화면에 맞는 색을 다시 칠하도록 먼저 닫는다.
   closeFrame();
 
   prev.classList.remove('is-active');

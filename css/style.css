@@ -2291,7 +2291,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .about__actions .about__mail { margin-top: 0; }
 
-/* ── 액자 모드 ─────────────────────────────────────────
+/* ── 시계 모드 ─────────────────────────────────────────
    배경 · 글씨 톤 · 시계 크기를 data-* 속성으로 바꾼다(js/frame.js 의 applyOpts).
    맨 위(.boot 아래)에 깔아 지도와 모든 창을 덮는다. */
 .frame {
@@ -2430,29 +2430,30 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   left: 0; right: 0;
   bottom: calc(36px + var(--safe-b));
   text-align: center;
-}
-.frame__mark {
+  /* 로고 크기. 아래 태그라인이 em 으로 이 크기를 따라간다. */
   font-size: clamp(24px, 5vw, 34px);
+}
+.frame[data-size="large"] .frame__foot { font-size: clamp(28px, 6vw, 42px); }
+.frame__mark {
+  font-size: 1em;
   font-weight: 400; letter-spacing: -.035em; line-height: 1;
   color: var(--f-ink);
 }
-.frame[data-size="large"] .frame__mark { font-size: clamp(28px, 6vw, 42px); }
 .frame__mark em { font-style: normal; color: var(--f-accent); }
 .frame__mark .wordmark-pin {
   color: var(--f-accent);
   --ink-500: var(--f-stem);
 }
-.frame__days {
-  margin-top: 8px;
-  font-size: 12.5px; font-weight: 400; letter-spacing: -.01em;
-  color: var(--f-mute);
-  font-variant-numeric: tabular-nums;
+/* 로그인 화면 태그라인과 같은 비율(로고의 0.3배 크기, 0.28배 간격).
+   다만 로고가 작은 폰에선 0.3배가 7px 남짓이라 읽히는 최소 크기를 둔다. */
+.frame__tagline {
+  margin-top: max(7px, .28em);
+  font-size: max(11.5px, .3em); font-weight: 400; letter-spacing: -.01em; line-height: 1.2;
+  color: var(--f-dim);
 }
-.frame[data-size="large"] .frame__days { font-size: 14.5px; }
 
 .frame.is-no-date .frame__date { display: none; }
-.frame.is-no-logo .frame__mark { display: none; }
-.frame.is-no-logo .frame__days { margin-top: 0; }
+.frame.is-no-logo .frame__foot { display: none; }
 
 .frame__hint {
   position: absolute;
@@ -2639,11 +2640,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 @media (max-height: 460px) {
   .frame { --t-vh: 30vh; }
   .frame[data-size="large"] { --t-vh: 34vh; }
-  .frame__foot { bottom: calc(16px + var(--safe-b)); }
-  .frame__mark,
-  .frame[data-size="large"] .frame__mark { font-size: 20px; }
-  .frame__days,
-  .frame[data-size="large"] .frame__days { margin-top: 4px; font-size: 11px; }
+  .frame__foot,
+  .frame[data-size="large"] .frame__foot { bottom: calc(16px + var(--safe-b)); font-size: 20px; }
+  .frame__tagline { font-size: 10.5px; margin-top: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

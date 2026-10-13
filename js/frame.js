@@ -1,10 +1,8 @@
-// 액자 모드 — 시계 · 날짜 · 워드마크 · 함께한 날을 전체화면으로 띄운다.
+// 시계 모드 — 시계 · 날짜 · 워드마크를 전체화면으로 띄운다.
 // 태블릿이나 노트북을 세워두고 쓰는 용도라 화면 꺼짐을 막고(Wake Lock),
 // 같은 자리에 오래 그려지지 않도록 1분마다 조금씩 위치를 옮긴다(번인 방지).
 // 설정은 기기마다 다르게 두는 게 자연스러워서 DB 가 아니라 localStorage 에 둔다.
-// stats.js 만 가져오는 말단 모듈이라 ui.js 에서 import 해도 순환이 없다.
-
-import { daysTogether } from './stats.js';
+// 다른 모듈을 가져오지 않는 말단 모듈이라 어디서 import 해도 순환이 없다.
 
 const DRIFT_PX   = 14;
 const HINT_MS    = 3200;
@@ -60,7 +58,6 @@ function bind() {
     root:    $('#frame'),
     time:    $('#frame-time'),
     date:    $('#frame-date'),
-    days:    $('#frame-days'),
     stage:   $('#frame-stage'),
     hint:    $('#frame-hint'),
     bar:     $('#frame-bar'),
@@ -120,7 +117,7 @@ function bind() {
   });
 
   // 전체화면에서 Esc 는 브라우저가 먼저 가져가 keydown 이 오지 않는다.
-  // 사용자가 전체화면을 빠져나오면 액자도 같이 닫는다.
+  // 사용자가 전체화면을 빠져나오면 시계 모드도 같이 닫는다.
   document.addEventListener('fullscreenchange', () => {
     if (open && enteredFullscreen && !document.fullscreenElement) {
       enteredFullscreen = false;
@@ -188,7 +185,7 @@ export function closeFrame() {
   }, FADE_MS);
 }
 
-// Esc — 설정 시트가 열려 있으면 시트만, 아니면 액자를 닫는다.
+// Esc — 설정 시트가 열려 있으면 시트만, 아니면 시계 모드를 닫는다.
 export function escapeFrame() {
   if (!open) return;
   if (!el.sheet.hidden) closeSheet();
@@ -302,7 +299,7 @@ function paintThemeColor() {
 
 // ── 시계 ────────────────────────────────────────────
 
-// 매초 0ms 근처에 맞춰 다시 그린다. 자정을 넘기면 날짜와 함께한 날도 같이 바뀐다.
+// 매초 0ms 근처에 맞춰 다시 그린다. 자정을 넘기면 날짜도 같이 바뀐다.
 function tick() {
   clearTimeout(tickTimer);
   const now = new Date();
@@ -310,7 +307,6 @@ function tick() {
   el.time.innerHTML = timeHtml(now);
   el.date.textContent =
     `${now.getMonth() + 1}월 ${now.getDate()}일 ${WEEKDAYS[now.getDay()]}요일`;
-  el.days.textContent = daysTogether(now);
 
   if (now.getSeconds() === 0) drift();
 
