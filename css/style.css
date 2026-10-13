@@ -3370,46 +3370,51 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 
-/* 월별 막대 */
-.st-months {
-  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px;
+/* 세로 막대 차트 — 주별/월별 방문과 요일별 방문이 함께 쓴다.
+   칸 수는 ui.js 가 grid-template-columns 로 정한다. */
+.st-cols {
+  display: grid; gap: 4px;
   height: 150px;
   padding: 12px 10px 8px;
   border-radius: 20px;
   background: var(--sunken-glass);
 }
-.st-month {
+.st-cols--week { height: 128px; gap: 8px; padding-inline: 14px; }
+.st-col {
   display: flex; flex-direction: column; align-items: center;
   min-width: 0;
 }
-.st-month__count {
+.st-col__count {
   height: 14px;
   font-size: 10.5px; line-height: 14px; letter-spacing: -.02em;
   color: var(--ink-500);
 }
-.st-month__track {
+.st-col__track {
   flex: 1; width: 100%;
   display: flex; align-items: flex-end; justify-content: center;
   margin-top: 3px;
 }
-.st-month__bar {
+.st-col__bar {
   display: block;
   width: min(100%, 16px);
   border-radius: 6px 6px 3px 3px;
   background: var(--brand-200);
   transition: height .5s var(--ease);
 }
-.st-month.is-best .st-month__bar { background: var(--brand-500); }
-.st-month.is-best .st-month__count { color: var(--brand-600); }
-.st-month__label {
+.st-cols--week .st-col__bar { width: min(100%, 22px); }
+.st-col.is-best .st-col__bar { background: var(--brand-500); }
+.st-col.is-best .st-col__count { color: var(--brand-600); }
+.st-col__label {
   display: flex; flex-direction: column; align-items: center;
   height: 26px; margin-top: 5px;
   font-size: 10px; line-height: 1.2; letter-spacing: -.04em;
   color: var(--ink-400);
   white-space: nowrap;
 }
-.st-month__label small { font-size: 9px; color: var(--ink-400); opacity: .8; }
-.st-month.is-now .st-month__label { color: var(--ink-900); }
+.st-cols--week .st-col__label { height: 14px; font-size: 11px; }
+.st-col__label small { font-size: 9px; color: var(--ink-400); opacity: .8; }
+.st-col.is-now .st-col__label { color: var(--ink-900); }
+.st-col.is-weekend .st-col__label { color: var(--wish-600); }
 
 /* 태그 · 지역 가로 막대 */
 .st-row {
@@ -3428,16 +3433,60 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 13px; letter-spacing: -.02em; color: var(--ink-700);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 가본 곳 · 가볼 곳 조각을 이어 붙인다. 둥근 끝은 트랙이 잘라 준다. */
 .st-row__track {
   flex: 1; min-width: 0; height: 8px;
+  display: flex;
   border-radius: 99px;
   background: var(--sunken-glass);
   overflow: hidden;
 }
 .st-row__fill {
+  display: block; height: 100%; flex-shrink: 0;
+  background: var(--brand-400);
+  transition: width .5s var(--ease);
+}
+.st-row__fill--wish,
+.st-dot--wish-bar::before { background: var(--wish-500); opacity: .55; }
+
+.st-sec__legend { flex-wrap: wrap; margin-top: 4px; }
+.st-sec__hint { color: var(--ink-400); }
+
+/* 다음 목표 */
+.st-goals {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.st-goal {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--sunken-glass);
+}
+.st-goal__icon {
+  display: grid; place-items: center;
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--raise-glass);
+  font-size: 17px;
+}
+.st-goal__body { flex: 1; min-width: 0; }
+.st-goal__title {
+  font-size: 14px; letter-spacing: -.02em; color: var(--ink-900);
+}
+.st-goal__sub {
+  margin-top: 2px;
+  font-size: 11.5px; letter-spacing: -.01em; color: var(--ink-400);
+}
+.st-goal__bar {
+  height: 6px; margin-top: 8px;
+  border-radius: 99px;
+  background: var(--ink-200);
+  overflow: hidden;
+}
+.st-goal__fill {
   display: block; height: 100%;
   border-radius: 99px;
-  background: var(--brand-400);
+  background: linear-gradient(90deg, var(--brand-400), var(--brand-600));
   transition: width .5s var(--ease);
 }
 .st-row__count {
@@ -3464,6 +3513,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   background: var(--sunken-glass);
   font-size: 11px; letter-spacing: -.01em; color: var(--ink-500);
 }
+.st-rec__label--wish { min-width: 26px; text-align: center; background: var(--wish-50); color: var(--wish-600); }
 .st-rec__name {
   flex: 1; min-width: 0;
   font-size: 14px; letter-spacing: -.02em; color: var(--ink-900);

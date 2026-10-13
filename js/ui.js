@@ -3,7 +3,7 @@ import { drawStoryCard, storyCardBlob, clampCrop, cropScale, DEFAULT_CROP, CROP_
 import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
-import { provinceOf } from './stats.js';
+import { provinceOf, daysTogether } from './stats.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -642,21 +642,6 @@ function finishExport(result) {
   }, 280);
 
   resolve(result);
-}
-
-// 만난 날을 1일로 센다.
-const MET_ON = [2026, 7, 27];   // 월은 0부터 — 2026.08.27
-
-// 시분초가 섞인 값을 그냥 나누면 오후에 하루 모자라게 나온다.
-// 양쪽 다 로컬 자정으로 내려서 뺀다.
-function daysTogether() {
-  const [y, m, d] = MET_ON;
-  const start = new Date(y, m, d);
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  return Math.floor((today - start) / 86400000) + 1;
 }
 
 function openAbout() {
@@ -3168,9 +3153,12 @@ export function renderStats(stats) {
 
   const frag = document.createDocumentFragment();
   frag.appendChild(statsSummary(stats));
-  frag.appendChild(statsMonths(stats));
+  frag.appendChild(statsMilestones(stats));
+  frag.appendChild(statsVisits(stats));
+  frag.appendChild(statsWeekdays(stats));
   if (stats.tags.length) frag.appendChild(statsTags(stats));
   frag.appendChild(statsRegions(stats));
+  if (stats.oldWishes.length) frag.appendChild(statsWishes(stats));
   frag.appendChild(statsRecords(stats));
   el.statsBody.appendChild(frag);
 
@@ -3186,18 +3174,52 @@ function statsSection(title, note) {
   return sec;
 }
 
-function statsBarRow(label, count, max, unit = '곳') {
+// parts: [{ count, mod }] — 한 줄 막대를 여러 색으로 이어 칠한다.
+function statsBarRow(label, parts, max, total = parts.reduce((n, p) => n + p.count, 0)) {
   const row = h('div', 'st-row');
   row.appendChild(h('span', 'st-row__label', label));
 
   const track = h('span', 'st-row__track');
-  const fill = h('span', 'st-row__fill');
-  fill.style.width = `${max ? Math.max(4, (count / max) * 100) : 0}%`;
-  track.appendChild(fill);
+  parts.forEach((p) => {
+    if (!p.count) return;
+    const fill = h('span', `st-row__fill${p.mod ? ` st-row__fill--${p.mod}` : ''}`);
+    fill.style.width = `${max ? (p.count / max) * 100 : 0}%`;
+    track.appendChild(fill);
+  });
   row.appendChild(track);
 
-  row.appendChild(h('span', 'st-row__count', `${count}${unit}`));
+  row.appendChild(h('span', 'st-row__count', `${total}곳`));
   return row;
+}
+
+// 세로 막대 차트. items: [{ count, label, sub, best, now }]
+function statsColumns(items, ariaLabel, mod) {
+  const max = Math.max(1, ...items.map((x) => x.count));
+  const chart = h('div', `st-cols${mod ? ` st-cols--${mod}` : ''}`);
+  chart.style.gridTemplateColumns = `repeat(${items.length}, minmax(0, 1fr))`;
+  chart.setAttribute('role', 'img');
+  chart.setAttribute('aria-label', ariaLabel);
+
+  items.forEach((x) => {
+    const col = h('div', 'st-col');
+    if (x.now)  col.classList.add('is-now');
+    if (x.best) col.classList.add('is-best');
+
+    col.appendChild(h('span', 'st-col__count', x.count ? String(x.count) : ''));
+    const bar = h('span', 'st-col__bar');
+    bar.style.height = x.count ? `${Math.max(6, (x.count / max) * 100)}%` : '3px';
+    const wrap = h('span', 'st-col__track');
+    wrap.appendChild(bar);
+    col.appendChild(wrap);
+
+    const label = h('span', 'st-col__label', x.label);
+    if (x.sub) label.appendChild(h('small', null, x.sub));
+    col.appendChild(label);
+
+    chart.appendChild(col);
+  });
+
+  return chart;
 }
 
 function statsSummary({ summary: s, courses }) {
@@ -3243,46 +3265,132 @@ function statsSummary({ summary: s, courses }) {
   return sec;
 }
 
-function statsMonths({ months, bestMonth }) {
-  const note = bestMonth
-    ? `가장 많이 다닌 달 · ${bestMonth.year}년 ${bestMonth.month}월 (${bestMonth.count}곳)`
-    : '다녀온 날이 적힌 가본 곳이 아직 없어요';
-  const sec = statsSection('월별 방문', note);
+function statsMilestone(icon, title, sub, progress) {
+  const item = h('div', 'st-goal');
+  item.appendChild(h('span', 'st-goal__icon', icon));
 
-  const max = Math.max(1, ...months.map((m) => m.count));
-  const chart = h('div', 'st-months');
-  chart.setAttribute('role', 'img');
-  chart.setAttribute('aria-label',
-    `최근 ${months.length}개월 방문: ` + months.map((m) => `${m.month}월 ${m.count}곳`).join(', '));
+  const body = h('div', 'st-goal__body');
+  body.appendChild(h('p', 'st-goal__title', title));
+  if (sub) body.appendChild(h('p', 'st-goal__sub', sub));
+  if (progress != null) {
+    const bar = h('div', 'st-goal__bar');
+    const fill = h('span', 'st-goal__fill');
+    fill.style.width = `${progress}%`;
+    bar.appendChild(fill);
+    body.appendChild(bar);
+  }
+  item.appendChild(body);
+  return item;
+}
 
-  months.forEach((m, i) => {
-    const col = h('div', 'st-month');
-    if (i === months.length - 1) col.classList.add('is-now');
-    if (bestMonth && m.key === bestMonth.key) col.classList.add('is-best');
+function dayLabelOf(target) {
+  if (target % 365 === 0) return `${target / 365}주년`;
+  return `D+${target}`;
+}
 
-    col.appendChild(h('span', 'st-month__count', m.count ? String(m.count) : ''));
-    const bar = h('span', 'st-month__bar');
-    bar.style.height = m.count ? `${Math.max(6, (m.count / max) * 100)}%` : '3px';
-    const wrap = h('span', 'st-month__track');
-    wrap.appendChild(bar);
-    col.appendChild(wrap);
+function statsMilestones({ milestones: m, summary }) {
+  const sec = statsSection('다음 목표');
+  const box = h('div', 'st-goals');
 
-    // 해가 바뀌는 달과 첫 칸에는 연도를 붙여 어느 해인지 보이게 한다.
-    const label = h('span', 'st-month__label', `${m.month}월`);
-    if (i === 0 || m.month === 1) label.appendChild(h('small', null, `'${String(m.year).slice(2)}`));
-    col.appendChild(label);
+  if (m.pins) {
+    box.appendChild(statsMilestone('🎯',
+      `${m.pins.target}번째 장소까지 ${m.pins.left}곳`,
+      `지금까지 가본 곳 ${summary.visited}곳`,
+      m.pins.progress));
+  }
 
-    chart.appendChild(col);
+  if (m.day.reachedToday) {
+    box.appendChild(statsMilestone('🎉', `오늘이 ${dayLabelOf(m.day.reachedToday)}이에요`, '축하해요!'));
+  }
+  if (m.day.next) {
+    const n = m.day.next;
+    box.appendChild(statsMilestone('💝',
+      `${dayLabelOf(n.target)}까지 ${n.left}일`,
+      `${fmtFullDate(n.date)}`));
+  }
+
+  sec.appendChild(box);
+  return sec;
+}
+
+function statsVisits({ visits }) {
+  const weekly = visits.unit === 'week';
+  const { buckets, best } = visits;
+
+  let note = '다녀온 날이 적힌 가본 곳이 아직 없어요';
+  if (best) {
+    const d = best.start;
+    note = weekly
+      ? `가장 많이 다닌 주 · ${d.getMonth() + 1}월 ${d.getDate()}일 주 (${best.count}곳)`
+      : `가장 많이 다닌 달 · ${d.getFullYear()}년 ${d.getMonth() + 1}월 (${best.count}곳)`;
+  }
+  const sec = statsSection(weekly ? '주별 방문' : '월별 방문', note);
+
+  // 칸이 많으면 라벨이 겹치니 한 칸 걸러 단다. 이번 칸(맨 끝)은 늘 단다.
+  const sparse = buckets.length > 8;
+  const items = buckets.map((b, i) => {
+    const d = b.start;
+    const fromEnd = buckets.length - 1 - i;
+    const show = !sparse || fromEnd % 2 === 0;
+
+    let label = '';
+    let sub = '';
+    if (show && weekly) {
+      label = `${d.getMonth() + 1}/${d.getDate()}`;
+    } else if (show) {
+      label = `${d.getMonth() + 1}월`;
+      // 해가 바뀌는 달과 첫 칸에는 연도를 붙여 어느 해인지 보이게 한다.
+      if (i === 0 || d.getMonth() === 0) sub = `'${String(d.getFullYear()).slice(2)}`;
+    }
+
+    return { count: b.count, label, sub, best: best && b.key === best.key, now: fromEnd === 0 };
   });
-  sec.appendChild(chart);
 
+  const aria = buckets.map((b) => {
+    const d = b.start;
+    const name = weekly ? `${d.getMonth() + 1}월 ${d.getDate()}일 주` : `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+    return `${name} ${b.count}곳`;
+  }).join(', ');
+
+  sec.appendChild(statsColumns(items, `${weekly ? '주별' : '월별'} 방문: ${aria}`));
+  return sec;
+}
+
+function statsWeekdays({ weekdays: w }) {
+  const any = w.days.some((d) => d.count);
+  const note = any
+    ? `주로 ${w.top.join('·')}요일에 놀러 다녀요 · 주말 ${w.weekendRate}%`
+    : '다녀온 날이 적힌 가본 곳이 아직 없어요';
+  const sec = statsSection('요일별 방문', note);
+  if (!any) return sec;
+
+  const items = w.days.map((d, i) => ({
+    count: d.count,
+    label: d.label,
+    best: d.count > 0 && w.top.includes(d.label),
+    weekend: i >= 5
+  }));
+  const chart = statsColumns(items, '요일별 방문: ' + w.days.map((d) => `${d.label} ${d.count}곳`).join(', '), 'week');
+  // 토·일 라벨만 색을 달리한다.
+  [...chart.children].forEach((col, i) => { if (items[i].weekend) col.classList.add('is-weekend'); });
+  sec.appendChild(chart);
   return sec;
 }
 
 function statsTags({ tags }) {
-  const sec = statsSection('태그별', '핀 하나에 태그가 여러 개일 수 있어요');
+  const sec = statsSection('태그별', null);
+  const legend = h('div', 'st-progress__legend st-sec__legend');
+  legend.appendChild(h('span', 'st-dot st-dot--visited', '가본 곳'));
+  legend.appendChild(h('span', 'st-dot st-dot--wish-bar', '가볼 곳'));
+  legend.appendChild(h('span', 'st-sec__hint', '핀 하나에 태그가 여러 개일 수 있어요'));
+  sec.firstChild.appendChild(legend);
+
   const max = tags[0].count;
-  tags.forEach((t) => sec.appendChild(statsBarRow(`${t.emoji} ${t.label}`, t.count, max)));
+  tags.forEach((t) => sec.appendChild(statsBarRow(
+    `${t.emoji} ${t.label}`,
+    [{ count: t.visited }, { count: t.wish, mod: 'wish' }],
+    max
+  )));
   return sec;
 }
 
@@ -3292,7 +3400,7 @@ function statsRegions({ regions }) {
 
   const max = regions[0].count;
   regions.forEach((r, i) => {
-    const row = statsBarRow(r.name, r.count, max);
+    const row = statsBarRow(r.name, [{ count: r.count }], max);
     row.prepend(h('span', 'st-row__rank', String(i + 1)));
     sec.appendChild(row);
   });
@@ -3303,25 +3411,34 @@ function statsDate(d) {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
 }
 
-function statsRecordItem(label, rec) {
+function statsRecordItem(label, pin, side, mod) {
   const btn = h('button', 'st-rec');
   btn.type = 'button';
-  btn.appendChild(h('span', 'st-rec__label', label));
-  btn.appendChild(h('span', 'st-rec__name', rec.pin.name));
-  btn.appendChild(h('span', 'st-rec__date', statsDate(rec.date)));
+  btn.appendChild(h('span', `st-rec__label${mod ? ` st-rec__label--${mod}` : ''}`, label));
+  btn.appendChild(h('span', 'st-rec__name', pin.name));
+  btn.appendChild(h('span', 'st-rec__date', side));
   btn.addEventListener('click', () => {
     closeStats();
     closeTimeline();
-    cb.onTimelineSelect && cb.onTimelineSelect(rec.pin.id);
+    cb.onTimelineSelect && cb.onTimelineSelect(pin.id);
   });
   return btn;
+}
+
+function statsWishes({ oldWishes, wishTotal }) {
+  const sec = statsSection('오래 기다린 가볼 곳', `가볼 곳 ${wishTotal}곳 중 담은 지 가장 오래된 곳`);
+  oldWishes.forEach((w, i) => {
+    const side = w.days ? `${w.days}일째` : '오늘 담음';
+    sec.appendChild(statsRecordItem(String(i + 1), w.pin, side, 'wish'));
+  });
+  return sec;
 }
 
 function statsRecords({ firstPin, latestVisit, users, summary }) {
   const sec = statsSection('기록 모음');
 
-  if (firstPin)    sec.appendChild(statsRecordItem('첫 기록', firstPin));
-  if (latestVisit) sec.appendChild(statsRecordItem('최근 방문', latestVisit));
+  if (firstPin)    sec.appendChild(statsRecordItem('첫 기록', firstPin.pin, statsDate(firstPin.date)));
+  if (latestVisit) sec.appendChild(statsRecordItem('최근 방문', latestVisit.pin, statsDate(latestVisit.date)));
 
   if (users.length) {
     const box = h('div', 'st-users');
