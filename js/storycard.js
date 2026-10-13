@@ -645,3 +645,198 @@ export async function drawStoryCard(canvas, card) {
 export function storyCardBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
 }
+
+/* ── 통계 카드 ──────────────────────────────────────────────── */
+
+// 통계 패널의 '공유 카드'. 스토리 카드와 같은 배경 · 유리 카드 · 로고를 쓰고
+// 사진 자리 대신 숫자 · 막대 · 태그 순위를 그린다.
+const ST_PAD_Y = 76;
+const ST_GAP   = 54;
+const ST_CHART_H   = 320;
+const ST_CHART_MIN = 200;
+
+function statsTitleBlock(ctx, title) {
+  return {
+    h: 40,
+    draw(y) {
+      ctx.font = font(400, 36);
+      ctx.fillStyle = INK_DIM;
+      ctx.fillText(ellipsize(ctx, title, TEXT_W), TEXT_X, y + 34);
+    }
+  };
+}
+
+// 큰 숫자 셋을 나란히. { value, unit, label }
+function statsNumbersBlock(ctx, numbers) {
+  const colW = TEXT_W / numbers.length;
+  return {
+    h: 166,
+    draw(y) {
+      numbers.forEach((n, i) => {
+        const x = TEXT_X + colW * i;
+        ctx.font = font(400, 104);
+        ctx.fillStyle = INK;
+        const v = String(n.value);
+        ctx.fillText(v, x, y + 100);
+        const vw = ctx.measureText(v).width;
+        ctx.font = font(400, 40);
+        ctx.fillStyle = INK_SOFT;
+        ctx.fillText(n.unit, x + vw + 8, y + 100);
+
+        ctx.font = font(400, 30);
+        ctx.fillStyle = INK_DIM;
+        ctx.fillText(ellipsize(ctx, n.label, colW - 16), x, y + 154);
+      });
+    }
+  };
+}
+
+// 세로 막대. bars: [{ count, label, best }]
+function statsChartBlock(ctx, chart) {
+  const block = {
+    h: ST_CHART_H,
+    flexMin: ST_CHART_MIN,
+    draw(y) {
+      const h = block.h;
+      ctx.font = font(400, 30);
+      ctx.fillStyle = INK_DIM;
+      ctx.fillText(chart.title, TEXT_X, y + 28);
+
+      const n = chart.bars.length;
+      const colW = TEXT_W / n;
+      const barW = Math.min(56, colW * 0.58);
+      const baseY = y + h - 44;           // 막대 바닥 — 아래로 라벨 한 줄
+      const topY  = y + 28 + 56;          // 제목 · 숫자 한 줄 아래
+      const maxH  = baseY - topY;
+      const max = Math.max(1, ...chart.bars.map((b) => b.count));
+
+      chart.bars.forEach((b, i) => {
+        const cx = TEXT_X + colW * (i + 0.5);
+        const bh = b.count ? Math.max(14, (b.count / max) * maxH) : 6;
+        roundRectPath(ctx, cx - barW / 2, baseY - bh, barW, bh, Math.min(12, bh / 2));
+        ctx.fillStyle = !b.count ? 'rgba(255,255,255,.16)'
+          : b.best ? INK : 'rgba(255,255,255,.40)';
+        ctx.fill();
+
+        ctx.textAlign = 'center';
+        if (b.count) {
+          ctx.font = font(400, 26);
+          ctx.fillStyle = b.best ? INK : INK_SOFT;
+          ctx.fillText(String(b.count), cx, baseY - bh - 12);
+        }
+        if (b.label) {
+          ctx.font = font(400, 24);
+          ctx.fillStyle = INK_DIM;
+          ctx.fillText(b.label, cx, baseY + 36);
+        }
+        ctx.textAlign = 'left';
+      });
+    }
+  };
+  return block;
+}
+
+// 태그 순위. tags: [{ emoji, label, count }]
+function statsTagsBlock(ctx, tags) {
+  const ROW = 64;
+  return {
+    h: 46 + tags.length * ROW,
+    draw(y) {
+      ctx.font = font(400, 30);
+      ctx.fillStyle = INK_DIM;
+      ctx.fillText('많이 찍은 태그', TEXT_X, y + 28);
+
+      const max = Math.max(1, ...tags.map((t) => t.count));
+      const barX = TEXT_X + 290;
+      const barW = TEXT_W - 290 - 110;
+      tags.forEach((t, i) => {
+        const cy = y + 46 + ROW * i + ROW / 2;
+
+        ctx.font = font(400, 38);
+        ctx.fillStyle = INK;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ellipsize(ctx, `${t.emoji} ${t.label}`, 270), TEXT_X, cy);
+
+        roundRectPath(ctx, barX, cy - 7, barW, 14, 7);
+        ctx.fillStyle = 'rgba(255,255,255,.16)';
+        ctx.fill();
+        roundRectPath(ctx, barX, cy - 7, Math.max(14, (t.count / max) * barW), 14, 7);
+        ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.fill();
+
+        ctx.font = font(400, 34);
+        ctx.fillStyle = INK_SOFT;
+        ctx.textAlign = 'right';
+        ctx.fillText(`${t.count}곳`, TEXT_X + TEXT_W, cy);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+      });
+    }
+  };
+}
+
+function statsLinesBlock(ctx, lines) {
+  const LINE = 54;
+  return {
+    h: lines.length * LINE - 12,
+    draw(y) {
+      ctx.font = font(400, 34);
+      ctx.fillStyle = INK_SOFT;
+      lines.forEach((t, i) => ctx.fillText(ellipsize(ctx, t, TEXT_W), TEXT_X, y + 34 + LINE * i));
+    }
+  };
+}
+
+/**
+ * data: { format, theme: 'charcoal' | 'blue' | 'rose' | 'dusk', copyright, dateText, title,
+ *         numbers: [{ value, unit, label }], chart: { title, bars: [{ count, label, best }] } | null,
+ *         tags: [{ emoji, label, count }], lines: [string] }
+ * 칸이 모자라면 막대를 낮추고, 그래도 넘치면 문장 → 태그 → 막대 순서로 뺀다.
+ */
+export async function drawStatsCard(canvas, data) {
+  const F = CARD_FORMATS[data.format] || CARD_FORMATS.story;
+  canvas.width = STORY_W;
+  canvas.height = F.h;
+  const ctx = canvas.getContext('2d');
+
+  const sample = [data.title, data.dateText, ...(data.lines || []),
+    ...(data.numbers || []).map((n) => `${n.value}${n.unit}${n.label}`),
+    ...(data.tags || []).map((t) => t.label), data.chart ? data.chart.title : '',
+    ...(data.chart ? data.chart.bars.map((b) => b.label) : []),
+    '많이 찍은 태그곳0123456789', TAGLINE, COPYRIGHT, 'PinLog…'].join('');
+  await ensureFonts(sample);
+
+  ctx.clearRect(0, 0, STORY_W, F.h);
+  paintLightBeams(ctx, THEME_COLORS[data.theme] || THEME_COLORS.blue);
+  paintHeader(ctx, F.headerY, data.dateText, true);
+  const withCopyright = data.copyright !== false;
+  if (withCopyright) paintFooter(ctx, F.footerY);
+
+  const top = F.top + TAGLINE_ROOM;
+  const avail = F.footerY - (withCopyright ? FOOTER_ROOM : 0) - top;
+
+  const title   = statsTitleBlock(ctx, data.title);
+  const numbers = statsNumbersBlock(ctx, data.numbers || []);
+  const chart   = data.chart && data.chart.bars.length ? statsChartBlock(ctx, data.chart) : null;
+  const tags    = data.tags && data.tags.length ? statsTagsBlock(ctx, data.tags) : null;
+  const lines   = data.lines && data.lines.length ? statsLinesBlock(ctx, data.lines) : null;
+
+  let blocks = [title, numbers, chart, tags, lines].filter(Boolean);
+  const height = () => ST_PAD_Y * 2 + blocks.reduce((s, b) => s + b.h, 0) + ST_GAP * (blocks.length - 1);
+
+  if (chart && height() > avail) chart.h = Math.max(chart.flexMin, chart.h - (height() - avail));
+  for (const drop of [lines, tags, chart]) {
+    if (height() <= avail) break;
+    blocks = blocks.filter((b) => b !== drop);
+  }
+
+  const cardH = height();
+  const cardY = Math.round(top + Math.max(0, (avail - cardH) / 2));
+  paintGlass(ctx, cardY, cardH);
+
+  let y = cardY + ST_PAD_Y;
+  for (const b of blocks) {
+    b.draw(y);
+    y += b.h + ST_GAP;
+  }
+}

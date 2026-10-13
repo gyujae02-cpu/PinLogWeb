@@ -1,5 +1,5 @@
 import { compressPhoto, MAX_PHOTOS } from './photo.js';
-import { drawStoryCard, storyCardBlob, clampCrop, cropScale, DEFAULT_CROP, CROP_ZOOM_MAX } from './storycard.js';
+import { drawStoryCard, drawStatsCard, storyCardBlob, clampCrop, cropScale, DEFAULT_CROP, CROP_ZOOM_MAX } from './storycard.js';
 import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
@@ -91,6 +91,12 @@ export const el = {
   statsSub:        $('#stats-sub'),
   statsBody:       $('#stats-body'),
   statsEmpty:      $('#stats-empty'),
+
+  statsCard:        $('#stats-card'),
+  statsCardCanvas:  $('#stats-card-canvas'),
+  statsCardFormats: $('#stats-card-formats'),
+  statsCardThemes:  $('#stats-card-themes'),
+  statsCardSave:    $('#stats-card-save'),
 
   courseBar:       $('#course-bar'),
   courseBarBadge:  $('#course-bar-badge'),
@@ -473,6 +479,26 @@ export function initUI(handlers) {
   document.querySelectorAll('[data-close-stats]').forEach((n) => {
     n.addEventListener('click', () => closeStats());
   });
+
+  $('#btn-stats-card').addEventListener('click', () => openStatsCard());
+  $('#stats-card-close').addEventListener('click', () => closeStatsCard());
+  el.statsCardFormats.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-format]');
+    if (!btn || !statsCard || statsCard.format === btn.dataset.format) return;
+    statsCard.format = btn.dataset.format;
+    renderStatsCard();
+  });
+  el.statsCardThemes.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-theme]');
+    if (!btn || !statsCard || statsCard.theme === btn.dataset.theme) return;
+    statsCard.theme = btn.dataset.theme;
+    renderStatsCard();
+  });
+  el.statsCardSave.addEventListener('click', () => {
+    if (!statsCard) return;
+    if (!statsCard.blob) { toast('카드를 그리는 중이에요. 잠시만요.'); return; }
+    cb.onSaveStoryCard && cb.onSaveStoryCard(statsCard.blob, statsCard.filename);
+  });
   el.timelineSearch.addEventListener('input', () => {
     timelineQuery = el.timelineSearch.value.trim().toLowerCase();
     el.timelineSearchClear.hidden = el.timelineSearch.value.length === 0;
@@ -571,6 +597,10 @@ export function initUI(handlers) {
   document.addEventListener('keydown', (e) => {
     if (!el.story.hidden) {
       if (e.key === 'Escape') closeStoryCard();
+      return;
+    }
+    if (!el.statsCard.hidden) {
+      if (e.key === 'Escape') closeStatsCard();
       return;
     }
 
@@ -3125,6 +3155,14 @@ export function isCoursesOpen() { return coursesOpen; }
 let statsOpen = false;
 let statsPeriod = 'all';
 let statsInput = { pins: [], courses: [] };
+let statsComments = null;   // null: 불러오는 중, false: 실패, 배열: 댓글
+let lastStats = null;       // 공유 카드가 지금 보이는 숫자를 그대로 쓴다
+
+// app.js 가 댓글을 다 불러오면 넘겨준다.
+export function setStatsComments(list) {
+  statsComments = list;
+  if (statsOpen) renderStats(statsInput.pins, statsInput.courses);
+}
 
 export function openStats(pins, courses) {
   statsOpen = true;
@@ -3144,6 +3182,7 @@ export function closeStats(immediate = false) {
     el.statsBody.scrollTop = 0;
   };
   if (immediate) finish(); else setTimeout(finish, 360);
+  closeStatsCard(immediate);
 }
 
 export function isStatsOpen() { return statsOpen; }
@@ -3151,7 +3190,8 @@ export function isStatsOpen() { return statsOpen; }
 // 기간 칩을 바꾸면 같은 핀으로 다시 세야 하므로 마지막 입력을 들고 있는다.
 export function renderStats(pins, courses) {
   statsInput = { pins: pins || [], courses: courses || [] };
-  const stats = computeStats(statsInput.pins, statsInput.courses, new Date(), statsPeriod);
+  const stats = computeStats(statsInput.pins, statsInput.courses, new Date(), statsPeriod, statsComments);
+  lastStats = stats;
   const s = stats.summary;
 
   el.statsSub.textContent = `핀 ${s.total}개 · 함께한 지 ${daysTogether()}일`;
@@ -3374,22 +3414,13 @@ function statsMilestones({ milestones: m, summary }) {
   return sec;
 }
 
-function statsVisits({ visits }) {
-  const weekly = visits.unit === 'week';
-  const { buckets, best } = visits;
-
-  let note = '다녀온 날이 적힌 가본 곳이 아직 없어요';
-  if (best) {
-    const d = best.start;
-    note = weekly
-      ? `가장 많이 다닌 주 · ${d.getMonth() + 1}월 ${d.getDate()}일 주 (${best.count}곳)`
-      : `가장 많이 다닌 달 · ${d.getFullYear()}년 ${d.getMonth() + 1}월 (${best.count}곳)`;
-  }
-  const sec = statsSection(weekly ? '주별 방문' : '월별 방문', note);
-
-  // 칸이 많으면 라벨이 겹치니 한 칸 걸러 단다. 이번 칸(맨 끝)은 늘 단다.
+// 방문 막대의 칸 라벨. 패널과 공유 카드가 같이 쓴다.
+// 칸이 많으면 라벨이 겹치니 한 칸 걸러 단다. 이번 칸(맨 끝)은 늘 단다.
+function visitItems({ unit, buckets, best }) {
+  const weekly = unit === 'week';
   const sparse = buckets.length > 8;
-  const items = buckets.map((b, i) => {
+
+  return buckets.map((b, i) => {
     const d = b.start;
     const fromEnd = buckets.length - 1 - i;
     const show = !sparse || fromEnd % 2 === 0;
@@ -3404,8 +3435,22 @@ function statsVisits({ visits }) {
       if (i === 0 || d.getMonth() === 0) sub = `'${String(d.getFullYear()).slice(2)}`;
     }
 
-    return { count: b.count, label, sub, best: best && b.key === best.key, now: fromEnd === 0 };
+    return { count: b.count, label, sub, best: !!best && b.key === best.key, now: fromEnd === 0 };
   });
+}
+
+function statsVisits({ visits }) {
+  const weekly = visits.unit === 'week';
+  const { buckets, best } = visits;
+
+  let note = '다녀온 날이 적힌 가본 곳이 아직 없어요';
+  if (best) {
+    const d = best.start;
+    note = weekly
+      ? `가장 많이 다닌 주 · ${d.getMonth() + 1}월 ${d.getDate()}일 주 (${best.count}곳)`
+      : `가장 많이 다닌 달 · ${d.getFullYear()}년 ${d.getMonth() + 1}월 (${best.count}곳)`;
+  }
+  const sec = statsSection(weekly ? '주별 방문' : '월별 방문', note);
 
   const aria = buckets.map((b) => {
     const d = b.start;
@@ -3413,7 +3458,7 @@ function statsVisits({ visits }) {
     return `${name} ${b.count}곳`;
   }).join(', ');
 
-  sec.appendChild(statsColumns(items, `${weekly ? '주별' : '월별'} 방문: ${aria}`));
+  sec.appendChild(statsColumns(visitItems(visits), `${weekly ? '주별' : '월별'} 방문: ${aria}`));
   return sec;
 }
 
@@ -3537,43 +3582,193 @@ function statsWishes({ oldWishes, wishTotal }) {
   return sec;
 }
 
-function statsRecords({ firstPin, latestVisit, users, summary }) {
+// 두 사람을 색 막대 하나로 나눠 보여준다. users: [{ id, count }]
+function statsShareBox(title, users, unit) {
+  const box = h('div', 'st-users');
+  box.appendChild(h('p', 'st-users__title', title));
+
+  const bar = h('div', 'st-users__bar');
+  const legend = h('div', 'st-users__legend');
+  const sum = users.reduce((n, u) => n + u.count, 0);
+
+  users.forEach((u) => {
+    const color = userColor(u.id);
+    const pct = Math.round((u.count / sum) * 100);
+
+    const part = h('span', 'st-users__part');
+    part.style.flexGrow = String(u.count);
+    part.style.background = color.dot;
+    bar.appendChild(part);
+
+    const item = h('span', 'st-users__item');
+    const dot = h('span', 'st-users__dot');
+    dot.style.background = color.dot;
+    item.appendChild(dot);
+    item.append(`${displayName(u.id)} `, h('b', null, `${u.count}${unit}`), ` · ${pct}%`);
+    legend.appendChild(item);
+  });
+
+  box.appendChild(bar);
+  box.appendChild(legend);
+  return box;
+}
+
+function statsRecords({ firstPin, latestVisit, users, commenters }) {
   const sec = statsSection('기록 모음');
 
   if (firstPin)    sec.appendChild(statsRecordItem('첫 기록', firstPin.pin, statsDate(firstPin.date)));
   if (latestVisit) sec.appendChild(statsRecordItem('최근 방문', latestVisit.pin, statsDate(latestVisit.date)));
 
-  if (users.length) {
-    const box = h('div', 'st-users');
-    box.appendChild(h('p', 'st-users__title', '누가 더 많이 찍었을까'));
+  if (users.length) sec.appendChild(statsShareBox('누가 더 많이 찍었을까', users, '개'));
 
-    const bar = h('div', 'st-users__bar');
-    const legend = h('div', 'st-users__legend');
-    const sum = users.reduce((n, u) => n + u.count, 0) || summary.total;
-
-    users.forEach((u) => {
-      const color = userColor(u.id);
-      const pct = Math.round((u.count / sum) * 100);
-
-      const part = h('span', 'st-users__part');
-      part.style.flexGrow = String(u.count);
-      part.style.background = color.dot;
-      bar.appendChild(part);
-
-      const item = h('span', 'st-users__item');
-      const dot = h('span', 'st-users__dot');
-      dot.style.background = color.dot;
-      item.appendChild(dot);
-      item.append(`${displayName(u.id)} `, h('b', null, `${u.count}개`), ` · ${pct}%`);
-      legend.appendChild(item);
-    });
-
-    box.appendChild(bar);
-    box.appendChild(legend);
-    sec.appendChild(box);
+  // 댓글은 통계를 연 뒤에 따로 불러온다.
+  const title = '누가 댓글을 더 많이 남겼을까';
+  if (commenters === null) {
+    sec.appendChild(statsNoteBox(title, '댓글을 불러오는 중…'));
+  } else if (commenters === false) {
+    sec.appendChild(statsNoteBox(title, '댓글을 불러오지 못했어요'));
+  } else if (!commenters.length) {
+    sec.appendChild(statsNoteBox(title, '아직 댓글이 없어요'));
+  } else {
+    sec.appendChild(statsShareBox(title, commenters, '개'));
   }
 
   return sec;
+}
+
+function statsNoteBox(title, text) {
+  const box = h('div', 'st-users');
+  box.appendChild(h('p', 'st-users__title', title));
+  box.appendChild(h('p', 'st-users__note', text));
+  return box;
+}
+
+/* 통계 공유 카드 — 지금 통계 패널에 보이는 기간 그대로 그린다. */
+
+let statsCard = null;
+let statsCardSeq = 0;
+
+function openStatsCard() {
+  if (!lastStats || !lastStats.summary.total) { toast('카드로 만들 핀이 아직 없어요.'); return; }
+
+  // 고른 배경 · 비율은 기억하지 않는다. (스토리 카드와 같다)
+  statsCard = { stats: lastStats, format: 'story', theme: 'blue', blob: null, filename: '' };
+
+  el.statsCard.hidden = false;
+  requestAnimationFrame(() => el.statsCard.classList.add('is-on'));
+  renderStatsCard();
+}
+
+function closeStatsCard(immediate = false) {
+  if (el.statsCard.hidden) return;
+
+  statsCardSeq++;
+  statsCard = null;
+  el.statsCard.classList.remove('is-on');
+  if (immediate) { el.statsCard.hidden = true; return; }
+  setTimeout(() => {
+    if (statsCard) return;   // 닫히는 사이 다시 열렸다
+    el.statsCard.hidden = true;
+  }, 240);
+}
+
+async function renderStatsCard() {
+  const c = statsCard;
+  if (!c) return;
+  const seq = ++statsCardSeq;
+
+  el.statsCardFormats.querySelectorAll('[data-format]').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.format === c.format));
+  });
+  el.statsCardThemes.querySelectorAll('[data-theme]').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.theme === c.theme));
+  });
+
+  c.blob = null;
+  el.statsCardSave.classList.add('is-busy');
+  el.statsCard.classList.add('is-drawing');
+
+  // 옵션을 연달아 누르면 마지막 것만 남도록, 그리는 캔버스는 매번 새로 만든다.
+  const canvas = document.createElement('canvas');
+  try {
+    await drawStatsCard(canvas, statsCardData(c));
+    if (seq !== statsCardSeq) return;
+
+    const view = el.statsCardCanvas;
+    if (view.width !== canvas.width || view.height !== canvas.height) {
+      view.width = canvas.width;
+      view.height = canvas.height;
+    }
+    const ctx = view.getContext('2d');
+    ctx.clearRect(0, 0, view.width, view.height);
+    ctx.drawImage(canvas, 0, 0);
+    el.statsCard.classList.remove('is-drawing');
+
+    const blob = await storyCardBlob(canvas);
+    if (seq !== statsCardSeq) return;
+    c.blob = blob;
+    c.filename = statsCardFilename(c);
+    el.statsCardSave.classList.remove('is-busy');
+  } catch (err) {
+    if (seq !== statsCardSeq) return;
+    console.error('[PinLog] 통계 카드 그리기 실패:', err);
+    toast('카드를 만들지 못했어요.', 3000);
+  }
+}
+
+function statsCardData({ stats, format, theme }) {
+  const s = stats.summary;
+  const ps = stats.periodSummary;
+  const days = daysTogether();
+  const now = new Date();
+  const p2 = (v) => String(v).padStart(2, '0');
+
+  const titles = {
+    all:   `우리의 기록 · D+${days}`,
+    '3m':  '우리의 기록 · 최근 3개월',
+    month: `우리의 기록 · ${now.getFullYear()}년 ${now.getMonth() + 1}월`
+  };
+
+  const numbers = stats.period === 'all'
+    ? [
+        { value: s.visited, unit: '곳', label: '가본 곳' },
+        { value: s.wish,    unit: '곳', label: '가볼 곳' },
+        { value: days,      unit: '일', label: '함께한 날' }
+      ]
+    : [
+        { value: ps.visits,  unit: '곳', label: '가본 곳' },
+        { value: ps.created, unit: '개', label: '새로 찍은 핀' },
+        { value: days,       unit: '일', label: '함께한 날' }
+      ];
+
+  const hasVisits = stats.visits.buckets.some((b) => b.count);
+  const chart = hasVisits ? {
+    title: stats.visits.unit === 'week' ? '주별 방문' : '월별 방문',
+    bars: visitItems(stats.visits).map((x) => ({ count: x.count, label: x.label, best: x.best }))
+  } : null;
+
+  const lines = [];
+  if (stats.weekdays.top.length) lines.push(`📅 주로 ${stats.weekdays.top.join('·')}요일에 놀러 다녀요`);
+  if (stats.regions.length) lines.push(`📍 가장 자주 간 곳 · ${stats.regions[0].name} ${stats.regions[0].count}곳`);
+  if (stats.bothFav.count) lines.push(`💞 둘 다 좋아한 곳 ${stats.bothFav.count}곳`);
+
+  return {
+    format,
+    theme,
+    copyright: true,
+    dateText: `${now.getFullYear()}.${p2(now.getMonth() + 1)}.${p2(now.getDate())}`,
+    title: titles[stats.period] || titles.all,
+    numbers,
+    chart,
+    tags: stats.tags.slice(0, 3).map((t) => ({ emoji: t.emoji, label: t.label, count: t.count })),
+    lines: lines.slice(0, 2)
+  };
+}
+
+// 같은 날 비율 · 기간별로 저장해도 겹치지 않게 둘 다 파일 이름에 넣는다.
+function statsCardFilename({ stats, format }) {
+  const date = todayValue().replace(/-/g, '');
+  return `pinlog-stats-${date}-${stats.period}-${STORY_FILE_SUFFIX[format] || 'story'}.jpg`;
 }
 
 export function renderCourses(courses, pins) {

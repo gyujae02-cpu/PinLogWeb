@@ -198,7 +198,14 @@ function conversionStats(dated) {
   };
 }
 
-export function computeStats(pins, courses, now = new Date(), period = 'all') {
+function rankUsers(counts) {
+  return [...counts]
+    .map(([id, count]) => ({ id, count }))
+    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+}
+
+// comments: 댓글 목록(by 가 쓴 사람). 아직 못 불러왔으면 null, 실패했으면 false.
+export function computeStats(pins, courses, now = new Date(), period = 'all', comments = null) {
   const list = Array.isArray(pins) ? pins : [];
   const visitedPins = list.filter((p) => p.category === 'visited');
   const wishPins = list.filter((p) => p.category !== 'visited');
@@ -301,9 +308,17 @@ export function computeStats(pins, courses, now = new Date(), period = 'all') {
     const id = normalizeId(p.createdBy);
     if (id) userCounts.set(id, (userCounts.get(id) || 0) + 1);
   });
-  const users = [...userCounts]
-    .map(([id, count]) => ({ id, count }))
-    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+  const users = rankUsers(userCounts);
+
+  let commenters = comments;
+  if (Array.isArray(comments)) {
+    const counts = new Map();
+    comments.forEach((c) => {
+      const id = normalizeId(c.by);
+      if (id) counts.set(id, (counts.get(id) || 0) + 1);
+    });
+    commenters = rankUsers(counts);
+  }
 
   const courseList = Array.isArray(courses) ? courses : [];
   const coursesDone = courseList.filter((c) => c.status === 'done').length;
@@ -325,6 +340,7 @@ export function computeStats(pins, courses, now = new Date(), period = 'all') {
     firstPin,
     latestVisit,
     users,
+    commenters,
     courses: { total: courseList.length, done: coursesDone, planned: courseList.length - coursesDone }
   };
 }

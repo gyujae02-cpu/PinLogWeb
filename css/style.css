@@ -3547,6 +3547,11 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .st-users__legend b { font-weight: 400; color: var(--ink-900); }
 .st-users__item { display: inline-flex; align-items: center; gap: 5px; }
+.st-users__note {
+  margin-top: 6px;
+  font-size: 12px; letter-spacing: -.01em; color: var(--ink-400);
+}
+.st-users + .st-users { margin-top: 8px; }
 .st-users__dot  { width: 8px; height: 8px; border-radius: 50%; }
 
 /* 기간 칩이 바꾸는 섹션 묶음 */

@@ -307,6 +307,7 @@ function leaveMap() {
   UI.closePicker();
   UI.closeTimeline(true);
   UI.closeStats(true);
+  resetStatsComments();
   UI.closeFeed(true);
   UI.closeCourses(true);
   UI.hideCourseBar();
@@ -331,7 +332,10 @@ function subscribePins() {
       if (state.courseViewId) drawCourse(false);
       UI.setCoursePins(pins);
       if (UI.isCoursesOpen()) UI.renderCourses(state.courses, pins);
-      if (UI.isStatsOpen()) UI.renderStats(pins, state.courses);
+      if (UI.isStatsOpen()) {
+        UI.renderStats(pins, state.courses);
+        loadStatsComments(true);
+      }
 
       if (state.selectedId) {
         const cur = findPin(state.selectedId);
@@ -645,6 +649,44 @@ function onOpenTimeline() {
 
 function onOpenStats() {
   UI.openStats(state.pins, state.courses);
+  loadStatsComments();
+}
+
+// 통계의 '누가 댓글을 더 많이 남겼을까' 용. 댓글 본문은 핀마다 따로 읽어야 해서
+// 핀별 댓글 수가 그대로면 지난번 목록을 다시 쓴다.
+const statsComments = { sig: '', list: null, seq: 0 };
+
+function commentSignature(pins) {
+  return pins.filter((p) => p.commentCount > 0).map((p) => `${p.id}:${p.commentCount}`).join(',');
+}
+
+async function loadStatsComments(onlyIfChanged = false) {
+  const sig = commentSignature(state.pins);
+  if (statsComments.list && sig === statsComments.sig) {
+    if (!onlyIfChanged) UI.setStatsComments(statsComments.list);
+    return;
+  }
+
+  const seq = ++statsComments.seq;
+  UI.setStatsComments(null);
+  try {
+    const list = await FB.fetchAllComments(state.pins);
+    if (seq !== statsComments.seq) return;
+    statsComments.sig = sig;
+    statsComments.list = list;
+    UI.setStatsComments(list);
+  } catch (err) {
+    if (seq !== statsComments.seq) return;
+    console.error('[PinLog] 통계용 댓글 읽기 실패:', err);
+    UI.setStatsComments(false);
+  }
+}
+
+function resetStatsComments() {
+  statsComments.sig = '';
+  statsComments.list = null;
+  statsComments.seq++;
+  UI.setStatsComments(null);
 }
 
 // 통계의 태그·조건 줄 — 그 조건만 걸고, 걸린 핀이 다 보이게 지도를 맞춘다.
