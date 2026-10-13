@@ -31,6 +31,8 @@ const DEFAULTS = Object.freeze({
   sec:    'small',
   weight: 'light',
   size:   'normal',
+  align:  'center',
+  flow:   true,
   date:   true,
   logo:   true,
   facts:  true,
@@ -42,7 +44,8 @@ const CHOICES = {
   bg:     ['sea', 'sunset', 'pink', 'night', 'light', 'custom'],
   sec:    ['small', 'same', 'off'],
   weight: ['light', 'regular'],
-  size:   ['normal', 'large']
+  size:   ['normal', 'large'],
+  align:  ['center', 'top', 'bottom']
 };
 
 const $ = (s) => document.querySelector(s);
@@ -121,8 +124,10 @@ function bind() {
   el.btnOpts.addEventListener('click', openSheet);
   el.btnExit.addEventListener('click', () => closeFrame());
 
-  // 선택 버튼(data-opt · data-val)과 스위치(data-toggle)는 시트에서 한 번에 받는다.
+  // 탭(data-tab), 선택 버튼(data-opt · data-val), 스위치(data-toggle)는 시트에서 한 번에 받는다.
   el.sheet.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-tab]');
+    if (tab) { selectTab(tab.dataset.tab); return; }
     const choice = e.target.closest('[data-opt]');
     if (choice) { setOpt(choice.dataset.opt, parseVal(choice.dataset.val)); return; }
     const toggle = e.target.closest('[data-toggle]');
@@ -262,6 +267,17 @@ function closeSheet() {
   el.sheet.hidden = true;
 }
 
+// 설정을 화면 · 시계 · 표시 세 묶음으로 나눠 한 번에 하나만 보인다.
+// 닫았다 다시 열면 마지막에 보던 묶음이 그대로 열린다.
+function selectTab(name) {
+  for (const t of el.sheet.querySelectorAll('[data-tab]')) {
+    t.setAttribute('aria-selected', String(t.dataset.tab === name));
+  }
+  for (const p of el.sheet.querySelectorAll('[data-pane]')) {
+    p.hidden = p.dataset.pane !== name;
+  }
+}
+
 // ── 설정 ────────────────────────────────────────────
 
 function parseVal(v) {
@@ -303,6 +319,8 @@ function applyOpts() {
   r.dataset.sec    = opts.sec;
   r.dataset.weight = opts.weight;
   r.dataset.size   = opts.size;
+  r.dataset.align  = opts.align;
+  r.dataset.flow   = String(opts.flow);
   r.dataset.hour12 = String(opts.hour12);
   r.dataset.tone   = toneOf(opts);
   r.style.setProperty('--frame-custom', opts.custom);

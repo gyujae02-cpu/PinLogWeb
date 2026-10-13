@@ -1176,71 +1176,92 @@
     </div>
 
     <div id="frame-sheet" class="frame-sheet" hidden role="group" aria-label="시계 설정">
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">배경</p>
-        <div class="frame-swatches">
-          <button type="button" class="frame-swatch" data-opt="bg" data-val="sea"    aria-label="바다"><i style="--sw: linear-gradient(180deg, #0B4A79, #0B6FB5)"></i></button>
-          <button type="button" class="frame-swatch" data-opt="bg" data-val="sunset" aria-label="노을"><i style="--sw: linear-gradient(180deg, #6B2D5C, #F08A5D)"></i></button>
-          <button type="button" class="frame-swatch" data-opt="bg" data-val="pink"   aria-label="핑크"><i style="--sw: linear-gradient(180deg, #B8285A, #FF7AA2)"></i></button>
-          <button type="button" class="frame-swatch" data-opt="bg" data-val="night"  aria-label="밤"><i style="--sw: #000"></i></button>
-          <button type="button" class="frame-swatch" data-opt="bg" data-val="light"  aria-label="라이트"><i style="--sw: #F1F6FB"></i></button>
-          <label class="frame-swatch frame-swatch--pick" aria-label="직접 고르기" title="직접 고르기">
-            <i></i>
-            <input id="frame-color" type="color" value="#0B4A79" />
-          </label>
+      <div class="frame-tabs" role="tablist" aria-label="설정 묶음">
+        <button type="button" role="tab" data-tab="screen" aria-selected="true">화면</button>
+        <button type="button" role="tab" data-tab="clock" aria-selected="false">시계</button>
+        <button type="button" role="tab" data-tab="show" aria-selected="false">표시</button>
+      </div>
+
+      <div class="frame-pane" data-pane="screen" role="tabpanel">
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">배경</p>
+          <div class="frame-swatches">
+            <button type="button" class="frame-swatch" data-opt="bg" data-val="sea"    aria-label="바다"><i style="--sw: linear-gradient(180deg, #0B4A79, #0B6FB5)"></i></button>
+            <button type="button" class="frame-swatch" data-opt="bg" data-val="sunset" aria-label="노을"><i style="--sw: linear-gradient(180deg, #6B2D5C, #F08A5D)"></i></button>
+            <button type="button" class="frame-swatch" data-opt="bg" data-val="pink"   aria-label="핑크"><i style="--sw: linear-gradient(180deg, #B8285A, #FF7AA2)"></i></button>
+            <button type="button" class="frame-swatch" data-opt="bg" data-val="night"  aria-label="밤"><i style="--sw: #000"></i></button>
+            <button type="button" class="frame-swatch" data-opt="bg" data-val="light"  aria-label="라이트"><i style="--sw: #F1F6FB"></i></button>
+            <label class="frame-swatch frame-swatch--pick" aria-label="직접 고르기" title="직접 고르기">
+              <i></i>
+              <input id="frame-color" type="color" value="#0B4A79" />
+            </label>
+          </div>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">배치</p>
+          <div class="frame-seg">
+            <button type="button" data-opt="align" data-val="top">위쪽</button>
+            <button type="button" data-opt="align" data-val="center">가운데</button>
+            <button type="button" data-opt="align" data-val="bottom">아래쪽</button>
+          </div>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">배경 움직임 <span class="frame-sheet__sub">빛이 아주 천천히 흘러요</span></p>
+          <button type="button" class="frame-switch" role="switch" data-toggle="flow" aria-label="배경 움직임"><i></i></button>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">번인 방지 <span class="frame-sheet__sub">1분마다 살짝 이동</span></p>
+          <button type="button" class="frame-switch" role="switch" data-toggle="burnin" aria-label="번인 방지"><i></i></button>
+        </div>
+        <p id="frame-warn" class="frame-sheet__warn" hidden>OLED 화면은 자국이 남을 수 있어요</p>
+      </div>
+
+      <div class="frame-pane" data-pane="clock" role="tabpanel" hidden>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">시간 형식</p>
+          <div class="frame-seg">
+            <button type="button" data-opt="hour12" data-val="false">24시간</button>
+            <button type="button" data-opt="hour12" data-val="true">12시간</button>
+          </div>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">초</p>
+          <div class="frame-seg">
+            <button type="button" data-opt="sec" data-val="small">작게</button>
+            <button type="button" data-opt="sec" data-val="same">같은 크기</button>
+            <button type="button" data-opt="sec" data-val="off">숨김</button>
+          </div>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">시계 굵기</p>
+          <div class="frame-seg">
+            <button type="button" data-opt="weight" data-val="light">얇게</button>
+            <button type="button" data-opt="weight" data-val="regular">보통</button>
+          </div>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">글자 크기</p>
+          <div class="frame-seg">
+            <button type="button" data-opt="size" data-val="normal">보통</button>
+            <button type="button" data-opt="size" data-val="large">크게</button>
+          </div>
         </div>
       </div>
 
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">시간 형식</p>
-        <div class="frame-seg">
-          <button type="button" data-opt="hour12" data-val="false">24시간</button>
-          <button type="button" data-opt="hour12" data-val="true">12시간</button>
+      <div class="frame-pane" data-pane="show" role="tabpanel" hidden>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">날짜</p>
+          <button type="button" class="frame-switch" role="switch" data-toggle="date" aria-label="날짜 표시"><i></i></button>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">PinLog 로고</p>
+          <button type="button" class="frame-switch" role="switch" data-toggle="logo" aria-label="로고 표시"><i></i></button>
+        </div>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">기록 카드 <span class="frame-sheet__sub">7초마다 넘어가는 우리 기록</span></p>
+          <button type="button" class="frame-switch" role="switch" data-toggle="facts" aria-label="기록 카드 표시"><i></i></button>
         </div>
       </div>
-
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">초</p>
-        <div class="frame-seg">
-          <button type="button" data-opt="sec" data-val="small">작게</button>
-          <button type="button" data-opt="sec" data-val="same">같은 크기</button>
-          <button type="button" data-opt="sec" data-val="off">숨김</button>
-        </div>
-      </div>
-
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">시계 굵기</p>
-        <div class="frame-seg">
-          <button type="button" data-opt="weight" data-val="light">얇게</button>
-          <button type="button" data-opt="weight" data-val="regular">보통</button>
-        </div>
-      </div>
-
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">글자 크기</p>
-        <div class="frame-seg">
-          <button type="button" data-opt="size" data-val="normal">보통</button>
-          <button type="button" data-opt="size" data-val="large">크게</button>
-        </div>
-      </div>
-
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">날짜</p>
-        <button type="button" class="frame-switch" role="switch" data-toggle="date" aria-label="날짜 표시"><i></i></button>
-      </div>
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">PinLog 로고</p>
-        <button type="button" class="frame-switch" role="switch" data-toggle="logo" aria-label="로고 표시"><i></i></button>
-      </div>
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">기록 표시 <span class="frame-sheet__sub">7초마다 우리 기록 한 줄</span></p>
-        <button type="button" class="frame-switch" role="switch" data-toggle="facts" aria-label="기록 표시"><i></i></button>
-      </div>
-      <div class="frame-sheet__row">
-        <p class="frame-sheet__label">번인 방지 <span class="frame-sheet__sub">1분마다 살짝 이동</span></p>
-        <button type="button" class="frame-switch" role="switch" data-toggle="burnin" aria-label="번인 방지"><i></i></button>
-      </div>
-      <p id="frame-warn" class="frame-sheet__warn" hidden>OLED 화면은 자국이 남을 수 있어요</p>
 
       <button id="frame-reset" type="button" class="frame-sheet__reset">기본값으로 되돌리기</button>
     </div>
