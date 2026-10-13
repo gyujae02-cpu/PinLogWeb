@@ -3276,3 +3276,225 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   font-size: 11px; font-weight: 400;
   color: var(--ink-400);
 }
+
+/* ── 통계 ──────────────────────────────────────────────────── */
+
+/* 패널은 .timeline 스타일을 그대로 쓰고, 핀 모아보기 위에 한 겹 더 올린다. */
+.stats { z-index: 46; }
+
+.stats__body { padding-bottom: 18px; }
+
+.st-sec { margin-top: 22px; }
+.st-sec--first { margin-top: 2px; }
+
+.st-sec__head { margin-bottom: 10px; }
+.st-sec__title {
+  font-size: 14.5px; font-weight: 400; letter-spacing: -.02em;
+  color: var(--ink-900);
+}
+.st-sec__note {
+  margin-top: 3px;
+  font-size: 11.5px; letter-spacing: -.01em;
+  color: var(--ink-400);
+}
+
+/* 달성률 카드 */
+.st-progress {
+  padding: 15px 16px 14px;
+  border-radius: 20px;
+  background: var(--raise-glass);
+  border: 1px solid var(--glass-l-bd);
+  box-shadow: var(--sh-soft);
+}
+.st-progress__top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.st-progress__main {
+  font-size: 13px; letter-spacing: -.015em; color: var(--ink-500);
+}
+.st-progress__main b {
+  font-size: 24px; font-weight: 400; letter-spacing: -.03em;
+  color: var(--ink-900);
+}
+.st-progress__rate {
+  font-size: 22px; letter-spacing: -.03em;
+  color: var(--brand-600);
+}
+.st-progress__bar {
+  height: 10px; margin-top: 10px;
+  border-radius: 99px;
+  background: var(--wish-100);
+  overflow: hidden;
+}
+.st-progress__fill {
+  display: block; height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--brand-400), var(--brand-600));
+  transition: width .5s var(--ease);
+}
+.st-progress__legend {
+  display: flex; gap: 14px;
+  margin-top: 9px;
+  font-size: 11.5px; letter-spacing: -.01em; color: var(--ink-500);
+}
+
+.st-dot { display: inline-flex; align-items: center; gap: 5px; }
+.st-dot::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+}
+.st-dot--visited::before { background: var(--brand-500); }
+.st-dot--wish::before    { background: var(--wish-100); box-shadow: 0 0 0 1px var(--wish-500) inset; }
+
+/* 작은 숫자 타일 4개 */
+.st-tiles {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+  margin-top: 8px;
+}
+.st-tile {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 11px 4px 10px;
+  border-radius: 16px;
+  background: var(--sunken-glass);
+  text-align: center;
+}
+.st-tile__icon  { font-size: 15px; line-height: 1; }
+.st-tile__value {
+  margin-top: 6px;
+  font-size: 17px; letter-spacing: -.03em; line-height: 1;
+  color: var(--ink-900);
+}
+.st-tile__value small { font-size: 11px; color: var(--ink-400); letter-spacing: -.01em; }
+.st-tile__label {
+  margin-top: 5px;
+  font-size: 10.5px; letter-spacing: -.02em; color: var(--ink-500);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+
+/* 월별 막대 */
+.st-months {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px;
+  height: 150px;
+  padding: 12px 10px 8px;
+  border-radius: 20px;
+  background: var(--sunken-glass);
+}
+.st-month {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 0;
+}
+.st-month__count {
+  height: 14px;
+  font-size: 10.5px; line-height: 14px; letter-spacing: -.02em;
+  color: var(--ink-500);
+}
+.st-month__track {
+  flex: 1; width: 100%;
+  display: flex; align-items: flex-end; justify-content: center;
+  margin-top: 3px;
+}
+.st-month__bar {
+  display: block;
+  width: min(100%, 16px);
+  border-radius: 6px 6px 3px 3px;
+  background: var(--brand-200);
+  transition: height .5s var(--ease);
+}
+.st-month.is-best .st-month__bar { background: var(--brand-500); }
+.st-month.is-best .st-month__count { color: var(--brand-600); }
+.st-month__label {
+  display: flex; flex-direction: column; align-items: center;
+  height: 26px; margin-top: 5px;
+  font-size: 10px; line-height: 1.2; letter-spacing: -.04em;
+  color: var(--ink-400);
+  white-space: nowrap;
+}
+.st-month__label small { font-size: 9px; color: var(--ink-400); opacity: .8; }
+.st-month.is-now .st-month__label { color: var(--ink-900); }
+
+/* 태그 · 지역 가로 막대 */
+.st-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 2px;
+}
+.st-row__rank {
+  display: grid; place-items: center;
+  width: 20px; height: 20px; flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--brand-50);
+  font-size: 11px; color: var(--brand-600);
+}
+.st-row__label {
+  width: 92px; flex-shrink: 0;
+  font-size: 13px; letter-spacing: -.02em; color: var(--ink-700);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.st-row__track {
+  flex: 1; min-width: 0; height: 8px;
+  border-radius: 99px;
+  background: var(--sunken-glass);
+  overflow: hidden;
+}
+.st-row__fill {
+  display: block; height: 100%;
+  border-radius: 99px;
+  background: var(--brand-400);
+  transition: width .5s var(--ease);
+}
+.st-row__count {
+  width: 38px; flex-shrink: 0; text-align: right;
+  font-size: 12px; letter-spacing: -.02em; color: var(--ink-500);
+}
+
+/* 기록 모음 */
+.st-rec {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 4px;
+  border-radius: 16px;
+  text-align: left;
+  transition: background .16s var(--ease), transform .16s var(--ease);
+}
+.st-rec:hover  { background: var(--brand-50); }
+.st-rec:active { transform: scale(.985); }
+.st-rec__label {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--sunken-glass);
+  font-size: 11px; letter-spacing: -.01em; color: var(--ink-500);
+}
+.st-rec__name {
+  flex: 1; min-width: 0;
+  font-size: 14px; letter-spacing: -.02em; color: var(--ink-900);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.st-rec__date {
+  flex-shrink: 0;
+  font-size: 11.5px; color: var(--ink-400);
+}
+
+.st-users {
+  margin-top: 8px;
+  padding: 13px 14px;
+  border-radius: 18px;
+  background: var(--sunken-glass);
+}
+.st-users__title {
+  font-size: 12.5px; letter-spacing: -.02em; color: var(--ink-700);
+}
+.st-users__bar {
+  display: flex; gap: 3px;
+  height: 10px; margin-top: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.st-users__part { flex-basis: 0; min-width: 6px; }
+.st-users__legend {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  margin-top: 9px;
+  font-size: 12px; letter-spacing: -.015em; color: var(--ink-500);
+}
+.st-users__legend b { font-weight: 400; color: var(--ink-900); }
+.st-users__item { display: inline-flex; align-items: center; gap: 5px; }
+.st-users__dot  { width: 8px; height: 8px; border-radius: 50%; }

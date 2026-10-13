@@ -2,6 +2,7 @@ import * as FB from './firebase.js';
 import * as MapCtl from './map.js';
 import * as UI from './ui.js';
 import { makeCover } from './photo.js';
+import { computeStats } from './stats.js';
 import { collectUsers, normalizeId, displayName } from './users.js';
 
 // 카카오내비는 앱을 띄우는 방식이라 휴대폰에서만 동작한다.
@@ -74,6 +75,7 @@ UI.initUI({
   onOpenTimeline,
   onTimelineSelect,
   onOpenFeed,
+  onOpenStats,
   onFeedSelect,
   onExport,
   onAddComment,
@@ -303,6 +305,7 @@ function leaveMap() {
   UI.closeSheet(true);
   UI.closePicker();
   UI.closeTimeline(true);
+  UI.closeStats(true);
   UI.closeFeed(true);
   UI.closeCourses(true);
   UI.hideCourseBar();
@@ -327,6 +330,7 @@ function subscribePins() {
       if (state.courseViewId) drawCourse(false);
       UI.setCoursePins(pins);
       if (UI.isCoursesOpen()) UI.renderCourses(state.courses, pins);
+      if (UI.isStatsOpen()) UI.renderStats(computeStats(pins, state.courses));
 
       if (state.selectedId) {
         const cur = findPin(state.selectedId);
@@ -636,6 +640,10 @@ function onOpenTimeline() {
   UI.closeCourses();
 
   UI.openTimeline(visiblePins(), MapCtl.getCenter());
+}
+
+function onOpenStats() {
+  UI.openStats(computeStats(state.pins, state.courses));
 }
 
 function onTimelineSelect(id) {
@@ -1100,6 +1108,7 @@ function subscribeCourses() {
       state.courses = courses;
 
       if (UI.isCoursesOpen()) UI.renderCourses(courses, state.pins);
+      if (UI.isStatsOpen()) UI.renderStats(computeStats(state.pins, courses));
 
       if (state.courseViewId) {
         if (!findCourse(state.courseViewId)) {

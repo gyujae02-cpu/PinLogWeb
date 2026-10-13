@@ -3,6 +3,7 @@ import { drawStoryCard, storyCardBlob, clampCrop, cropScale, DEFAULT_CROP, CROP_
 import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
+import { provinceOf } from './stats.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -85,6 +86,11 @@ export const el = {
   coursesList:     $('#courses-list'),
   coursesEmpty:    $('#courses-empty'),
   btnCourseNew:    $('#btn-course-new'),
+
+  stats:           $('#stats'),
+  statsSub:        $('#stats-sub'),
+  statsBody:       $('#stats-body'),
+  statsEmpty:      $('#stats-empty'),
 
   courseBar:       $('#course-bar'),
   courseBarBadge:  $('#course-bar-badge'),
@@ -462,6 +468,11 @@ export function initUI(handlers) {
     n.addEventListener('click', () => closeTimeline());
   });
   $('#btn-export').addEventListener('click', () => cb.onExport && cb.onExport());
+
+  $('#btn-stats').addEventListener('click', () => cb.onOpenStats && cb.onOpenStats());
+  document.querySelectorAll('[data-close-stats]').forEach((n) => {
+    n.addEventListener('click', () => closeStats());
+  });
   el.timelineSearch.addEventListener('input', () => {
     timelineQuery = el.timelineSearch.value.trim().toLowerCase();
     el.timelineSearchClear.hidden = el.timelineSearch.value.length === 0;
@@ -585,6 +596,7 @@ export function initUI(handlers) {
     if (!el.confirm.hidden) { el.confirmCancel.click(); return; }
     if (coursePickResolve)  { finishCoursePick(null); return; }
     if (sheetMode)          { closeSheet(); return; }
+    if (statsOpen)          { closeStats(); return; }
     if (feedOpen)           { closeFeed(); return; }
     if (timelineOpen)       { closeTimeline(); return; }
     if (coursesOpen)        { closeCourses(); return; }
@@ -601,7 +613,7 @@ function canStepCourse(e) {
   const t = e.target;
   if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return false;
 
-  return !sheetMode && !coursesOpen && !timelineOpen && !feedOpen && !coursePickResolve
+  return !sheetMode && !coursesOpen && !timelineOpen && !feedOpen && !statsOpen && !coursePickResolve
       && el.confirm.hidden && el.about.hidden && el.export.hidden && el.roadview.hidden;
 }
 
@@ -793,6 +805,7 @@ export function showScreen(name) {
     closeSheet(true);
     closePicker();
     closeTimeline(true);
+    closeStats(true);
     closeCourses(true);
     hideCourseBar();
     finishCoursePick(null);
@@ -2706,26 +2719,8 @@ function distanceOf(pin) {
 
 const REGION_UNKNOWN = '지역 미확인';
 
-// 카카오는 같은 시/도를 '서울' 로 줄여 주기도 하고 '서울특별시' 로 다 쓰기도 한다.
-// 둘이 다른 그룹으로 갈리지 않도록 짧은 쪽으로 맞춘다.
-const REGION_ALIAS = {
-  '서울특별시': '서울',   '부산광역시': '부산',   '대구광역시': '대구',
-  '인천광역시': '인천',   '광주광역시': '광주',   '대전광역시': '대전',
-  '울산광역시': '울산',   '세종특별자치시': '세종',
-  '경기도': '경기',
-  '강원도': '강원',       '강원특별자치도': '강원',
-  '충청북도': '충북',     '충청남도': '충남',
-  '전라북도': '전북',     '전북특별자치도': '전북',
-  '전라남도': '전남',
-  '경상북도': '경북',     '경상남도': '경남',
-  '제주도': '제주',       '제주특별자치도': '제주'
-};
-
-// 주소의 첫 토큰이 시/도다. ('서울 성동구 연무장길 5' → '서울')
 function regionOf(pin) {
-  const first = String(pin.address || '').trim().split(/\s+/)[0];
-  if (!first) return REGION_UNKNOWN;
-  return REGION_ALIAS[first] || first;
+  return provinceOf(pin.address) || REGION_UNKNOWN;
 }
 
 function paintTimelineEmpty() {
@@ -3132,6 +3127,234 @@ export function closeCourses(immediate = false) {
 }
 
 export function isCoursesOpen() { return coursesOpen; }
+
+/* 통계 패널 */
+
+let statsOpen = false;
+
+export function openStats(stats) {
+  statsOpen = true;
+  el.stats.hidden = false;
+  requestAnimationFrame(() => el.stats.classList.add('is-on'));
+
+  renderStats(stats);
+}
+
+export function closeStats(immediate = false) {
+  if (!statsOpen) return;
+  statsOpen = false;
+
+  el.stats.classList.remove('is-on');
+  const finish = () => {
+    el.stats.hidden = true;
+    el.statsBody.scrollTop = 0;
+  };
+  if (immediate) finish(); else setTimeout(finish, 360);
+}
+
+export function isStatsOpen() { return statsOpen; }
+
+export function renderStats(stats) {
+  const s = stats.summary;
+
+  el.statsSub.textContent = `핀 ${s.total}개 · 함께한 지 ${daysTogether()}일`;
+  el.statsBody.hidden = !s.total;
+  el.statsEmpty.hidden = s.total > 0;
+
+  // 다시 그려도 보던 자리를 지킨다. (실시간 구독으로 숫자가 바뀔 때)
+  const top = el.statsBody.scrollTop;
+  el.statsBody.innerHTML = '';
+  if (!s.total) return;
+
+  const frag = document.createDocumentFragment();
+  frag.appendChild(statsSummary(stats));
+  frag.appendChild(statsMonths(stats));
+  if (stats.tags.length) frag.appendChild(statsTags(stats));
+  frag.appendChild(statsRegions(stats));
+  frag.appendChild(statsRecords(stats));
+  el.statsBody.appendChild(frag);
+
+  el.statsBody.scrollTop = top;
+}
+
+function statsSection(title, note) {
+  const sec = h('section', 'st-sec');
+  const head = h('div', 'st-sec__head');
+  head.appendChild(h('h3', 'st-sec__title', title));
+  if (note) head.appendChild(h('p', 'st-sec__note', note));
+  sec.appendChild(head);
+  return sec;
+}
+
+function statsBarRow(label, count, max, unit = '곳') {
+  const row = h('div', 'st-row');
+  row.appendChild(h('span', 'st-row__label', label));
+
+  const track = h('span', 'st-row__track');
+  const fill = h('span', 'st-row__fill');
+  fill.style.width = `${max ? Math.max(4, (count / max) * 100) : 0}%`;
+  track.appendChild(fill);
+  row.appendChild(track);
+
+  row.appendChild(h('span', 'st-row__count', `${count}${unit}`));
+  return row;
+}
+
+function statsSummary({ summary: s, courses }) {
+  const sec = h('section', 'st-sec st-sec--first');
+
+  const card = h('div', 'st-progress');
+  const top = h('div', 'st-progress__top');
+  const left = h('p', 'st-progress__main');
+  left.append('가본 곳 ', h('b', null, String(s.visited)), ` / ${s.total}곳`);
+  top.appendChild(left);
+  top.appendChild(h('p', 'st-progress__rate', `${s.rate}%`));
+  card.appendChild(top);
+
+  const bar = h('div', 'st-progress__bar');
+  const fill = h('span', 'st-progress__fill');
+  fill.style.width = `${s.rate}%`;
+  bar.appendChild(fill);
+  card.appendChild(bar);
+
+  const legend = h('div', 'st-progress__legend');
+  legend.appendChild(h('span', 'st-dot st-dot--visited', `가본 곳 ${s.visited}`));
+  legend.appendChild(h('span', 'st-dot st-dot--wish', `가볼 곳 ${s.wish}`));
+  card.appendChild(legend);
+  sec.appendChild(card);
+
+  const tiles = h('div', 'st-tiles');
+  [
+    { icon: '📷', label: '사진',     value: s.photos },
+    { icon: '💬', label: '댓글',     value: s.comments },
+    { icon: '⭐', label: '즐겨찾기', value: s.favorites },
+    { icon: '🗺️', label: '다녀온 코스', value: `${courses.done}`, sub: `/ ${courses.total}` }
+  ].forEach((t) => {
+    const tile = h('div', 'st-tile');
+    tile.appendChild(h('span', 'st-tile__icon', t.icon));
+    const val = h('p', 'st-tile__value', String(t.value));
+    if (t.sub) val.appendChild(h('small', null, ` ${t.sub}`));
+    tile.appendChild(val);
+    tile.appendChild(h('p', 'st-tile__label', t.label));
+    tiles.appendChild(tile);
+  });
+  sec.appendChild(tiles);
+
+  return sec;
+}
+
+function statsMonths({ months, bestMonth }) {
+  const note = bestMonth
+    ? `가장 많이 다닌 달 · ${bestMonth.year}년 ${bestMonth.month}월 (${bestMonth.count}곳)`
+    : '다녀온 날이 적힌 가본 곳이 아직 없어요';
+  const sec = statsSection('월별 방문', note);
+
+  const max = Math.max(1, ...months.map((m) => m.count));
+  const chart = h('div', 'st-months');
+  chart.setAttribute('role', 'img');
+  chart.setAttribute('aria-label',
+    `최근 ${months.length}개월 방문: ` + months.map((m) => `${m.month}월 ${m.count}곳`).join(', '));
+
+  months.forEach((m, i) => {
+    const col = h('div', 'st-month');
+    if (i === months.length - 1) col.classList.add('is-now');
+    if (bestMonth && m.key === bestMonth.key) col.classList.add('is-best');
+
+    col.appendChild(h('span', 'st-month__count', m.count ? String(m.count) : ''));
+    const bar = h('span', 'st-month__bar');
+    bar.style.height = m.count ? `${Math.max(6, (m.count / max) * 100)}%` : '3px';
+    const wrap = h('span', 'st-month__track');
+    wrap.appendChild(bar);
+    col.appendChild(wrap);
+
+    // 해가 바뀌는 달과 첫 칸에는 연도를 붙여 어느 해인지 보이게 한다.
+    const label = h('span', 'st-month__label', `${m.month}월`);
+    if (i === 0 || m.month === 1) label.appendChild(h('small', null, `'${String(m.year).slice(2)}`));
+    col.appendChild(label);
+
+    chart.appendChild(col);
+  });
+  sec.appendChild(chart);
+
+  return sec;
+}
+
+function statsTags({ tags }) {
+  const sec = statsSection('태그별', '핀 하나에 태그가 여러 개일 수 있어요');
+  const max = tags[0].count;
+  tags.forEach((t) => sec.appendChild(statsBarRow(`${t.emoji} ${t.label}`, t.count, max)));
+  return sec;
+}
+
+function statsRegions({ regions }) {
+  const sec = statsSection('자주 간 지역', regions.length ? '가본 곳 기준' : '주소가 있는 가본 곳이 아직 없어요');
+  if (!regions.length) return sec;
+
+  const max = regions[0].count;
+  regions.forEach((r, i) => {
+    const row = statsBarRow(r.name, r.count, max);
+    row.prepend(h('span', 'st-row__rank', String(i + 1)));
+    sec.appendChild(row);
+  });
+  return sec;
+}
+
+function statsDate(d) {
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+function statsRecordItem(label, rec) {
+  const btn = h('button', 'st-rec');
+  btn.type = 'button';
+  btn.appendChild(h('span', 'st-rec__label', label));
+  btn.appendChild(h('span', 'st-rec__name', rec.pin.name));
+  btn.appendChild(h('span', 'st-rec__date', statsDate(rec.date)));
+  btn.addEventListener('click', () => {
+    closeStats();
+    closeTimeline();
+    cb.onTimelineSelect && cb.onTimelineSelect(rec.pin.id);
+  });
+  return btn;
+}
+
+function statsRecords({ firstPin, latestVisit, users, summary }) {
+  const sec = statsSection('기록 모음');
+
+  if (firstPin)    sec.appendChild(statsRecordItem('첫 기록', firstPin));
+  if (latestVisit) sec.appendChild(statsRecordItem('최근 방문', latestVisit));
+
+  if (users.length) {
+    const box = h('div', 'st-users');
+    box.appendChild(h('p', 'st-users__title', '누가 더 많이 찍었을까'));
+
+    const bar = h('div', 'st-users__bar');
+    const legend = h('div', 'st-users__legend');
+    const sum = users.reduce((n, u) => n + u.count, 0) || summary.total;
+
+    users.forEach((u) => {
+      const color = userColor(u.id);
+      const pct = Math.round((u.count / sum) * 100);
+
+      const part = h('span', 'st-users__part');
+      part.style.flexGrow = String(u.count);
+      part.style.background = color.dot;
+      bar.appendChild(part);
+
+      const item = h('span', 'st-users__item');
+      const dot = h('span', 'st-users__dot');
+      dot.style.background = color.dot;
+      item.appendChild(dot);
+      item.append(`${displayName(u.id)} `, h('b', null, `${u.count}개`), ` · ${pct}%`);
+      legend.appendChild(item);
+    });
+
+    box.appendChild(bar);
+    box.appendChild(legend);
+    sec.appendChild(box);
+  }
+
+  return sec;
+}
 
 export function renderCourses(courses, pins) {
   const list = Array.isArray(courses) ? courses : [];
