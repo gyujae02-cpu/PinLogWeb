@@ -3,6 +3,7 @@ import * as MapCtl from './map.js';
 import * as UI from './ui.js';
 import { makeCover } from './photo.js';
 import { collectUsers, normalizeId, displayName } from './users.js';
+import { frameFacts } from './stats.js';
 
 // 카카오내비는 앱을 띄우는 방식이라 휴대폰에서만 동작한다.
 // userAgentData 를 주는 브라우저에서는 그 값을, 아니면 UA 문자열을 본다.
@@ -96,7 +97,9 @@ UI.initUI({
   onCourseStep,
   onAddToCourse,
   onMakeCard,
-  onSaveStoryCard
+  onSaveStoryCard,
+  // 시계 모드가 카드를 바꿀 때마다 불러 최신 핀으로 다시 센다.
+  getFrameFacts: () => frameFacts(state.pins)
 });
 
 if (!FB.isConfigured) {

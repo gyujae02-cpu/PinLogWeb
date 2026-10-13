@@ -1148,6 +1148,7 @@
       <div class="frame__clock">
         <p id="frame-time" class="frame__time">--:--</p>
         <p id="frame-date" class="frame__date"></p>
+        <p id="frame-facts" class="frame__facts" hidden aria-live="off"></p>
       </div>
       <div class="frame__foot">
         <p class="frame__mark" aria-label="PinLog">P<svg class="wordmark-pin" viewBox="0 0 10 20" aria-hidden="true"><rect x="3.7" y="8" width="2.6" height="12" rx="1.3" fill="var(--ink-500)"/><circle cx="5" cy="5" r="5" fill="currentColor"/><circle cx="3.3" cy="3.3" r="1.6" fill="#fff" fill-opacity=".3"/></svg>n<em>Log</em></p>
@@ -1227,6 +1228,10 @@
       <div class="frame-sheet__row">
         <p class="frame-sheet__label">PinLog 로고</p>
         <button type="button" class="frame-switch" role="switch" data-toggle="logo" aria-label="로고 표시"><i></i></button>
+      </div>
+      <div class="frame-sheet__row">
+        <p class="frame-sheet__label">기록 표시 <span class="frame-sheet__sub">7초마다 우리 기록 한 줄</span></p>
+        <button type="button" class="frame-switch" role="switch" data-toggle="facts" aria-label="기록 표시"><i></i></button>
       </div>
       <div class="frame-sheet__row">
         <p class="frame-sheet__label">번인 방지 <span class="frame-sheet__sub">1분마다 살짝 이동</span></p>

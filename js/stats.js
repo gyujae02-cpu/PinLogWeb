@@ -331,3 +331,55 @@ export function computeStats(pins, courses, now = new Date(), period = 'all', co
     courses: { total: courseList.length, done: coursesDone, planned: courseList.length - coursesDone }
   };
 }
+
+// ── 시계 모드 기록 카드 ─────────────────────────────
+// 시계 아래에서 돌아가며 보여줄 한 줄 문구들. 보여줄 게 없는 카드는 빠진다.
+// parts 는 [글자, 진하게?] 묶음이다. 장소 이름은 사용자가 쓴 값이라
+// 받는 쪽에서 HTML 이 아니라 텍스트로 넣는다.
+// choices 가 있으면 그중 하나를 받는 쪽이 무작위로 고른다.
+export function frameFacts(pins, now = new Date()) {
+  const list = Array.isArray(pins) ? pins : [];
+  if (!list.length) return [];
+
+  const all   = computeStats(list, null, now, 'all');
+  const month = computeStats(list, null, now, 'month');
+  const facts = [];
+
+  const { visited, wish } = all.summary;
+  facts.push({ key: 'summary', parts: [
+    ['가본 곳 '], [`${visited}곳`, true], [' · 가볼 곳 '], [`${wish}곳`, true]
+  ] });
+
+  const monthVisits = month.periodSummary.visits;
+  if (monthVisits) {
+    facts.push({ key: 'month', parts: [['이번 달에 '], [`${monthVisits}곳`, true], [' 다녀왔어요']] });
+  }
+
+  if (all.latestVisit) {
+    const { pin, date } = all.latestVisit;
+    facts.push({ key: 'latest', parts: [['최근엔 '], [pin.name, true], [` · ${relativeDay(date, now)}`]] });
+  }
+
+  // 지역 이름은 '서울 성동구' 꼴이라 마지막 낱말만 쓴다.
+  const top = all.regions[0];
+  if (top && top.count >= 2) {
+    const name = top.name.split(' ').pop();
+    facts.push({ key: 'region', parts: [['가장 많이 간 동네는 '], [name, true], [` · ${top.count}번`]] });
+  }
+
+  const wishes = list.filter((p) => p.category === 'wish');
+  if (wishes.length) {
+    facts.push({ key: 'wish', choices: wishes.map((p) => [['다음엔 여기 어때요? '], [p.name, true]]) });
+  }
+
+  return facts;
+}
+
+function relativeDay(date, now) {
+  const d = daysBetween(date, now);
+  if (d <= 0) return '오늘';
+  if (d === 1) return '어제';
+  if (d <= 30) return `${d}일 전`;
+  const md = `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  return date.getFullYear() === now.getFullYear() ? md : `${date.getFullYear()}년 ${md}`;
+}

@@ -1,13 +1,17 @@
 // 시계 모드 — 시계 · 날짜 · 워드마크를 전체화면으로 띄운다.
 // 태블릿이나 노트북을 세워두고 쓰는 용도라 화면 꺼짐을 막고(Wake Lock),
 // 같은 자리에 오래 그려지지 않도록 1분마다 조금씩 위치를 옮긴다(번인 방지).
+// 시계 아래에는 우리 기록 한 줄(stats.js 의 frameFacts)이 돌아가며 나온다.
 // 설정은 기기마다 다르게 두는 게 자연스러워서 DB 가 아니라 localStorage 에 둔다.
 // 다른 모듈을 가져오지 않는 말단 모듈이라 어디서 import 해도 순환이 없다.
+// 기록 문구는 여는 쪽이 함수로 넘겨준다.
 
 const DRIFT_PX   = 14;
 const HINT_MS    = 3200;
 const FADE_MS    = 400;
 const BAR_MS     = 4000;
+const FACT_MS    = 7000;
+const FACT_FADE  = 350;
 const STORE_KEY  = 'pinlog.frame';
 const WEEKDAYS   = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -29,6 +33,7 @@ const DEFAULTS = Object.freeze({
   size:   'normal',
   date:   true,
   logo:   true,
+  facts:  true,
   burnin: true
 });
 
@@ -52,12 +57,20 @@ let wakeLock = null;
 let enteredFullscreen = false;
 let prevTheme = '';
 
+// 기록 카드
+let factsSource = null;
+let factTimer = 0;
+let factSwapTimer = 0;
+let lastFactKey = '';
+let lastChoice = -1;
+
 function bind() {
   if (el) return;
   el = {
     root:    $('#frame'),
     time:    $('#frame-time'),
     date:    $('#frame-date'),
+    facts:   $('#frame-facts'),
     stage:   $('#frame-stage'),
     hint:    $('#frame-hint'),
     bar:     $('#frame-bar'),
@@ -128,10 +141,17 @@ function bind() {
 
 export function isFrameOpen() { return open; }
 
-export function openFrame() {
+// facts — 기록 카드 목록을 돌려주는 함수. 카드가 바뀔 때마다 다시 불러
+// 그사이 추가된 핀도 바로 반영된다.
+export function openFrame({ facts = null } = {}) {
   bind();
   if (open) return;
   open = true;
+
+  factsSource = typeof facts === 'function' ? facts : null;
+  lastFactKey = '';
+  lastChoice = -1;
+  stopFacts();
 
   opts = loadOpts();
   applyOpts();
@@ -163,6 +183,7 @@ export function closeFrame() {
   clearTimeout(tickTimer);
   clearTimeout(hintTimer);
   clearTimeout(barTimer);
+  stopFacts();
   releaseWakeLock();
 
   // 시트 안 버튼에 포커스가 남은 채로 숨겨지지 않게 한다.
@@ -277,7 +298,7 @@ function applyOpts() {
   el.warn.hidden = !(opts.bg === 'night' && !opts.burnin);
 
   paintThemeColor();
-  if (open) tick();
+  if (open) { tick(); syncFacts(); }
 }
 
 // 배경이 밝으면 잉크색 글씨, 어두우면 흰 글씨.
@@ -335,6 +356,72 @@ function timeHtml(now) {
   if (opts.sec === 'small') sec = `<span class="frame__sec">${digits(now.getSeconds())}</span>`;
 
   return `${ampm}${hm}${sec}`;
+}
+
+// ── 기록 카드 ────────────────────────────────────────
+
+// 설정이 켜져 있으면 돌리고, 꺼져 있으면 멈추고 숨긴다. 이미 돌고 있으면 그대로 둔다.
+function syncFacts() {
+  if (!open || !opts.facts || !factsSource) { stopFacts(); el.facts.hidden = true; return; }
+  if (factTimer) return;
+  nextFact(true);
+  factTimer = setInterval(() => nextFact(false), FACT_MS);
+}
+
+function stopFacts() {
+  clearInterval(factTimer);
+  clearTimeout(factSwapTimer);
+  factTimer = 0;
+  factSwapTimer = 0;
+}
+
+function readFacts() {
+  try {
+    const list = factsSource();
+    return Array.isArray(list) ? list.filter((f) => f && (f.parts || f.choices?.length)) : [];
+  } catch (err) {
+    console.error('[PinLog] 시계 모드 기록 카드 실패:', err);
+    return [];
+  }
+}
+
+// 직전 카드의 다음 것을 고른다. 목록이 바뀌어 직전 카드가 빠졌으면 처음부터.
+function nextFact(instant) {
+  const list = readFacts();
+  if (!list.length) { el.facts.hidden = true; return; }
+
+  const prev = list.findIndex((f) => f.key === lastFactKey);
+  const fact = list[(prev + 1) % list.length];
+  lastFactKey = fact.key;
+
+  let parts = fact.parts;
+  if (fact.choices) {
+    // 같은 곳이 연달아 나오지 않게 한다.
+    let i = Math.floor(Math.random() * fact.choices.length);
+    if (fact.choices.length > 1 && i === lastChoice) i = (i + 1) % fact.choices.length;
+    lastChoice = i;
+    parts = fact.choices[i];
+  }
+
+  el.facts.hidden = false;
+  clearTimeout(factSwapTimer);
+  if (instant) { renderFact(parts); el.facts.classList.add('is-on'); return; }
+
+  el.facts.classList.remove('is-on');
+  factSwapTimer = setTimeout(() => {
+    renderFact(parts);
+    el.facts.classList.add('is-on');
+  }, FACT_FADE);
+}
+
+// 장소 이름은 사용자가 쓴 값이라 innerHTML 이 아니라 텍스트 노드로 넣는다.
+function renderFact(parts) {
+  el.facts.replaceChildren(...parts.map(([text, strong]) => {
+    if (!strong) return document.createTextNode(text);
+    const b = document.createElement('strong');
+    b.textContent = text;
+    return b;
+  }));
 }
 
 // 번인 방지. 가운데를 기준으로 ±DRIFT_PX 안에서 옮긴다. 꺼져 있으면 가운데에 둔다.

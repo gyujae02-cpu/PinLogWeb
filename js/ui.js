@@ -336,7 +336,10 @@ export function initUI(handlers) {
 
   el.btnAbout.addEventListener('click', openAbout);
   el.aboutClose.addEventListener('click', () => closeAbout());
-  el.btnFrame.addEventListener('click', () => { closeAbout(true); openFrame(); });
+  el.btnFrame.addEventListener('click', () => {
+    closeAbout(true);
+    openFrame({ facts: cb.getFrameFacts });
+  });
   el.about.addEventListener('click', (e) => { if (e.target === el.about) closeAbout(); });
 
   el.brand.addEventListener('click', () => cb.onBrandClick && cb.onBrandClick());

@@ -2425,6 +2425,30 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .frame[data-size="large"] .frame__date { font-size: clamp(18px, 4.4vw, 32px); }
 
+/* 7초마다 바뀌는 기록 한 줄. 높이를 고정해 바뀔 때 시계가 흔들리지 않게 한다. */
+.frame__facts {
+  max-width: min(92vw, 640px);
+  height: 1.4em;
+  margin: clamp(26px, 5vh, 48px) auto 0;
+  font-size: clamp(14px, 3.4vw, 19px);
+  font-weight: 400; letter-spacing: -.01em; line-height: 1.4;
+  color: var(--f-dim);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .35s var(--ease);
+}
+.frame__facts.is-on { opacity: 1; }
+.frame[data-size="large"] .frame__facts { font-size: clamp(16px, 4vw, 24px); }
+/* 긴 장소 이름은 이름만 줄여서 뒤의 '· 3일 전' 은 남긴다. */
+.frame__facts strong {
+  display: inline-block;
+  max-width: 11em;
+  overflow: hidden; text-overflow: ellipsis;
+  vertical-align: bottom;
+  font-weight: 400;
+  color: var(--f-ink);
+}
+
 .frame__foot {
   position: absolute;
   left: 0; right: 0;
@@ -2643,10 +2667,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   .frame__foot,
   .frame[data-size="large"] .frame__foot { bottom: calc(16px + var(--safe-b)); font-size: 20px; }
   .frame__tagline { font-size: 10.5px; margin-top: 4px; }
+  /* 시계와 로고 사이에 한 줄 넣을 높이가 없다. */
+  .frame__facts { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .frame, .frame__stage, .frame__hint, .frame__bar { transition: none; }
+  .frame, .frame__stage, .frame__hint, .frame__bar, .frame__facts { transition: none; }
   .frame-sheet { animation: none; }
 }
 
