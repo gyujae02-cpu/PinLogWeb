@@ -1,7 +1,7 @@
 // 통계 팝업에 쓰는 숫자를 핀·코스 목록에서 계산한다.
 // tags.js · users.js 만 가져오는 말단 모듈이라 어디서 import 해도 순환 참조가 없다.
 
-import { TAGS } from './tags.js';
+import { TAGS, FEATURES } from './tags.js';
 import { normalizeId } from './users.js';
 
 // 만난 날을 1일로 센다.
@@ -11,6 +11,20 @@ const DAY = 86400000;
 
 export const REGIONS_SHOWN = 5;
 export const WISHES_SHOWN = 3;
+const BOTH_FAV_SHOWN = 3;
+
+// 기간 칩. 방문 그래프 · 요일 · 태그 · 지역 · 취향 섹션만 이 기간으로 센다.
+export const PERIODS = [
+  { id: 'all',   label: '전체' },
+  { id: '3m',    label: '최근 3개월' },
+  { id: 'month', label: '이번 달' }
+];
+
+function periodStart(period, now) {
+  if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+  if (period === '3m')    return new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  return null;
+}
 
 // 기간이 이보다 짧으면 주 단위, 길면 월 단위로 묶는다.
 const WEEKLY_UNDER_DAYS = 92;
@@ -86,10 +100,10 @@ function monthKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-// 만난 날(그보다 이른 방문이 있으면 그 날)부터 오늘까지를 주 또는 월로 나눈다.
+// from(없으면 만난 날, 그보다 이른 방문이 있으면 그 날)부터 오늘까지를 주 또는 월로 나눈다.
 // 짧은 기간을 월로 묶으면 막대가 한두 개뿐이라, 석 달이 안 되면 주로 쪼갠다.
-function visitSeries(dated, now) {
-  const earliest = dated.reduce((min, x) => (x.date < min ? x.date : min), MET_ON);
+function visitSeries(dated, now, from) {
+  const earliest = from || dated.reduce((min, x) => (x.date < min ? x.date : min), MET_ON);
   const today = midnight(now);
   const weekly = daysBetween(earliest, today) < WEEKLY_UNDER_DAYS;
 
@@ -167,7 +181,24 @@ function milestones(visited, now) {
   };
 }
 
-export function computeStats(pins, courses, now = new Date()) {
+// 가볼 곳으로 먼저 찍어 두고 나중에 다녀온 곳 — 찍은 날이 다녀온 날보다 앞선다.
+function conversionStats(dated) {
+  const list = dated
+    .filter(({ pin }) => pin.createdAt instanceof Date && !Number.isNaN(pin.createdAt.getTime()))
+    .map(({ pin, date }) => ({ pin, days: daysBetween(pin.createdAt, date) }))
+    .filter((x) => x.days > 0);
+
+  if (!list.length) return null;
+
+  const fastest = list.reduce((a, b) => (b.days < a.days ? b : a));
+  return {
+    count: list.length,
+    avgDays: Math.round(list.reduce((n, x) => n + x.days, 0) / list.length),
+    fastest
+  };
+}
+
+export function computeStats(pins, courses, now = new Date(), period = 'all') {
   const list = Array.isArray(pins) ? pins : [];
   const visitedPins = list.filter((p) => p.category === 'visited');
   const wishPins = list.filter((p) => p.category !== 'visited');
@@ -185,15 +216,37 @@ export function computeStats(pins, courses, now = new Date()) {
     favorites: list.filter((p) => p.favoritedBy.length > 0).length
   };
 
+  const hasCreated = (p) => p.createdAt instanceof Date && !Number.isNaN(p.createdAt.getTime());
+
   // 다녀온 날이 적힌 가본 곳만 센다. 아직 오지 않은 날짜는 뺀다.
   const today = midnight(now);
-  const dated = visitedPins
+  const datedAll = visitedPins
     .map((p) => ({ pin: p, date: parseDateValue(p.visitedAt) }))
     .filter((x) => x.date && x.date <= today);
 
+  // ── 여기부터는 기간 칩에 따라 달라지는 숫자 ──
+  const from = periodStart(period, now);
+  // 아직 오지 않은 날짜는 어느 기간에도 넣지 않는다. (그래프와 숫자가 어긋나지 않게)
+  const inRange = (d) => !from || (d && d >= from && d <= now);
+
+  const dated = datedAll.filter((x) => inRange(x.date));
+
+  // 가본 곳은 다녀온 날(없으면 찍은 날), 가볼 곳은 찍은 날로 기간에 넣는다.
+  const scoped = list.filter((p) => {
+    if (!from) return true;
+    const d = (p.category === 'visited' && parseDateValue(p.visitedAt)) || (hasCreated(p) ? p.createdAt : null);
+    return inRange(d);
+  });
+  const scopedVisited = scoped.filter((p) => p.category === 'visited');
+
+  const periodSummary = {
+    visits: scopedVisited.length,
+    created: list.filter((p) => hasCreated(p) && inRange(p.createdAt)).length
+  };
+
   // 태그는 핀 하나에 최대 3개라 합이 핀 수보다 클 수 있다.
   const tagCounts = new Map();
-  list.forEach((p) => p.tags.forEach((t) => {
+  scoped.forEach((p) => p.tags.forEach((t) => {
     const c = tagCounts.get(t) || { visited: 0, wish: 0 };
     if (p.category === 'visited') c.visited++; else c.wish++;
     tagCounts.set(t, c);
@@ -206,23 +259,34 @@ export function computeStats(pins, courses, now = new Date()) {
     .filter((t) => t.count > 0)
     .sort((a, b) => b.count - a.count || b.visited - a.visited);
 
-  // 자주 간 지역은 가본 곳만.
-  const regionCounts = new Map();
-  visitedPins.forEach((p) => {
+  // 자주 간 지역은 가본 곳만. 누르면 지도를 그 핀들에 맞추도록 id 도 담는다.
+  const regionPins = new Map();
+  scopedVisited.forEach((p) => {
     const name = districtOf(p.address);
-    if (name) regionCounts.set(name, (regionCounts.get(name) || 0) + 1);
+    if (!name) return;
+    if (!regionPins.has(name)) regionPins.set(name, []);
+    regionPins.get(name).push(p.id);
   });
-  const regions = [...regionCounts]
-    .map(([name, count]) => ({ name, count }))
+  const regions = [...regionPins]
+    .map(([name, ids]) => ({ name, count: ids.length, ids }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'))
     .slice(0, REGIONS_SHOWN);
 
-  const hasCreated = (p) => p.createdAt instanceof Date && !Number.isNaN(p.createdAt.getTime());
+  const features = FEATURES
+    .map((f) => ({ ...f, count: scoped.filter((p) => p.features.includes(f.id)).length }));
 
+  // 즐겨찾기한 사람이 둘 이상 — 두 사람 취향이 겹친 곳.
+  const bothFavPins = scoped.filter((p) => p.favoritedBy.length >= 2);
+  const bothFav = {
+    count: bothFavPins.length,
+    names: bothFavPins.slice(0, BOTH_FAV_SHOWN).map((p) => p.name)
+  };
+
+  // ── 다시 전체 기간 ──
   const byCreated = list.filter(hasCreated).sort((a, b) => a.createdAt - b.createdAt);
   const firstPin = byCreated[0] ? { pin: byCreated[0], date: byCreated[0].createdAt } : null;
 
-  const latest = dated.slice().sort((a, b) => b.date - a.date)[0] || null;
+  const latest = datedAll.slice().sort((a, b) => b.date - a.date)[0] || null;
   const latestVisit = latest ? { pin: latest.pin, date: latest.date } : null;
 
   // 담아만 두고 가장 오래 못 간 가볼 곳.
@@ -245,12 +309,17 @@ export function computeStats(pins, courses, now = new Date()) {
   const coursesDone = courseList.filter((c) => c.status === 'done').length;
 
   return {
+    period,
     summary,
     milestones: milestones(visited, now),
-    visits: visitSeries(dated, now),
+    periodSummary,
+    visits: visitSeries(dated, now, from),
     weekdays: weekdayStats(dated),
     tags,
     regions,
+    features,
+    bothFav,
+    conversion: conversionStats(dated),
     oldWishes,
     wishTotal: wishPins.length,
     firstPin,

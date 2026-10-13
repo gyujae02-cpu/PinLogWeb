@@ -2,7 +2,6 @@ import * as FB from './firebase.js';
 import * as MapCtl from './map.js';
 import * as UI from './ui.js';
 import { makeCover } from './photo.js';
-import { computeStats } from './stats.js';
 import { collectUsers, normalizeId, displayName } from './users.js';
 
 // 카카오내비는 앱을 띄우는 방식이라 휴대폰에서만 동작한다.
@@ -76,6 +75,8 @@ UI.initUI({
   onTimelineSelect,
   onOpenFeed,
   onOpenStats,
+  onStatsFilter,
+  onStatsRegion,
   onFeedSelect,
   onExport,
   onAddComment,
@@ -330,7 +331,7 @@ function subscribePins() {
       if (state.courseViewId) drawCourse(false);
       UI.setCoursePins(pins);
       if (UI.isCoursesOpen()) UI.renderCourses(state.courses, pins);
-      if (UI.isStatsOpen()) UI.renderStats(computeStats(pins, state.courses));
+      if (UI.isStatsOpen()) UI.renderStats(pins, state.courses);
 
       if (state.selectedId) {
         const cur = findPin(state.selectedId);
@@ -643,7 +644,28 @@ function onOpenTimeline() {
 }
 
 function onOpenStats() {
-  UI.openStats(computeStats(state.pins, state.courses));
+  UI.openStats(state.pins, state.courses);
+}
+
+// 통계의 태그·조건 줄 — 그 조건만 걸고, 걸린 핀이 다 보이게 지도를 맞춘다.
+function onStatsFilter(filter, label) {
+  UI.showOnlyFilter(filter);
+  const list = visiblePins();
+  fitStatsPins(list);
+  UI.toast(`${label} ${list.length}곳을 보여줘요.`);
+}
+
+// 통계의 지역 줄 — 필터를 풀고 그 지역 핀들로 지도를 옮긴다.
+function onStatsRegion(name, ids) {
+  UI.showOnlyFilter();
+  const list = ids.map(findPin).filter(Boolean);
+  fitStatsPins(list);
+  UI.toast(`${name} ${list.length}곳이에요.`);
+}
+
+function fitStatsPins(list) {
+  if (!state.mapReady || !list.length) return;
+  MapCtl.fitPoints(list, { top: topBarBottom() + 30, right: 40, bottom: 60, left: 40 });
 }
 
 function onTimelineSelect(id) {
@@ -1108,7 +1130,7 @@ function subscribeCourses() {
       state.courses = courses;
 
       if (UI.isCoursesOpen()) UI.renderCourses(courses, state.pins);
-      if (UI.isStatsOpen()) UI.renderStats(computeStats(state.pins, courses));
+      if (UI.isStatsOpen()) UI.renderStats(state.pins, courses);
 
       if (state.courseViewId) {
         if (!findCourse(state.courseViewId)) {

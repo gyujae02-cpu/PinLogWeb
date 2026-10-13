@@ -3548,3 +3548,61 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .st-users__legend b { font-weight: 400; color: var(--ink-900); }
 .st-users__item { display: inline-flex; align-items: center; gap: 5px; }
 .st-users__dot  { width: 8px; height: 8px; border-radius: 50%; }
+
+/* 기간 칩이 바꾸는 섹션 묶음 */
+.st-period {
+  margin: 22px -8px 0;
+  padding: 14px 8px 16px;
+  border-radius: 24px;
+  border: 1px solid var(--ink-200);
+}
+.st-period > .st-sec:first-of-type { margin-top: 16px; }
+
+.st-period__head { padding: 0 2px; }
+
+.st-seg {
+  display: flex; gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--sunken-glass);
+}
+.st-seg__btn {
+  flex: 1; min-width: 0;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 13px; letter-spacing: -.02em;
+  color: var(--ink-500);
+  white-space: nowrap;
+  transition: background .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease);
+}
+.st-seg__btn:hover { color: var(--ink-900); }
+.st-seg__btn.is-on {
+  background: #fff;
+  color: var(--brand-600);
+  box-shadow: var(--sh-soft);
+}
+
+.st-period__sum {
+  margin-top: 10px;
+  font-size: 12.5px; letter-spacing: -.015em; color: var(--ink-500);
+}
+.st-period__sum b { font-weight: 400; color: var(--ink-900); }
+
+/* 눌러서 지도로 넘어가는 줄 */
+.st-row.is-link {
+  margin: 0 -6px; padding-inline: 8px;
+  width: calc(100% + 12px);
+  border-radius: 12px;
+  text-align: left;
+  transition: background .16s var(--ease), transform .16s var(--ease);
+}
+.st-row.is-link:hover  { background: var(--brand-50); }
+.st-row.is-link:active { transform: scale(.985); }
+
+.st-habit { width: 100%; text-align: left; }
+.st-habit.is-link { transition: background .16s var(--ease), transform .16s var(--ease); }
+.st-habit.is-link:hover  { background: var(--brand-50); }
+.st-habit.is-link:active { transform: scale(.985); }
+.st-habit .st-goal__sub {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

@@ -3,7 +3,7 @@ import { drawStoryCard, storyCardBlob, clampCrop, cropScale, DEFAULT_CROP, CROP_
 import { TAGS, MAX_TAGS, tagById, normalizeTags, FEATURES, featureById, normalizeFeatures } from './tags.js';
 import { userColor, displayName, normalizeId } from './users.js';
 import { distanceMeters, formatDistance } from './geo.js';
-import { provinceOf, daysTogether } from './stats.js';
+import { provinceOf, daysTogether, computeStats, PERIODS } from './stats.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -1029,11 +1029,18 @@ function paintFilters() {
 }
 
 function resetFilters() {
+  showOnlyFilter();
+}
+
+// 통계에서 태그·조건 줄을 눌렀을 때. 다른 필터는 풀고 그 조건 하나만 건다.
+// 아무것도 안 넘기면 모든 필터를 기본값으로 되돌린다.
+// (다른 필터가 남아 있으면 통계에서 본 숫자와 지도 핀 수가 어긋난다.)
+export function showOnlyFilter({ tags = [], features = [] } = {}) {
   filters.visited = true;
   filters.wish = true;
   filters.fav = false;
-  filters.tags = [];
-  filters.features = [];
+  filters.tags = tags.slice();
+  filters.features = features.slice();
   filters.users = userIds.slice();
 
   paintFilters();
@@ -3116,13 +3123,15 @@ export function isCoursesOpen() { return coursesOpen; }
 /* 통계 패널 */
 
 let statsOpen = false;
+let statsPeriod = 'all';
+let statsInput = { pins: [], courses: [] };
 
-export function openStats(stats) {
+export function openStats(pins, courses) {
   statsOpen = true;
   el.stats.hidden = false;
   requestAnimationFrame(() => el.stats.classList.add('is-on'));
 
-  renderStats(stats);
+  renderStats(pins, courses);
 }
 
 export function closeStats(immediate = false) {
@@ -3139,7 +3148,10 @@ export function closeStats(immediate = false) {
 
 export function isStatsOpen() { return statsOpen; }
 
-export function renderStats(stats) {
+// 기간 칩을 바꾸면 같은 핀으로 다시 세야 하므로 마지막 입력을 들고 있는다.
+export function renderStats(pins, courses) {
+  statsInput = { pins: pins || [], courses: courses || [] };
+  const stats = computeStats(statsInput.pins, statsInput.courses, new Date(), statsPeriod);
   const s = stats.summary;
 
   el.statsSub.textContent = `핀 ${s.total}개 · 함께한 지 ${daysTogether()}일`;
@@ -3154,15 +3166,50 @@ export function renderStats(stats) {
   const frag = document.createDocumentFragment();
   frag.appendChild(statsSummary(stats));
   frag.appendChild(statsMilestones(stats));
-  frag.appendChild(statsVisits(stats));
-  frag.appendChild(statsWeekdays(stats));
-  if (stats.tags.length) frag.appendChild(statsTags(stats));
-  frag.appendChild(statsRegions(stats));
+
+  // 기간 칩이 바꾸는 섹션은 한 상자에 모아, 어디까지가 기간 기준인지 보이게 한다.
+  const box = h('div', 'st-period');
+  box.appendChild(statsPeriodHead(stats));
+  box.appendChild(statsVisits(stats));
+  box.appendChild(statsWeekdays(stats));
+  box.appendChild(statsTags(stats));
+  box.appendChild(statsRegions(stats));
+  box.appendChild(statsHabits(stats));
+  frag.appendChild(box);
+
   if (stats.oldWishes.length) frag.appendChild(statsWishes(stats));
   frag.appendChild(statsRecords(stats));
   el.statsBody.appendChild(frag);
 
   el.statsBody.scrollTop = top;
+}
+
+function statsPeriodHead({ period, periodSummary: ps }) {
+  const head = h('div', 'st-period__head');
+
+  const seg = h('div', 'st-seg');
+  seg.setAttribute('role', 'radiogroup');
+  seg.setAttribute('aria-label', '통계 기간');
+  PERIODS.forEach((p) => {
+    const btn = h('button', 'st-seg__btn', p.label);
+    btn.type = 'button';
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', String(p.id === period));
+    if (p.id === period) btn.classList.add('is-on');
+    btn.addEventListener('click', () => {
+      if (statsPeriod === p.id) return;
+      statsPeriod = p.id;
+      renderStats(statsInput.pins, statsInput.courses);
+    });
+    seg.appendChild(btn);
+  });
+  head.appendChild(seg);
+
+  const line = h('p', 'st-period__sum');
+  line.append('가본 곳 ', h('b', null, `${ps.visits}곳`), ' · 새로 찍은 핀 ', h('b', null, `${ps.created}개`));
+  head.appendChild(line);
+
+  return head;
 }
 
 function statsSection(title, note) {
@@ -3175,8 +3222,14 @@ function statsSection(title, note) {
 }
 
 // parts: [{ count, mod }] — 한 줄 막대를 여러 색으로 이어 칠한다.
-function statsBarRow(label, parts, max, total = parts.reduce((n, p) => n + p.count, 0)) {
-  const row = h('div', 'st-row');
+// onClick 이 있으면 누를 수 있는 줄(button)로 만든다.
+function statsBarRow(label, parts, max, onClick) {
+  const row = h(onClick ? 'button' : 'div', 'st-row');
+  if (onClick) {
+    row.type = 'button';
+    row.classList.add('is-link');
+    row.addEventListener('click', onClick);
+  }
   row.appendChild(h('span', 'st-row__label', label));
 
   const track = h('span', 'st-row__track');
@@ -3188,8 +3241,16 @@ function statsBarRow(label, parts, max, total = parts.reduce((n, p) => n + p.cou
   });
   row.appendChild(track);
 
+  const total = parts.reduce((n, p) => n + p.count, 0);
   row.appendChild(h('span', 'st-row__count', `${total}곳`));
   return row;
+}
+
+// 통계에서 지도로 넘어갈 때는 통계와 모아보기를 같이 닫는다.
+function leaveStats(then) {
+  closeStats();
+  closeTimeline();
+  then();
 }
 
 // 세로 막대 차트. items: [{ count, label, sub, best, now }]
@@ -3378,32 +3439,78 @@ function statsWeekdays({ weekdays: w }) {
 }
 
 function statsTags({ tags }) {
+  if (!tags.length) return statsSection('태그별', '이 기간에 찍은 핀이 없어요');
+
   const sec = statsSection('태그별', null);
   const legend = h('div', 'st-progress__legend st-sec__legend');
   legend.appendChild(h('span', 'st-dot st-dot--visited', '가본 곳'));
   legend.appendChild(h('span', 'st-dot st-dot--wish-bar', '가볼 곳'));
-  legend.appendChild(h('span', 'st-sec__hint', '핀 하나에 태그가 여러 개일 수 있어요'));
+  legend.appendChild(h('span', 'st-sec__hint', '누르면 지도에서 그 태그만 보여요'));
   sec.firstChild.appendChild(legend);
 
   const max = tags[0].count;
   tags.forEach((t) => sec.appendChild(statsBarRow(
     `${t.emoji} ${t.label}`,
     [{ count: t.visited }, { count: t.wish, mod: 'wish' }],
-    max
+    max,
+    () => leaveStats(() => cb.onStatsFilter && cb.onStatsFilter({ tags: [t.id] }, `${t.emoji} ${t.label}`))
   )));
   return sec;
 }
 
 function statsRegions({ regions }) {
-  const sec = statsSection('자주 간 지역', regions.length ? '가본 곳 기준' : '주소가 있는 가본 곳이 아직 없어요');
+  const sec = statsSection('자주 간 지역',
+    regions.length ? '가본 곳 기준 · 누르면 지도에서 그 지역으로 가요' : '이 기간에 주소가 있는 가본 곳이 없어요');
   if (!regions.length) return sec;
 
   const max = regions[0].count;
   regions.forEach((r, i) => {
-    const row = statsBarRow(r.name, [{ count: r.count }], max);
+    const row = statsBarRow(r.name, [{ count: r.count }], max,
+      () => leaveStats(() => cb.onStatsRegion && cb.onStatsRegion(r.name, r.ids)));
     row.prepend(h('span', 'st-row__rank', String(i + 1)));
     sec.appendChild(row);
   });
+  return sec;
+}
+
+function statsHabit(icon, title, sub, onClick) {
+  const item = h(onClick ? 'button' : 'div', 'st-goal st-habit');
+  if (onClick) {
+    item.type = 'button';
+    item.classList.add('is-link');
+    item.addEventListener('click', onClick);
+  }
+  item.appendChild(h('span', 'st-goal__icon', icon));
+
+  const body = h('div', 'st-goal__body');
+  body.appendChild(h('p', 'st-goal__title', title));
+  if (sub) body.appendChild(h('p', 'st-goal__sub', sub));
+  item.appendChild(body);
+  return item;
+}
+
+function statsHabits({ features, bothFav, conversion }) {
+  const sec = statsSection('취향과 습관');
+  const box = h('div', 'st-goals');
+
+  // 조건 칩 — 눌러서 지도 필터로 넘어간다. 0 곳이면 눌러도 빈 지도라 그냥 둔다.
+  features.forEach((f) => {
+    box.appendChild(statsHabit(f.emoji, `${f.label} ${f.count}곳`,
+      f.count ? '누르면 지도에서 보여요' : '아직 없어요',
+      f.count ? () => leaveStats(() => cb.onStatsFilter && cb.onStatsFilter({ features: [f.id] }, `${f.emoji} ${f.label}`)) : null));
+  });
+
+  box.appendChild(statsHabit('💞', `둘 다 즐겨찾기한 곳 ${bothFav.count}곳`,
+    bothFav.count
+      ? bothFav.names.join(', ') + (bothFav.count > bothFav.names.length ? ` 외 ${bothFav.count - bothFav.names.length}곳` : '')
+      : '취향이 겹친 곳이 생기면 여기에 모여요'));
+
+  box.appendChild(conversion
+    ? statsHabit('⏱️', `가볼 곳 → 가본 곳 평균 ${conversion.avgDays}일`,
+        `${conversion.count}곳 기준 · 가장 빨리 간 곳 ${conversion.fastest.pin.name} (${conversion.fastest.days}일)`)
+    : statsHabit('⏱️', '가볼 곳 → 가본 곳', '가볼 곳으로 담았다가 다녀온 곳이 생기면 걸린 날을 세요'));
+
+  sec.appendChild(box);
   return sec;
 }
 
@@ -3417,11 +3524,7 @@ function statsRecordItem(label, pin, side, mod) {
   btn.appendChild(h('span', `st-rec__label${mod ? ` st-rec__label--${mod}` : ''}`, label));
   btn.appendChild(h('span', 'st-rec__name', pin.name));
   btn.appendChild(h('span', 'st-rec__date', side));
-  btn.addEventListener('click', () => {
-    closeStats();
-    closeTimeline();
-    cb.onTimelineSelect && cb.onTimelineSelect(pin.id);
-  });
+  btn.addEventListener('click', () => leaveStats(() => cb.onTimelineSelect && cb.onTimelineSelect(pin.id)));
   return btn;
 }
 
