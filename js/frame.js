@@ -71,6 +71,8 @@ function bind() {
     time:    $('#frame-time'),
     date:    $('#frame-date'),
     facts:   $('#frame-facts'),
+    card:    $('#frame-card'),
+    dots:    $('#frame-dots'),
     stage:   $('#frame-stage'),
     hint:    $('#frame-hint'),
     bar:     $('#frame-bar'),
@@ -88,9 +90,33 @@ function bind() {
   el.root.addEventListener('click', (e) => {
     if (el.sheet.contains(e.target) || el.bar.contains(e.target)) return;
     if (!el.sheet.hidden) { closeSheet(); return; }
+    // 기록 카드와 점은 넘기는 자리라 도구 막대를 띄우지 않는다.
+    // 점은 누르는 사이 새로 그려져 target 이 이미 떨어져 있을 수 있어서,
+    // contains 대신 이벤트가 처음 지나온 경로로 확인한다.
+    if (e.composedPath().includes(el.facts)) return;
     if (el.root.classList.contains('is-ui')) hideBar();
     else showBar();
   });
+
+  el.dots.style.setProperty('--fact-ms', `${FACT_MS}ms`);
+  el.dots.addEventListener('click', (e) => {
+    const dot = e.target.closest('[data-i]');
+    if (dot && el.sheet.hidden) jumpFact(Number(dot.dataset.i));
+  });
+
+  // 카드를 좌우로 밀어 이전 · 다음 기록으로 넘긴다.
+  let swipe = null;
+  el.card.addEventListener('pointerdown', (e) => {
+    swipe = { x: e.clientX, y: e.clientY };
+  });
+  el.card.addEventListener('pointerup', (e) => {
+    if (!swipe || !el.sheet.hidden) { swipe = null; return; }
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) stepFact(dx < 0 ? 1 : -1);
+  });
+  el.card.addEventListener('pointercancel', () => { swipe = null; });
 
   el.btnOpts.addEventListener('click', openSheet);
   el.btnExit.addEventListener('click', () => closeFrame());
@@ -360,66 +386,148 @@ function timeHtml(now) {
 
 // ── 기록 카드 ────────────────────────────────────────
 
+// 카드 머리글 아이콘. 고정된 문자열이라 innerHTML 로 넣어도 안전하다.
+const FACT_ICONS = {
+  summary: '<path d="M12 21s-6-5.6-6-10.5a6 6 0 0 1 12 0C18 15.4 12 21 12 21Z"/><circle cx="12" cy="10.5" r="2.2"/>',
+  month:   '<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+  latest:  '<circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.8 1.8"/>',
+  region:  '<path d="M9 5 4 7v12l5-2 6 2 5-2V5l-5 2-6-2Z"/><path d="M9 5v12M15 7v12"/>',
+  wish:    '<path d="m12 4 1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6L12 4Z"/><path d="m18.5 15.5.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/>'
+};
+
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // 설정이 켜져 있으면 돌리고, 꺼져 있으면 멈추고 숨긴다. 이미 돌고 있으면 그대로 둔다.
 function syncFacts() {
   if (!open || !opts.facts || !factsSource) { stopFacts(); el.facts.hidden = true; return; }
   if (factTimer) return;
-  nextFact(true);
-  factTimer = setInterval(() => nextFact(false), FACT_MS);
+  stepFact(1, true);
 }
 
 function stopFacts() {
-  clearInterval(factTimer);
+  clearTimeout(factTimer);
   clearTimeout(factSwapTimer);
   factTimer = 0;
   factSwapTimer = 0;
 }
 
+// 넘길 때마다 7초를 처음부터 다시 센다. 손으로 넘겨도 마찬가지.
+function scheduleFact() {
+  clearTimeout(factTimer);
+  factTimer = setTimeout(() => stepFact(1), FACT_MS);
+}
+
 function readFacts() {
   try {
     const list = factsSource();
-    return Array.isArray(list) ? list.filter((f) => f && (f.parts || f.choices?.length)) : [];
+    return Array.isArray(list) ? list.filter((f) => f && (f.value || f.choices?.length)) : [];
   } catch (err) {
     console.error('[PinLog] 시계 모드 기록 카드 실패:', err);
     return [];
   }
 }
 
-// 직전 카드의 다음 것을 고른다. 목록이 바뀌어 직전 카드가 빠졌으면 처음부터.
-function nextFact(instant) {
+// 지금 카드에서 delta 만큼 옮긴다. 목록이 바뀌어 지금 카드가 빠졌으면 처음부터.
+function stepFact(delta, instant = false) {
   const list = readFacts();
-  if (!list.length) { el.facts.hidden = true; return; }
+  // 카드가 없어도 계속 확인해서, 그사이 핀이 생기면 나타나게 한다.
+  if (!list.length) { el.facts.hidden = true; scheduleFact(); return; }
 
-  const prev = list.findIndex((f) => f.key === lastFactKey);
-  const fact = list[(prev + 1) % list.length];
+  const cur = list.findIndex((f) => f.key === lastFactKey);
+  const idx = cur < 0 ? 0 : (cur + delta + list.length) % list.length;
+  showFact(list, idx, delta, instant);
+}
+
+function jumpFact(idx) {
+  const list = readFacts();
+  if (!list[idx]) return;
+  const cur = list.findIndex((f) => f.key === lastFactKey);
+  if (idx === cur) { scheduleFact(); paintDots(list.length, idx); return; }
+  showFact(list, idx, idx > cur ? 1 : -1, false);
+}
+
+function showFact(list, idx, dir, instant) {
+  const fact = resolveFact(list[idx]);
   lastFactKey = fact.key;
 
-  let parts = fact.parts;
-  if (fact.choices) {
-    // 같은 곳이 연달아 나오지 않게 한다.
-    let i = Math.floor(Math.random() * fact.choices.length);
-    if (fact.choices.length > 1 && i === lastChoice) i = (i + 1) % fact.choices.length;
-    lastChoice = i;
-    parts = fact.choices[i];
+  el.facts.hidden = false;
+  paintDots(list.length, idx);
+  scheduleFact();
+
+  clearTimeout(factSwapTimer);
+  const card = el.card;
+  if (instant || reducedMotion()) {
+    card.classList.remove('is-out', 'is-pre');
+    renderCard(fact);
+    return;
   }
 
-  el.facts.hidden = false;
-  clearTimeout(factSwapTimer);
-  if (instant) { renderFact(parts); el.facts.classList.add('is-on'); return; }
-
-  el.facts.classList.remove('is-on');
+  // 지금 카드를 반대쪽으로 밀어내고, 새 카드는 들어오는 쪽에서 밀려 들어온다.
+  card.style.setProperty('--dir', String(dir));
+  card.classList.remove('is-pre');
+  card.classList.add('is-out');
   factSwapTimer = setTimeout(() => {
-    renderFact(parts);
-    el.facts.classList.add('is-on');
+    renderCard(fact);
+    card.classList.remove('is-out');
+    card.classList.add('is-pre');
+    void card.offsetWidth;
+    card.classList.remove('is-pre');
   }, FACT_FADE);
 }
 
+// choices 가 있으면 하나를 골라 덮어쓴다. 같은 곳이 연달아 나오지 않게 한다.
+function resolveFact(fact) {
+  if (!fact.choices) return fact;
+  let i = Math.floor(Math.random() * fact.choices.length);
+  if (fact.choices.length > 1 && i === lastChoice) i = (i + 1) % fact.choices.length;
+  lastChoice = i;
+  return { ...fact, ...fact.choices[i] };
+}
+
+function h(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
 // 장소 이름은 사용자가 쓴 값이라 innerHTML 이 아니라 텍스트 노드로 넣는다.
-function renderFact(parts) {
-  el.facts.replaceChildren(...parts.map(([text, strong]) => {
-    if (!strong) return document.createTextNode(text);
-    const b = document.createElement('strong');
-    b.textContent = text;
+function renderCard(f) {
+  const head = h('p', 'frame-card__label');
+  const icon = h('span', 'frame-card__icon');
+  icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FACT_ICONS[f.key] || FACT_ICONS.summary}</svg>`;
+  head.append(icon, h('span', '', f.label || ''));
+
+  const value = h('p', 'frame-card__value');
+  value.append(...(f.value || []).map(([text, strong]) =>
+    strong ? h('strong', '', text) : document.createTextNode(text)));
+
+  const sub = h('p', 'frame-card__sub');
+  if (Number.isFinite(f.rate)) {
+    const bar = h('span', 'frame-card__rate');
+    bar.style.setProperty('--rate', `${Math.max(0, Math.min(100, f.rate))}%`);
+    bar.append(h('i'));
+    sub.append(bar);
+  }
+  sub.append(h('span', '', f.sub || ''));
+
+  el.card.replaceChildren(head, value, sub);
+}
+
+// 지금 카드는 7초 동안 차오르는 막대, 나머지는 작은 점.
+// 매번 새로 만들어 막대 애니메이션이 처음부터 다시 돈다.
+function paintDots(count, active) {
+  el.dots.hidden = count < 2;
+  el.dots.replaceChildren(...Array.from({ length: count }, (_, i) => {
+    const b = h('button', 'frame-dot');
+    b.type = 'button';
+    b.dataset.i = String(i);
+    b.setAttribute('aria-label', `${count}개 중 ${i + 1}번째 기록`);
+    if (i === active) {
+      b.classList.add('is-on');
+      b.setAttribute('aria-current', 'true');
+      b.append(h('i'));
+    }
     return b;
   }));
 }

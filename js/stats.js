@@ -333,10 +333,13 @@ export function computeStats(pins, courses, now = new Date(), period = 'all', co
 }
 
 // ── 시계 모드 기록 카드 ─────────────────────────────
-// 시계 아래에서 돌아가며 보여줄 한 줄 문구들. 보여줄 게 없는 카드는 빠진다.
-// parts 는 [글자, 진하게?] 묶음이다. 장소 이름은 사용자가 쓴 값이라
-// 받는 쪽에서 HTML 이 아니라 텍스트로 넣는다.
-// choices 가 있으면 그중 하나를 받는 쪽이 무작위로 고른다.
+// 시계 아래에서 돌아가며 보여줄 카드들. 보여줄 게 없는 카드는 빠진다.
+//   label  작은 머리글
+//   value  핵심 값. [글자, 진하게?] 묶음이다.
+//   sub    보조 한 줄
+//   rate   0~100 이면 sub 앞에 가는 비율 막대를 그린다.
+// 장소 이름은 사용자가 쓴 값이라 받는 쪽에서 HTML 이 아니라 텍스트로 넣는다.
+// choices 가 있으면 그중 하나({ value, sub })를 받는 쪽이 무작위로 골라 덮어쓴다.
 export function frameFacts(pins, now = new Date()) {
   const list = Array.isArray(pins) ? pins : [];
   if (!list.length) return [];
@@ -345,31 +348,48 @@ export function frameFacts(pins, now = new Date()) {
   const month = computeStats(list, null, now, 'month');
   const facts = [];
 
-  const { visited, wish } = all.summary;
-  facts.push({ key: 'summary', parts: [
-    ['가본 곳 '], [`${visited}곳`, true], [' · 가볼 곳 '], [`${wish}곳`, true]
-  ] });
+  const { visited, wish, rate } = all.summary;
+  facts.push({
+    key: 'summary',
+    label: '우리 기록',
+    value: [['가본 곳 '], [String(visited), true], [' · 가볼 곳 '], [String(wish), true]],
+    sub: `${rate}% 다녀왔어요`,
+    rate
+  });
 
   const monthVisits = month.periodSummary.visits;
   if (monthVisits) {
-    facts.push({ key: 'month', parts: [['이번 달에 '], [`${monthVisits}곳`, true], [' 다녀왔어요']] });
+    facts.push({ key: 'month', label: '이번 달', value: [[`${monthVisits}곳`, true]], sub: '다녀왔어요' });
   }
 
   if (all.latestVisit) {
     const { pin, date } = all.latestVisit;
-    facts.push({ key: 'latest', parts: [['최근엔 '], [pin.name, true], [` · ${relativeDay(date, now)}`]] });
+    facts.push({
+      key: 'latest',
+      label: `최근 방문 · ${relativeDay(date, now)}`,
+      value: [[pin.name, true]],
+      sub: districtOf(pin.address)
+    });
   }
 
-  // 지역 이름은 '서울 성동구' 꼴이라 마지막 낱말만 쓴다.
+  // 지역 이름은 '서울 성동구' 꼴이라 마지막 낱말만 크게 쓴다.
   const top = all.regions[0];
   if (top && top.count >= 2) {
-    const name = top.name.split(' ').pop();
-    facts.push({ key: 'region', parts: [['가장 많이 간 동네는 '], [name, true], [` · ${top.count}번`]] });
+    facts.push({
+      key: 'region',
+      label: '가장 많이 간 동네',
+      value: [[top.name.split(' ').pop(), true]],
+      sub: `${top.count}번 다녀왔어요`
+    });
   }
 
   const wishes = list.filter((p) => p.category === 'wish');
   if (wishes.length) {
-    facts.push({ key: 'wish', choices: wishes.map((p) => [['다음엔 여기 어때요? '], [p.name, true]]) });
+    facts.push({
+      key: 'wish',
+      label: '다음엔 여기 어때요?',
+      choices: wishes.map((p) => ({ value: [[p.name, true]], sub: districtOf(p.address) }))
+    });
   }
 
   return facts;

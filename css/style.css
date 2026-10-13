@@ -2425,28 +2425,108 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .frame[data-size="large"] .frame__date { font-size: clamp(18px, 4.4vw, 32px); }
 
-/* 7초마다 바뀌는 기록 한 줄. 높이를 고정해 바뀔 때 시계가 흔들리지 않게 한다. */
-.frame__facts {
-  max-width: min(92vw, 640px);
-  height: 1.4em;
-  margin: clamp(26px, 5vh, 48px) auto 0;
-  font-size: clamp(14px, 3.4vw, 19px);
-  font-weight: 400; letter-spacing: -.01em; line-height: 1.4;
-  color: var(--f-dim);
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity .35s var(--ease);
+/* 7초마다 넘어가는 기록 카드. 크기는 모두 em 이라 .frame-facts 의 글자 크기 하나로 키운다.
+   높이를 고정해 카드가 바뀔 때 시계가 흔들리지 않게 한다. */
+.frame-facts {
+  width: min(86vw, 22.5em);
+  margin: clamp(24px, 4.5vh, 44px) auto 0;
+  font-size: clamp(15px, 3.9vw, 18px);
 }
-.frame__facts.is-on { opacity: 1; }
-.frame[data-size="large"] .frame__facts { font-size: clamp(16px, 4vw, 24px); }
-/* 긴 장소 이름은 이름만 줄여서 뒤의 '· 3일 전' 은 남긴다. */
-.frame__facts strong {
-  display: inline-block;
-  max-width: 11em;
+.frame[data-size="large"] .frame-facts { font-size: clamp(16.5px, 4.4vw, 21px); }
+
+.frame-card {
+  height: 7.1em;
+  padding: 1em 1.25em;
+  display: flex; flex-direction: column; justify-content: center; gap: .3em;
+  border-radius: 1.25em;
+  background: var(--f-glass);
+  border: 1px solid var(--f-glass-bd);
+  -webkit-backdrop-filter: var(--blur-1);
+  backdrop-filter: var(--blur-1);
+  text-align: left;
+  transition: opacity .35s var(--ease), transform .35s var(--ease);
+}
+/* 나가는 카드는 넘기는 반대쪽으로, 새 카드는 넘기는 쪽에서 들어온다. */
+.frame-card.is-out { opacity: 0; transform: translateX(calc(var(--dir, 1) * -28px)); }
+.frame-card.is-pre { opacity: 0; transform: translateX(calc(var(--dir, 1) * 28px)); transition: none; }
+
+.frame-card__label,
+.frame-card__value,
+.frame-card__sub {
+  min-width: 0;
+  white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
-  vertical-align: bottom;
-  font-weight: 400;
-  color: var(--f-ink);
+}
+.frame-card__label {
+  display: flex; align-items: center; gap: .4em;
+  font-size: .78em; letter-spacing: -.01em;
+  color: var(--f-dim);
+}
+.frame-card__icon {
+  flex-shrink: 0;
+  width: 1.15em; height: 1.15em;
+  color: var(--f-accent);
+}
+.frame-card__icon svg { display: block; width: 100%; height: 100%; }
+
+.frame-card__value {
+  font-size: 1.45em; letter-spacing: -.02em; line-height: 1.2;
+  color: var(--f-dim);
+}
+.frame-card__value strong { font-weight: 400; color: var(--f-ink); }
+
+.frame-card__sub {
+  display: flex; align-items: center; gap: .6em;
+  min-height: 1.2em;
+  font-size: .78em; letter-spacing: -.01em;
+  color: var(--f-mute);
+}
+.frame-card__sub span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.frame-card__rate {
+  flex: 0 0 5.5em;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--f-glass-bd);
+  overflow: hidden;
+}
+.frame-card__rate i {
+  display: block;
+  width: var(--rate, 0%); height: 100%;
+  border-radius: inherit;
+  background: var(--f-accent);
+}
+
+/* 페이지 점. 지금 카드는 7초 동안 차오르는 막대다. */
+.frame-dots {
+  display: flex; justify-content: center; gap: 2px;
+  margin-top: .55em;
+}
+.frame-dot {
+  position: relative;
+  display: grid; place-items: center;
+  width: 18px; height: 18px;
+}
+.frame-dot::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--f-mute);
+  transition: width .3s var(--ease);
+}
+.frame-dot.is-on { width: 34px; }
+.frame-dot.is-on::before { width: 22px; background: var(--f-glass-bd); }
+.frame-dot i {
+  position: absolute;
+  left: 6px; top: 6px;
+  width: 22px; height: 6px;
+  border-radius: 999px;
+  background: var(--f-ink);
+  transform-origin: left center;
+  animation: frame-dot-fill var(--fact-ms, 7s) linear forwards;
+}
+@keyframes frame-dot-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 .frame__foot {
@@ -2668,11 +2748,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   .frame[data-size="large"] .frame__foot { bottom: calc(16px + var(--safe-b)); font-size: 20px; }
   .frame__tagline { font-size: 10.5px; margin-top: 4px; }
   /* 시계와 로고 사이에 한 줄 넣을 높이가 없다. */
-  .frame__facts { display: none; }
+  .frame-facts { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .frame, .frame__stage, .frame__hint, .frame__bar, .frame__facts { transition: none; }
+  .frame, .frame__stage, .frame__hint, .frame__bar, .frame-card { transition: none; }
+  .frame-dot i { animation: none; }
   .frame-sheet { animation: none; }
 }
 
