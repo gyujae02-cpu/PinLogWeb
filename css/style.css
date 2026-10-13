@@ -2371,41 +2371,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .frame[data-bg="custom"] { background: var(--frame-custom, #0B4A79); }
 
-/* 배경 움직임. 테마 위에 큰 빛 두 개를 얹고 아주 천천히 흘린다.
-   transform 만 움직여서 배경을 다시 그리지 않고 합성만 한다.
-   번인 방지에도 도움이 된다. */
-.frame {
-  --f-glow:  rgba(133,198,250,.28);
-  --f-glow2: rgba(46,155,230,.22);
-}
-.frame[data-bg="sunset"] { --f-glow: rgba(255,178,120,.30); --f-glow2: rgba(214,96,140,.26); }
-.frame[data-bg="pink"]   { --f-glow: rgba(255,255,255,.20); --f-glow2: rgba(255,170,200,.30); }
-.frame[data-bg="night"]  { --f-glow: rgba(46,155,230,.10);  --f-glow2: rgba(120,90,255,.08); }
-.frame[data-bg="light"]  { --f-glow: rgba(133,198,250,.40); --f-glow2: rgba(255,200,220,.30); }
-.frame[data-bg="custom"] { --f-glow: rgba(255,255,255,.14); --f-glow2: rgba(255,255,255,.07); }
-.frame[data-bg="custom"][data-tone="light"] { --f-glow: rgba(255,255,255,.45); --f-glow2: rgba(22,32,43,.05); }
-
-.frame::before {
-  content: '';
-  position: absolute;
-  inset: -25%;
-  pointer-events: none;
-  background:
-    radial-gradient(38% 32% at 28% 30%, var(--f-glow), transparent 70%),
-    radial-gradient(34% 30% at 72% 68%, var(--f-glow2), transparent 70%);
-  opacity: 0;
-  transition: opacity 1.2s var(--ease);
-}
-.frame[data-flow="true"]::before {
-  opacity: 1;
-  animation: frame-flow 46s ease-in-out infinite alternate;
-}
-@keyframes frame-flow {
-  0%   { transform: translate(-6%, -4%) rotate(0deg); }
-  50%  { transform: translate(5%, 3%) rotate(8deg); }
-  100% { transform: translate(-3%, 6%) rotate(-6deg); }
-}
-
 .frame[data-sec="same"]                     { --t-vw: 19vw;   --t-max: 170px; }
 .frame[data-size="large"]                   { --t-vw: 25vw;   --t-vh: 40vh; --t-max: 260px; }
 .frame[data-size="large"][data-sec="same"]  { --t-vw: 20.5vw; --t-max: 220px; }
@@ -2496,11 +2461,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   backdrop-filter: var(--blur-1);
   text-align: left;
   transition: opacity .35s var(--ease), transform .35s var(--ease);
-}
-/* 배경이 흐르면 매 프레임 흐림을 다시 계산하게 된다. 오래 켜두는 화면이라 끈다. */
-.frame[data-flow="true"] .frame-card {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 /* 나가는 카드는 넘기는 반대쪽으로, 새 카드는 넘기는 쪽에서 들어온다. */
 .frame-card.is-out { opacity: 0; transform: translateX(calc(var(--dir, 1) * -28px)); }
@@ -2862,8 +2822,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   .frame, .frame__stage, .frame__hint, .frame__bar, .frame-card { transition: none; }
   .frame-dot i { animation: none; }
   .frame-sheet { animation: none; }
-  /* 빛은 남기고 흐르지만 않게 한다. */
-  .frame[data-flow="true"]::before { animation: none; }
 }
 
 .about__notice {

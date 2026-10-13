@@ -32,7 +32,6 @@ const DEFAULTS = Object.freeze({
   weight: 'light',
   size:   'normal',
   align:  'center',
-  flow:   true,
   date:   true,
   logo:   true,
   facts:  true,
@@ -320,7 +319,6 @@ function applyOpts() {
   r.dataset.weight = opts.weight;
   r.dataset.size   = opts.size;
   r.dataset.align  = opts.align;
-  r.dataset.flow   = String(opts.flow);
   r.dataset.hour12 = String(opts.hour12);
   r.dataset.tone   = toneOf(opts);
   r.style.setProperty('--frame-custom', opts.custom);
