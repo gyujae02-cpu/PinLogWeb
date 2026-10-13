@@ -1,7 +1,7 @@
 // 통계 팝업에 쓰는 숫자를 핀·코스 목록에서 계산한다.
 // tags.js · users.js 만 가져오는 말단 모듈이라 어디서 import 해도 순환 참조가 없다.
 
-import { TAGS, FEATURES } from './tags.js';
+import { TAGS } from './tags.js';
 import { normalizeId } from './users.js';
 
 // 만난 날을 1일로 센다.
@@ -10,10 +10,8 @@ export const MET_ON = new Date(2026, 7, 27);   // 월은 0부터 — 2026.08.27
 const DAY = 86400000;
 
 export const REGIONS_SHOWN = 5;
-export const WISHES_SHOWN = 3;
-const BOTH_FAV_SHOWN = 3;
 
-// 기간 칩. 방문 그래프 · 요일 · 태그 · 지역 · 취향 섹션만 이 기간으로 센다.
+// 기간 칩. 방문 그래프 · 요일 · 태그 · 지역 섹션만 이 기간으로 센다.
 export const PERIODS = [
   { id: 'all',   label: '전체' },
   { id: '3m',    label: '최근 3개월' },
@@ -31,7 +29,6 @@ const WEEKLY_UNDER_DAYS = 92;
 const MONTHS_MAX = 12;
 
 const PIN_MILESTONES = [5, 10, 20, 30, 50, 77, 100, 150, 200, 300, 500, 1000];
-const DAY_MILESTONES = [100, 200, 300, 365, 400, 500, 600, 700, 730, 800, 900, 1000, 1095, 1461, 1826, 2000, 3000];
 
 // 월요일부터 — 한국 달력과 같은 순서.
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -158,10 +155,6 @@ function milestones(visited, now) {
   const nextPins = PIN_MILESTONES.find((n) => n > visited) || null;
   const prevPins = [...PIN_MILESTONES].reverse().find((n) => n <= visited) || 0;
 
-  const day = daysTogether(now);
-  const isToday = DAY_MILESTONES.includes(day) ? day : null;
-  const nextDay = DAY_MILESTONES.find((n) => n > day) || null;
-
   return {
     pins: nextPins && {
       target: nextPins,
@@ -169,32 +162,49 @@ function milestones(visited, now) {
       // 직전 목표부터 다음 목표까지 얼마나 왔는지.
       progress: Math.round(((visited - prevPins) / (nextPins - prevPins)) * 100)
     },
-    day: {
-      today: day,
-      reachedToday: isToday,
-      next: nextDay && {
-        target: nextDay,
-        left: nextDay - day,
-        date: new Date(MET_ON.getFullYear(), MET_ON.getMonth(), MET_ON.getDate() + nextDay - 1)
-      }
-    }
+    day: dayMilestones(now)
   };
 }
 
-// 가볼 곳으로 먼저 찍어 두고 나중에 다녀온 곳 — 찍은 날이 다녀온 날보다 앞선다.
-function conversionStats(dated) {
-  const list = dated
-    .filter(({ pin }) => pin.createdAt instanceof Date && !Number.isNaN(pin.createdAt.getTime()))
-    .map(({ pin, date }) => ({ pin, days: daysBetween(pin.createdAt, date) }))
-    .filter((x) => x.days > 0);
+// D+ 기념일은 1000일까지 100일마다, 그 뒤로는 1000일마다.
+function isDayMilestone(n) {
+  return n <= 1000 ? n % 100 === 0 : n % 1000 === 0;
+}
 
-  if (!list.length) return null;
+function nextDayMilestone(day) {
+  const step = day < 1000 ? 100 : 1000;
+  return (Math.floor(day / step) + 1) * step;
+}
 
-  const fastest = list.reduce((a, b) => (b.days < a.days ? b : a));
+// N주년은 날짜 수가 아니라 달력으로 센다. (윤년이 끼어도 매년 같은 날)
+function anniversary(n) {
+  return new Date(MET_ON.getFullYear() + n, MET_ON.getMonth(), MET_ON.getDate());
+}
+
+// 오늘 축하할 것과 다음에 올 기념일 하나. 같은 날이면 이름을 이어 붙인다.
+// { today, reachedToday: '1주년' | 'D+100' | null, next: { label, left, date } }
+function dayMilestones(now) {
+  const today = midnight(now);
+  const day = daysTogether(now);
+
+  const reached = [];
+  if (isDayMilestone(day)) reached.push(`D+${day}`);
+  const years = today.getFullYear() - MET_ON.getFullYear();
+  if (years > 0 && anniversary(years).getTime() === today.getTime()) reached.push(`${years}주년`);
+
+  const target = nextDayMilestone(day);
+  const byDay = { label: `D+${target}`, date: new Date(MET_ON.getFullYear(), MET_ON.getMonth(), MET_ON.getDate() + target - 1) };
+  const n = anniversary(years) > today ? Math.max(1, years) : years + 1;
+  const byYear = { label: `${n}주년`, date: anniversary(n) };
+
+  const diff = byDay.date - byYear.date;
+  const nextDate = diff <= 0 ? byDay.date : byYear.date;
+  const label = diff === 0 ? `${byDay.label} · ${byYear.label}` : (diff < 0 ? byDay.label : byYear.label);
+
   return {
-    count: list.length,
-    avgDays: Math.round(list.reduce((n, x) => n + x.days, 0) / list.length),
-    fastest
+    today: day,
+    reachedToday: reached.length ? reached.join(' · ') : null,
+    next: { label, left: daysBetween(today, nextDate), date: nextDate }
   };
 }
 
@@ -208,7 +218,6 @@ function rankUsers(counts) {
 export function computeStats(pins, courses, now = new Date(), period = 'all', comments = null) {
   const list = Array.isArray(pins) ? pins : [];
   const visitedPins = list.filter((p) => p.category === 'visited');
-  const wishPins = list.filter((p) => p.category !== 'visited');
 
   const total   = list.length;
   const visited = visitedPins.length;
@@ -279,29 +288,12 @@ export function computeStats(pins, courses, now = new Date(), period = 'all', co
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'))
     .slice(0, REGIONS_SHOWN);
 
-  const features = FEATURES
-    .map((f) => ({ ...f, count: scoped.filter((p) => p.features.includes(f.id)).length }));
-
-  // 즐겨찾기한 사람이 둘 이상 — 두 사람 취향이 겹친 곳.
-  const bothFavPins = scoped.filter((p) => p.favoritedBy.length >= 2);
-  const bothFav = {
-    count: bothFavPins.length,
-    names: bothFavPins.slice(0, BOTH_FAV_SHOWN).map((p) => p.name)
-  };
-
   // ── 다시 전체 기간 ──
   const byCreated = list.filter(hasCreated).sort((a, b) => a.createdAt - b.createdAt);
   const firstPin = byCreated[0] ? { pin: byCreated[0], date: byCreated[0].createdAt } : null;
 
   const latest = datedAll.slice().sort((a, b) => b.date - a.date)[0] || null;
   const latestVisit = latest ? { pin: latest.pin, date: latest.date } : null;
-
-  // 담아만 두고 가장 오래 못 간 가볼 곳.
-  const oldWishes = wishPins
-    .filter(hasCreated)
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .slice(0, WISHES_SHOWN)
-    .map((p) => ({ pin: p, days: Math.max(0, daysBetween(p.createdAt, now)) }));
 
   const userCounts = new Map();
   list.forEach((p) => {
@@ -332,11 +324,6 @@ export function computeStats(pins, courses, now = new Date(), period = 'all', co
     weekdays: weekdayStats(dated),
     tags,
     regions,
-    features,
-    bothFav,
-    conversion: conversionStats(dated),
-    oldWishes,
-    wishTotal: wishPins.length,
     firstPin,
     latestVisit,
     users,

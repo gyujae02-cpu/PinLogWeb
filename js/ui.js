@@ -1062,7 +1062,7 @@ function resetFilters() {
   showOnlyFilter();
 }
 
-// 통계에서 태그·조건 줄을 눌렀을 때. 다른 필터는 풀고 그 조건 하나만 건다.
+// 통계에서 태그 줄을 눌렀을 때. 다른 필터는 풀고 그 조건 하나만 건다.
 // 아무것도 안 넘기면 모든 필터를 기본값으로 되돌린다.
 // (다른 필터가 남아 있으면 통계에서 본 숫자와 지도 핀 수가 어긋난다.)
 export function showOnlyFilter({ tags = [], features = [] } = {}) {
@@ -3214,10 +3214,8 @@ export function renderStats(pins, courses) {
   box.appendChild(statsWeekdays(stats));
   box.appendChild(statsTags(stats));
   box.appendChild(statsRegions(stats));
-  box.appendChild(statsHabits(stats));
   frag.appendChild(box);
 
-  if (stats.oldWishes.length) frag.appendChild(statsWishes(stats));
   frag.appendChild(statsRecords(stats));
   el.statsBody.appendChild(frag);
 
@@ -3384,11 +3382,6 @@ function statsMilestone(icon, title, sub, progress) {
   return item;
 }
 
-function dayLabelOf(target) {
-  if (target % 365 === 0) return `${target / 365}주년`;
-  return `D+${target}`;
-}
-
 function statsMilestones({ milestones: m, summary }) {
   const sec = statsSection('다음 목표');
   const box = h('div', 'st-goals');
@@ -3401,12 +3394,12 @@ function statsMilestones({ milestones: m, summary }) {
   }
 
   if (m.day.reachedToday) {
-    box.appendChild(statsMilestone('🎉', `오늘이 ${dayLabelOf(m.day.reachedToday)}이에요`, '축하해요!'));
+    box.appendChild(statsMilestone('🎉', `오늘이 ${m.day.reachedToday}이에요`, '축하해요!'));
   }
   if (m.day.next) {
     const n = m.day.next;
     box.appendChild(statsMilestone('💝',
-      `${dayLabelOf(n.target)}까지 ${n.left}일`,
+      `${n.label}까지 ${n.left}일`,
       `${fmtFullDate(n.date)}`));
   }
 
@@ -3518,68 +3511,18 @@ function statsRegions({ regions }) {
   return sec;
 }
 
-function statsHabit(icon, title, sub, onClick) {
-  const item = h(onClick ? 'button' : 'div', 'st-goal st-habit');
-  if (onClick) {
-    item.type = 'button';
-    item.classList.add('is-link');
-    item.addEventListener('click', onClick);
-  }
-  item.appendChild(h('span', 'st-goal__icon', icon));
-
-  const body = h('div', 'st-goal__body');
-  body.appendChild(h('p', 'st-goal__title', title));
-  if (sub) body.appendChild(h('p', 'st-goal__sub', sub));
-  item.appendChild(body);
-  return item;
-}
-
-function statsHabits({ features, bothFav, conversion }) {
-  const sec = statsSection('취향과 습관');
-  const box = h('div', 'st-goals');
-
-  // 조건 칩 — 눌러서 지도 필터로 넘어간다. 0 곳이면 눌러도 빈 지도라 그냥 둔다.
-  features.forEach((f) => {
-    box.appendChild(statsHabit(f.emoji, `${f.label} ${f.count}곳`,
-      f.count ? '누르면 지도에서 보여요' : '아직 없어요',
-      f.count ? () => leaveStats(() => cb.onStatsFilter && cb.onStatsFilter({ features: [f.id] }, `${f.emoji} ${f.label}`)) : null));
-  });
-
-  box.appendChild(statsHabit('💞', `둘 다 즐겨찾기한 곳 ${bothFav.count}곳`,
-    bothFav.count
-      ? bothFav.names.join(', ') + (bothFav.count > bothFav.names.length ? ` 외 ${bothFav.count - bothFav.names.length}곳` : '')
-      : '취향이 겹친 곳이 생기면 여기에 모여요'));
-
-  box.appendChild(conversion
-    ? statsHabit('⏱️', `가볼 곳 → 가본 곳 평균 ${conversion.avgDays}일`,
-        `${conversion.count}곳 기준 · 가장 빨리 간 곳 ${conversion.fastest.pin.name} (${conversion.fastest.days}일)`)
-    : statsHabit('⏱️', '가볼 곳 → 가본 곳', '가볼 곳으로 담았다가 다녀온 곳이 생기면 걸린 날을 세요'));
-
-  sec.appendChild(box);
-  return sec;
-}
-
 function statsDate(d) {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
 }
 
-function statsRecordItem(label, pin, side, mod) {
+function statsRecordItem(label, pin, side) {
   const btn = h('button', 'st-rec');
   btn.type = 'button';
-  btn.appendChild(h('span', `st-rec__label${mod ? ` st-rec__label--${mod}` : ''}`, label));
+  btn.appendChild(h('span', 'st-rec__label', label));
   btn.appendChild(h('span', 'st-rec__name', pin.name));
   btn.appendChild(h('span', 'st-rec__date', side));
   btn.addEventListener('click', () => leaveStats(() => cb.onTimelineSelect && cb.onTimelineSelect(pin.id)));
   return btn;
-}
-
-function statsWishes({ oldWishes, wishTotal }) {
-  const sec = statsSection('오래 기다린 가볼 곳', `가볼 곳 ${wishTotal}곳 중 담은 지 가장 오래된 곳`);
-  oldWishes.forEach((w, i) => {
-    const side = w.days ? `${w.days}일째` : '오늘 담음';
-    sec.appendChild(statsRecordItem(String(i + 1), w.pin, side, 'wish'));
-  });
-  return sec;
 }
 
 // 두 사람을 색 막대 하나로 나눠 보여준다. users: [{ id, count }]
@@ -3750,7 +3693,6 @@ function statsCardData({ stats, format, theme }) {
   const lines = [];
   if (stats.weekdays.top.length) lines.push(`📅 주로 ${stats.weekdays.top.join('·')}요일에 놀러 다녀요`);
   if (stats.regions.length) lines.push(`📍 가장 자주 간 곳 · ${stats.regions[0].name} ${stats.regions[0].count}곳`);
-  if (stats.bothFav.count) lines.push(`💞 둘 다 좋아한 곳 ${stats.bothFav.count}곳`);
 
   return {
     format,

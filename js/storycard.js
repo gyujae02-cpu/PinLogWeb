@@ -792,6 +792,7 @@ function statsLinesBlock(ctx, lines) {
  *         numbers: [{ value, unit, label }], chart: { title, bars: [{ count, label, best }] } | null,
  *         tags: [{ emoji, label, count }], lines: [string] }
  * 칸이 모자라면 막대를 낮추고, 그래도 넘치면 문장 → 태그 → 막대 순서로 뺀다.
+ * 1:1 은 처음부터 막대 대신 태그 순위를 쓴다.
  */
 export async function drawStatsCard(canvas, data) {
   const F = CARD_FORMATS[data.format] || CARD_FORMATS.story;
@@ -817,8 +818,10 @@ export async function drawStatsCard(canvas, data) {
 
   const title   = statsTitleBlock(ctx, data.title);
   const numbers = statsNumbersBlock(ctx, data.numbers || []);
-  const chart   = data.chart && data.chart.bars.length ? statsChartBlock(ctx, data.chart) : null;
   const tags    = data.tags && data.tags.length ? statsTagsBlock(ctx, data.tags) : null;
+  // 1:1 은 막대를 넣으면 너무 납작해져서 태그 순위만 둔다. (태그가 없을 때만 막대)
+  const chart   = data.chart && data.chart.bars.length && !(data.format === 'square' && tags)
+    ? statsChartBlock(ctx, data.chart) : null;
   const lines   = data.lines && data.lines.length ? statsLinesBlock(ctx, data.lines) : null;
 
   let blocks = [title, numbers, chart, tags, lines].filter(Boolean);

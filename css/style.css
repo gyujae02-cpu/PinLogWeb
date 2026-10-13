@@ -3513,7 +3513,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   background: var(--sunken-glass);
   font-size: 11px; letter-spacing: -.01em; color: var(--ink-500);
 }
-.st-rec__label--wish { min-width: 26px; text-align: center; background: var(--wish-50); color: var(--wish-600); }
 .st-rec__name {
   flex: 1; min-width: 0;
   font-size: 14px; letter-spacing: -.02em; color: var(--ink-900);
@@ -3603,11 +3602,3 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .st-row.is-link:hover  { background: var(--brand-50); }
 .st-row.is-link:active { transform: scale(.985); }
-
-.st-habit { width: 100%; text-align: left; }
-.st-habit.is-link { transition: background .16s var(--ease), transform .16s var(--ease); }
-.st-habit.is-link:hover  { background: var(--brand-50); }
-.st-habit.is-link:active { transform: scale(.985); }
-.st-habit .st-goal__sub {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}

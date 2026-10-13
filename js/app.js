@@ -689,7 +689,7 @@ function resetStatsComments() {
   UI.setStatsComments(null);
 }
 
-// 통계의 태그·조건 줄 — 그 조건만 걸고, 걸린 핀이 다 보이게 지도를 맞춘다.
+// 통계의 태그 줄 — 그 태그만 걸고, 걸린 핀이 다 보이게 지도를 맞춘다.
 function onStatsFilter(filter, label) {
   UI.showOnlyFilter(filter);
   const list = visiblePins();
