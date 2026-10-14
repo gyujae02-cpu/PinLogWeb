@@ -37,7 +37,8 @@ const DEFAULTS = Object.freeze({
   facts:  true,
   burnin: true,
   rain:   false,
-  rainAmount: 'few'
+  rainAmount: 'few',
+  rainSize:   'normal'
 });
 
 // 저장된 값이 깨졌거나 예전 형식이어도 허용된 값만 받아들인다.
@@ -47,7 +48,8 @@ const CHOICES = {
   weight: ['light', 'regular'],
   size:   ['normal', 'large'],
   align:  ['center', 'top', 'bottom'],
-  rainAmount: ['few', 'some', 'many']
+  rainAmount: ['few', 'some', 'many'],
+  rainSize:   ['small', 'normal', 'large']
 };
 
 const $ = (s) => document.querySelector(s);
@@ -80,6 +82,7 @@ function bind() {
     rain:    $('#frame-rain'),
     rainSub: $('#frame-rain-sub'),
     rainAmt: $('#frame-rain-amount'),
+    rainSize: $('#frame-rain-size'),
     dots:    $('#frame-dots'),
     stage:   $('#frame-stage'),
     hint:    $('#frame-hint'),
@@ -351,8 +354,11 @@ function applyOpts() {
   // 완전 검정 배경은 OLED 에서 자국이 남기 쉽다.
   el.warn.hidden = !(opts.bg === 'night' && !opts.burnin);
 
-  // 양은 핀 비를 켰을 때만 고를 수 있다.
+  // 양 · 크기는 핀 비를 켰을 때만 고를 수 있다.
   el.rainAmt.hidden = !opts.rain;
+  el.rainSize.hidden = !opts.rain;
+  // 크기는 레이어에 배율 하나만 둔다. 떨어지고 있는 핀도 그 자리에서 바로 바뀐다.
+  el.rain.style.setProperty('--rain-k', String(RAIN_SIZE[opts.rainSize] || 1));
   el.rainSub.textContent = reducedMotion()
     ? '동작 줄이기 설정 때문에 멈춰 있어요'
     : '로고 속 핀이 비처럼 내려와요';
@@ -573,6 +579,9 @@ function paintDots(count, active) {
 // 화면에 동시에 떠 있는 핀 수. 낮은 화면(가로 폰)에선 60% 로 줄인다.
 const RAIN_COUNT = { few: 10, some: 18, many: 28 };
 const RAIN_LOW_H = 460;
+
+// 사용자가 고르는 핀 크기 배율. 핀마다 다른 원근 크기(--s) 위에 곱한다.
+const RAIN_SIZE = { small: 0.75, normal: 1, large: 1.4 };
 
 // 앱의 핀 색. 가본 곳(파랑) · 가볼 곳(핑크) · 즐겨찾기(노랑) 비율.
 const RAIN_COLORS = [['visited', 0.45], ['wish', 0.40], ['fav', 0.15]];

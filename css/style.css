@@ -2402,10 +2402,12 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .frame-drop {
   position: absolute; top: 0; left: 0;
-  width: calc(12px * var(--s, 1));
-  height: calc(24px * var(--s, 1));
-  margin-left: calc(-6px * var(--s, 1));
-  margin-top: calc(-24px * var(--s, 1));
+  /* 크기 = 핀마다 다른 원근 크기(--s) × 사용자가 고른 배율(--rain-k) */
+  --ps: calc(var(--s, 1) * var(--rain-k, 1));
+  width: calc(12px * var(--ps));
+  height: calc(24px * var(--ps));
+  margin-left: calc(-6px * var(--ps));
+  margin-top: calc(-24px * var(--ps));
   color: var(--pin-c);
 }
 .frame-drop.is-visited { --pin-c: var(--brand-500); }
@@ -2436,7 +2438,7 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .frame-drop__ring {
   position: absolute;
   left: 50%; bottom: -3px;
-  width: calc(20px * var(--s, 1)); height: calc(6px * var(--s, 1));
+  width: calc(20px * var(--ps, 1)); height: calc(6px * var(--ps, 1));
   border: 1.5px solid currentColor;
   border-radius: 50%;
   opacity: 0;
