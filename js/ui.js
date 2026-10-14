@@ -338,7 +338,7 @@ export function initUI(handlers) {
   el.aboutClose.addEventListener('click', () => closeAbout());
   el.btnFrame.addEventListener('click', () => {
     closeAbout(true);
-    openFrame({ facts: cb.getFrameFacts });
+    openFrame({ facts: cb.getFrameFacts, places: cb.getFramePlaces });
   });
   el.about.addEventListener('click', (e) => { if (e.target === el.about) closeAbout(); });
 

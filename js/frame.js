@@ -4,7 +4,7 @@
 // 시계 아래에는 우리 기록 한 줄(stats.js 의 frameFacts)이 돌아가며 나온다.
 // 설정은 기기마다 다르게 두는 게 자연스러워서 DB 가 아니라 localStorage 에 둔다.
 // 다른 모듈을 가져오지 않는 말단 모듈이라 어디서 import 해도 순환이 없다.
-// 기록 문구는 여는 쪽이 함수로 넘겨준다.
+// 기록 문구와 장소 이름은 여는 쪽이 함수로 넘겨준다.
 
 const DRIFT_PX   = 14;
 const HINT_MS    = 3200;
@@ -71,6 +71,14 @@ let factSwapTimer = 0;
 let lastFactKey = '';
 let lastChoice = -1;
 
+// 핀 잡기
+let placesSource = null;
+let lastPlace = '';
+let grab = null;            // 지금 누르고 있는 핀
+let planted = [];           // 꽂아 둔 핀, 오래된 순
+let suppressClick = false;  // 핀을 잡은 뒤 따라오는 click 은 도구 막대를 띄우지 않는다
+let cursorTimer = 0;
+
 function bind() {
   if (el) return;
   el = {
@@ -80,6 +88,7 @@ function bind() {
     facts:   $('#frame-facts'),
     card:    $('#frame-card'),
     rain:    $('#frame-rain'),
+    pop:     $('#frame-pop'),
     rainSub: $('#frame-rain-sub'),
     rainAmt: $('#frame-rain-amount'),
     rainSize: $('#frame-rain-size'),
@@ -99,6 +108,7 @@ function bind() {
   // 이미 사라진 오버레이를 지나 지도나 핀에 떨어질 수 있다.
   // 빈 곳을 누르면 시트가 열려 있을 땐 시트를, 아니면 도구 막대를 여닫는다.
   el.root.addEventListener('click', (e) => {
+    if (suppressClick) { suppressClick = false; return; }
     if (el.sheet.contains(e.target) || el.bar.contains(e.target)) return;
     if (!el.sheet.hidden) { closeSheet(); return; }
     // 기록 카드와 점은 넘기는 자리라 도구 막대를 띄우지 않는다.
@@ -128,6 +138,12 @@ function bind() {
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) stepFact(dx < 0 ? 1 : -1);
   });
   el.card.addEventListener('pointercancel', () => { swipe = null; });
+
+  // 떨어지는 핀 잡기 · 꽂기. 핀 레이어는 터치를 통과시키고, 누른 자리에서 가까운 핀을 직접 찾는다.
+  el.root.addEventListener('pointerdown', onRainDown);
+  el.root.addEventListener('pointermove', onRainMove);
+  el.root.addEventListener('pointerup', onRainUp);
+  el.root.addEventListener('pointercancel', onRainUp);
 
   el.btnOpts.addEventListener('click', openSheet);
   el.btnExit.addEventListener('click', () => closeFrame());
@@ -180,14 +196,17 @@ function bind() {
 
 export function isFrameOpen() { return open; }
 
-// facts — 기록 카드 목록을 돌려주는 함수. 카드가 바뀔 때마다 다시 불러
-// 그사이 추가된 핀도 바로 반영된다.
-export function openFrame({ facts = null } = {}) {
+// facts  — 기록 카드 목록을 돌려주는 함수. 카드가 바뀔 때마다 다시 불러
+//          그사이 추가된 핀도 바로 반영된다.
+// places — { visited, wish, fav } 장소 이름 목록을 돌려주는 함수. 핀을 잡을 때 부른다.
+export function openFrame({ facts = null, places = null } = {}) {
   bind();
   if (open) return;
   open = true;
 
   factsSource = typeof facts === 'function' ? facts : null;
+  placesSource = typeof places === 'function' ? places : null;
+  lastPlace = '';
   lastFactKey = '';
   lastChoice = -1;
   stopFacts();
@@ -619,8 +638,18 @@ function stopRain() {
   rainGen++;
   rainCount = 0;
   if (!el) return;
+
+  grab = null;
+  planted = [];
+  el.root.classList.remove('is-grabbing');
+  // 잡혀 있거나 꽂혀서 기다리는 핀도 깨워서 스스로 끝나게 한다.
+  for (const drop of el.rain.children) {
+    drop._st?.settle?.('stop');
+    drop._st?.evict?.();
+  }
   for (const a of el.rain.getAnimations({ subtree: true })) a.cancel();
   el.rain.replaceChildren();
+  el.pop.replaceChildren();
 }
 
 function makeDrop() {
@@ -654,10 +683,35 @@ function fallFrames(landY, fallMs) {
   return frames;
 }
 
+// 꽂히기 — 살짝 눌렸다 튕기고, 발밑에 작은 원이 퍼진다.
+function landEffect(drop) {
+  drop.querySelector('.frame-drop__ring').animate(
+    [{ opacity: 0.7, transform: 'translateX(-50%) scale(.2)' }, { opacity: 0, transform: 'translateX(-50%) scale(1.8)' }],
+    { duration: 700, easing: 'ease-out' }
+  );
+  return drop.querySelector('.frame-drop__pin').animate(
+    [
+      { transform: 'scale(1, 1)' },
+      { transform: 'scale(1.18, .72)', offset: 0.35 },
+      { transform: 'scale(.94, 1.08)', offset: 0.7 },
+      { transform: 'scale(1, 1)' }
+    ],
+    { duration: 420, easing: 'ease-out' }
+  ).finished;
+}
+
+function fadeOut(drop, delay) {
+  return drop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, delay, fill: 'forwards' }).finished;
+}
+
 // 핀 하나가 떨어지고 → 꽂히고 → 사라지는 한 바퀴. 끝나면 새로 꾸며 다시 돈다.
+// 떨어지는 중에 잡히면(onRainDown) 멈췄다 이어 떨어지거나, 끌려가 꽂힌다(plantDrop).
+//   st.mode   wait · fall · held · drag · planted · land
+//   st.settle 떨어지기가 끝나는 방식('landed' · 'planted' · 'stop')을 알린다
+//   st.evict  꽂힌 핀을 일찍 거둔다
 async function runDrop(drop, gen, delay = 0) {
-  const pin  = drop.querySelector('.frame-drop__pin');
-  const ring = drop.querySelector('.frame-drop__ring');
+  const st = { mode: 'wait', fall: null, settle: null, evict: null };
+  drop._st = st;
 
   try {
     while (gen === rainGen) {
@@ -672,35 +726,47 @@ async function runDrop(drop, gen, delay = 0) {
       drop.style.left = `${2 + Math.random() * 96}%`;
       drop.style.setProperty('--s', scale.toFixed(2));
       drop.style.setProperty('--o', (0.55 + scale * 0.35).toFixed(2));
-
-      // 떨어지기
       drop.style.opacity = '';
-      await drop.animate(fallFrames(landY, fallMs),
-        // both — 기다리는 동안에도 화면 위쪽 바깥에 숨어 있게 한다.
-        { duration: fallMs, delay, easing: 'cubic-bezier(.45, 0, .85, .6)', fill: 'both' }
-      ).finished;
+      drop.style.transform = '';
+
+      // 떨어지기. both — 기다리는 동안에도 화면 위쪽 바깥에 숨어 있게 한다.
+      const fall = drop.animate(fallFrames(landY, fallMs),
+        { duration: fallMs, delay, easing: 'cubic-bezier(.45, 0, .85, .6)', fill: 'both' });
+      st.fall = fall;
+      st.mode = 'fall';
       delay = 0;
-      if (gen !== rainGen) return;
 
-      // 꽂히기 — 살짝 눌렸다 튕기고, 발밑에 작은 원이 퍼진다.
-      ring.animate(
-        [{ opacity: 0.7, transform: 'translateX(-50%) scale(.2)' }, { opacity: 0, transform: 'translateX(-50%) scale(1.8)' }],
-        { duration: 700, easing: 'ease-out' }
-      );
-      await pin.animate(
-        [
-          { transform: 'scale(1, 1)' },
-          { transform: 'scale(1.18, .72)', offset: 0.35 },
-          { transform: 'scale(.94, 1.08)', offset: 0.7 },
-          { transform: 'scale(1, 1)' }
-        ],
-        { duration: 420, easing: 'ease-out' }
-      ).finished;
+      const outcome = await new Promise((resolve) => {
+        st.settle = resolve;
+        // 끌기 시작하면 떨어지기를 취소한다. 그때는 놓을 때(plantDrop) 알린다.
+        fall.finished.then(() => resolve('landed'), () => { if (st.mode !== 'drag') resolve('stop'); });
+      });
+      st.settle = null;
+      st.fall = null;
+      if (gen !== rainGen || outcome === 'stop') return;
 
-      // 잠깐 머물렀다 사라진다.
-      await drop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, delay: 700, fill: 'forwards' }).finished;
+      if (outcome === 'landed') {
+        st.mode = 'land';
+        await landEffect(drop);
+        // 잠깐 머물렀다 사라진다.
+        await fadeOut(drop, 700);
+      } else {
+        // 손으로 꽂은 핀. 꽂히기 효과는 놓을 때 이미 했다. 잠시 머물다 사라진다.
+        st.mode = 'planted';
+        await new Promise((resolve) => {
+          st.evict = resolve;
+          setTimeout(resolve, PLANT_MS);
+        });
+        st.evict = null;
+        planted = planted.filter((d) => d !== drop);
+        if (gen !== rainGen) return;
+        st.mode = 'land';
+        await fadeOut(drop, 0);
+      }
+
       for (const a of drop.getAnimations()) a.cancel();
       drop.style.opacity = '0';
+      st.mode = 'wait';
 
       // 다음 바퀴까지 조금 쉰다.
       delay = Math.random() * 1500;
@@ -708,6 +774,178 @@ async function runDrop(drop, gen, delay = 0) {
   } catch (_) {
     // cancel() 로 멈추면 finished 가 거부된다. 그대로 끝낸다.
   }
+}
+
+// ── 핀 잡기 · 꽂기 ──────────────────────────────────
+
+const CATCH_R    = 22;     // 핀 머리에서 이만큼 안을 누르면 잡힌다(약 44px 크기)
+const DRAG_START = 8;      // 이만큼 움직이면 끌기로 본다
+const POP_MS     = 2000;   // 장소 이름 말풍선이 떠 있는 시간
+const PLANT_MS   = 15000;  // 꽂은 핀이 머무는 시간
+const PLANT_MAX  = 5;      // 동시에 꽂아 둘 수 있는 핀
+
+// 누른 자리에서 가장 가까운, 떨어지고 있는 핀. 누를 때 한 번만 잰다.
+function hitDrop(x, y) {
+  let best = null;
+  let bestD = Infinity;
+  for (const drop of el.rain.children) {
+    if (drop._st?.mode !== 'fall') continue;
+    const r = drop.getBoundingClientRect();
+    // 핀 머리 가운데. 기둥보다 머리를 잡는 느낌이 자연스럽다.
+    const cx = r.left + r.width / 2;
+    const cy = r.top + Math.min(r.width, r.height) / 2;
+    const d = Math.hypot(x - cx, y - cy);
+    if (d < Math.max(CATCH_R, r.width) && d < bestD) { best = drop; bestD = d; }
+  }
+  return best;
+}
+
+function onRainDown(e) {
+  suppressClick = false;
+  if (!open || el.root.dataset.rain !== 'true' || !el.sheet.hidden) return;
+  const path = e.composedPath();
+  if (path.includes(el.bar) || path.includes(el.sheet) || path.includes(el.facts)) return;
+
+  const drop = hitDrop(e.clientX, e.clientY);
+  if (!drop) return;
+
+  e.preventDefault();
+  suppressClick = true;
+  const st = drop._st;
+  st.fall.pause();
+  st.mode = 'held';
+  grab = { drop, st, gen: rainGen, id: e.pointerId, x0: e.clientX, y0: e.clientY, dragging: false, base: '', raf: 0 };
+  try { el.root.setPointerCapture(e.pointerId); } catch (_) {}
+}
+
+function onRainMove(e) {
+  if (e.pointerType === 'mouse') showCursor();
+  if (!grab || e.pointerId !== grab.id) return;
+
+  const dx = e.clientX - grab.x0;
+  const dy = e.clientY - grab.y0;
+  if (!grab.dragging) {
+    if (Math.hypot(dx, dy) < DRAG_START) return;
+    startDrag(grab);
+  }
+
+  // 손가락 위치는 화면을 그릴 때 한 번만 반영한다.
+  grab.dx = dx;
+  grab.dy = dy;
+  if (grab.raf) return;
+  const g = grab;
+  g.raf = requestAnimationFrame(() => {
+    g.raf = 0;
+    g.drop.style.transform = `translate3d(${g.dx}px, ${g.dy}px, 0) ${g.base}`;
+  });
+}
+
+function onRainUp(e) {
+  if (!grab || e.pointerId !== grab.id) return;
+  const g = grab;
+  grab = null;
+  cancelAnimationFrame(g.raf);
+  el.root.classList.remove('is-grabbing');
+  if (g.gen !== rainGen) return;
+
+  if (g.dragging) {
+    if (g.dx != null) g.drop.style.transform = `translate3d(${g.dx}px, ${g.dy}px, 0) ${g.base}`;
+    plantDrop(g);
+  } else {
+    tapDrop(g);
+  }
+}
+
+// 지금 보이는 자리(애니메이션이 그리던 transform)를 그대로 넘겨받고 떨어지기를 취소한다.
+function startDrag(g) {
+  const m = getComputedStyle(g.drop).transform;
+  g.base = m === 'none' ? '' : m;
+  g.dragging = true;
+  g.st.mode = 'drag';
+  g.drop.style.transform = g.base;
+  g.st.fall.cancel();
+  g.drop.classList.add('is-held');
+  el.root.classList.add('is-grabbing');
+}
+
+// 탭 — 그 자리에서 '통' 튕기고, 핀 색에 맞는 장소 이름을 띄운 뒤 다시 떨어진다.
+function tapDrop(g) {
+  const { drop, st } = g;
+  drop.querySelector('.frame-drop__pin').animate(
+    [
+      { transform: 'scale(1)' },
+      { transform: 'scale(1.3)', offset: 0.4 },
+      { transform: 'scale(.92)', offset: 0.75 },
+      { transform: 'scale(1)' }
+    ],
+    { duration: 360, easing: 'ease-out' }
+  );
+  showPlace(drop);
+  setTimeout(() => {
+    if (g.gen !== rainGen || st.mode !== 'held' || !st.fall) return;
+    st.mode = 'fall';
+    st.fall.play();
+  }, POP_MS);
+}
+
+// 끌어서 놓은 자리에 꽂는다. 너무 많으면 가장 오래된 것부터 거둔다.
+function plantDrop(g) {
+  const { drop, st } = g;
+  drop.classList.remove('is-held');
+  landEffect(drop).catch(() => {});
+  planted.push(drop);
+  while (planted.length > PLANT_MAX) planted.shift()._st?.evict?.();
+  st.settle?.('planted');
+}
+
+function dropKind(drop) {
+  return ['visited', 'wish', 'fav'].find((k) => drop.classList.contains(`is-${k}`)) || 'visited';
+}
+
+// 핀 색에 맞는 장소 하나. 같은 곳이 연달아 나오지 않게 한다. 없으면 빈 문자열.
+function pickPlace(kind) {
+  let list = [];
+  try { list = (placesSource && placesSource()?.[kind]) || []; } catch (_) {}
+  list = list.filter(Boolean);
+  if (!list.length) return '';
+  if (list.length > 1) list = list.filter((n) => n !== lastPlace);
+  lastPlace = list[Math.floor(Math.random() * list.length)];
+  return lastPlace;
+}
+
+// 장소 이름 말풍선. 사용자가 쓴 이름이라 텍스트로만 넣는다.
+function showPlace(drop) {
+  const name = pickPlace(dropKind(drop));
+  if (!name) return;
+
+  const host = el.pop.getBoundingClientRect();
+  const r = drop.getBoundingClientRect();
+  const bubble = h('div', 'frame-pop', name);
+  el.pop.append(bubble);
+
+  // 화면 가장자리에서 잘리지 않게 가운데를 안쪽으로 당긴다.
+  const half = bubble.offsetWidth / 2;
+  const cx = r.left + r.width / 2 - host.left;
+  bubble.style.left = `${Math.min(Math.max(cx, half + 8), host.width - half - 8)}px`;
+  bubble.style.top = `${Math.max(r.top - host.top - 6, bubble.offsetHeight + 8)}px`;
+
+  bubble.animate(
+    [{ opacity: 0, transform: 'translate(-50%, -85%) scale(.85)' }, { opacity: 1, transform: 'translate(-50%, -100%) scale(1)' }],
+    { duration: 220, easing: 'ease-out', fill: 'forwards' }
+  );
+  setTimeout(() => {
+    bubble.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' })
+      .finished.then(() => bubble.remove(), () => bubble.remove());
+  }, POP_MS - 260);
+}
+
+// 시계 모드는 커서를 숨긴다. 핀 비가 켜져 있으면 마우스를 움직일 때만 잠깐 보여
+// PC 에서도 핀을 잡을 수 있게 한다.
+function showCursor() {
+  if (el.root.dataset.rain !== 'true') return;
+  el.root.classList.add('is-cursor');
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => el.root.classList.remove('is-cursor'), 3000);
 }
 
 // 번인 방지. 가운데를 기준으로 ±DRIFT_PX 안에서 옮긴다. 꺼져 있으면 가운데에 둔다.

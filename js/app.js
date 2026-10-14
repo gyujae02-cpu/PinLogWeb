@@ -99,7 +99,13 @@ UI.initUI({
   onMakeCard,
   onSaveStoryCard,
   // 시계 모드가 카드를 바꿀 때마다 불러 최신 핀으로 다시 센다.
-  getFrameFacts: () => frameFacts(state.pins)
+  getFrameFacts: () => frameFacts(state.pins),
+  // 핀 비에서 핀을 잡을 때 부른다. 핀 색(가본 곳 · 가볼 곳 · 즐겨찾기)에 맞는 장소 이름.
+  getFramePlaces: () => ({
+    visited: state.pins.filter((p) => p.category === 'visited').map((p) => p.name),
+    wish:    state.pins.filter((p) => p.category === 'wish').map((p) => p.name),
+    fav:     state.pins.filter((p) => p.favoritedBy.length > 0).map((p) => p.name)
+  })
 });
 
 if (!FB.isConfigured) {

@@ -2322,7 +2322,10 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .frame.is-on { opacity: 1; }
 .frame.is-ui,
+.frame.is-cursor,
 .frame:has(.frame-sheet:not([hidden])) { cursor: auto; }
+/* 핀을 끌고 있을 때 */
+.frame.is-grabbing { cursor: grabbing; }
 
 .frame[data-tone="light"] {
   --f-ink:    var(--ink-900);
@@ -2421,6 +2424,35 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   position: relative;
   width: 100%; height: 100%;
   opacity: var(--o, .8);
+  transform-origin: 50% 100%;
+  transition: transform .15s var(--ease);
+}
+/* 끌려가는 핀은 집어 든 것처럼 조금 커지고 진해지며 그림자가 생긴다. */
+.frame-drop.is-held .frame-drop__body {
+  opacity: 1;
+  transform: scale(1.25) translateY(-4px);
+  filter: drop-shadow(0 6px 6px rgba(3, 14, 26, .28));
+}
+
+/* 잡은 핀 위에 뜨는 장소 이름. 시계 · 카드보다 위 층이고 터치는 통과한다. */
+.frame__pop {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.frame-pop {
+  position: absolute;
+  max-width: min(70vw, 280px);
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: var(--sh-card);
+  font-size: 13px; letter-spacing: -.01em; line-height: 1.2;
+  color: var(--ink-900);
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  transform: translate(-50%, -100%);
+  opacity: 0;
 }
 
 /* 핀이 카드 뒤를 지나가면 카드 흐림을 매 프레임 다시 계산한다.
