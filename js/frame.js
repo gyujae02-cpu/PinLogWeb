@@ -35,7 +35,9 @@ const DEFAULTS = Object.freeze({
   date:   true,
   logo:   true,
   facts:  true,
-  burnin: true
+  burnin: true,
+  rain:   false,
+  rainAmount: 'few'
 });
 
 // 저장된 값이 깨졌거나 예전 형식이어도 허용된 값만 받아들인다.
@@ -44,7 +46,8 @@ const CHOICES = {
   sec:    ['small', 'same', 'off'],
   weight: ['light', 'regular'],
   size:   ['normal', 'large'],
-  align:  ['center', 'top', 'bottom']
+  align:  ['center', 'top', 'bottom'],
+  rainAmount: ['few', 'some', 'many']
 };
 
 const $ = (s) => document.querySelector(s);
@@ -74,6 +77,9 @@ function bind() {
     date:    $('#frame-date'),
     facts:   $('#frame-facts'),
     card:    $('#frame-card'),
+    rain:    $('#frame-rain'),
+    rainSub: $('#frame-rain-sub'),
+    rainAmt: $('#frame-rain-amount'),
     dots:    $('#frame-dots'),
     stage:   $('#frame-stage'),
     hint:    $('#frame-hint'),
@@ -214,6 +220,7 @@ export function closeFrame() {
   clearTimeout(hintTimer);
   clearTimeout(barTimer);
   stopFacts();
+  stopRain();
   releaseWakeLock();
 
   // 시트 안 버튼에 포커스가 남은 채로 숨겨지지 않게 한다.
@@ -339,8 +346,14 @@ function applyOpts() {
   // 완전 검정 배경은 OLED 에서 자국이 남기 쉽다.
   el.warn.hidden = !(opts.bg === 'night' && !opts.burnin);
 
+  // 양은 핀 비를 켰을 때만 고를 수 있다.
+  el.rainAmt.hidden = !opts.rain;
+  el.rainSub.textContent = reducedMotion()
+    ? '동작 줄이기 설정 때문에 멈춰 있어요'
+    : '로고 속 핀이 비처럼 내려와요';
+
   paintThemeColor();
-  if (open) { tick(); syncFacts(); }
+  if (open) { tick(); syncFacts(); syncRain(); }
 }
 
 // 배경이 밝으면 잉크색 글씨, 어두우면 흰 글씨.
@@ -546,6 +559,129 @@ function paintDots(count, active) {
     }
     return b;
   }));
+}
+
+// ── 핀 비 ───────────────────────────────────────────
+// 로고 속 핀이 비처럼 떨어져 바닥에 '톡' 꽂히고 사라진다.
+// 정해진 수의 핀을 계속 재사용하고, transform · opacity 만 움직인다.
+
+// 화면에 동시에 떠 있는 핀 수. 낮은 화면(가로 폰)에선 60% 로 줄인다.
+const RAIN_COUNT = { few: 10, some: 18, many: 28 };
+const RAIN_LOW_H = 460;
+
+// 앱의 핀 색. 가본 곳(파랑) · 가볼 곳(핑크) · 즐겨찾기(노랑) 비율.
+const RAIN_COLORS = [['visited', 0.45], ['wish', 0.40], ['fav', 0.15]];
+
+// 로고 속 핀과 같은 모양. 기둥은 --f-stem, 머리는 currentColor.
+const PIN_SVG =
+  '<svg class="frame-drop__pin" viewBox="0 0 10 20" aria-hidden="true">' +
+  '<rect x="3.7" y="8" width="2.6" height="12" rx="1.3" fill="var(--f-stem)"/>' +
+  '<circle cx="5" cy="5" r="5" fill="currentColor"/>' +
+  '<circle cx="3.3" cy="3.3" r="1.6" fill="#fff" fill-opacity=".45"/></svg>';
+
+let rainGen = 0;      // 켤 때마다 올린다. 이전 세대의 핀은 스스로 멈춘다.
+let rainCount = 0;
+
+function syncRain() {
+  const want = open && opts.rain && !reducedMotion();
+  if (!want) { stopRain(); return; }
+
+  const base = RAIN_COUNT[opts.rainAmount] || RAIN_COUNT.few;
+  const count = Math.round(base * (window.innerHeight < RAIN_LOW_H ? 0.6 : 1));
+  if (count === rainCount) return;
+
+  stopRain();
+  rainCount = count;
+  const gen = rainGen;
+  for (let i = 0; i < count; i++) {
+    const drop = makeDrop();
+    el.rain.append(drop);
+    // 처음엔 한꺼번에 쏟아지지 않게 떨어지기 시작하는 때를 흩어 둔다.
+    runDrop(drop, gen, Math.random() * 9000);
+  }
+}
+
+function stopRain() {
+  rainGen++;
+  rainCount = 0;
+  if (!el) return;
+  for (const a of el.rain.getAnimations({ subtree: true })) a.cancel();
+  el.rain.replaceChildren();
+}
+
+function makeDrop() {
+  const drop = document.createElement('div');
+  drop.className = 'frame-drop';
+  drop.innerHTML = `<div class="frame-drop__sway">${PIN_SVG}<i class="frame-drop__ring"></i></div>`;
+  return drop;
+}
+
+function pickColor() {
+  let r = Math.random();
+  for (const [name, w] of RAIN_COLORS) { if ((r -= w) < 0) return name; }
+  return RAIN_COLORS[0][0];
+}
+
+// 핀 하나가 떨어지고 → 꽂히고 → 사라지는 한 바퀴. 끝나면 새로 꾸며 다시 돈다.
+async function runDrop(drop, gen, delay = 0) {
+  const pin  = drop.querySelector('.frame-drop__pin');
+  const ring = drop.querySelector('.frame-drop__ring');
+  const sway = drop.querySelector('.frame-drop__sway');
+
+  try {
+    while (gen === rainGen) {
+      // 작을수록 멀리 있는 것처럼 느리고 옅게.
+      const scale = 0.55 + Math.random() * 0.6;
+      const h = el.rain.clientHeight;
+      const landY = h * (0.86 + Math.random() * 0.11);
+      const fallMs = (7000 + Math.random() * 5000) * (1.25 - scale * 0.4);
+
+      drop.className = `frame-drop is-${pickColor()}`;
+      drop.style.left = `${2 + Math.random() * 96}%`;
+      drop.style.setProperty('--s', scale.toFixed(2));
+      drop.style.setProperty('--o', (0.55 + scale * 0.35).toFixed(2));
+      sway.style.setProperty('--sway-ms', `${2600 + Math.random() * 2400}ms`);
+      sway.style.setProperty('--sway-x', `${6 + Math.random() * 10}px`);
+
+      // 떨어지기
+      drop.style.opacity = '';
+      await drop.animate(
+        [{ transform: 'translate3d(0, -48px, 0)' }, { transform: `translate3d(0, ${landY}px, 0)` }],
+        // both — 기다리는 동안에도 화면 위쪽 바깥에 숨어 있게 한다.
+        { duration: fallMs, delay, easing: 'cubic-bezier(.45, 0, .85, .6)', fill: 'both' }
+      ).finished;
+      delay = 0;
+      if (gen !== rainGen) return;
+
+      // 꽂힌 핀은 흔들림을 멈춘다. 기울어진 채로 박혀 있는 게 더 자연스럽다.
+      drop.classList.add('is-landed');
+
+      // 꽂히기 — 살짝 눌렸다 튕기고, 발밑에 작은 원이 퍼진다.
+      ring.animate(
+        [{ opacity: 0.7, transform: 'translateX(-50%) scale(.2)' }, { opacity: 0, transform: 'translateX(-50%) scale(1.8)' }],
+        { duration: 700, easing: 'ease-out' }
+      );
+      await pin.animate(
+        [
+          { transform: 'scale(1, 1)' },
+          { transform: 'scale(1.18, .72)', offset: 0.35 },
+          { transform: 'scale(.94, 1.08)', offset: 0.7 },
+          { transform: 'scale(1, 1)' }
+        ],
+        { duration: 420, easing: 'ease-out' }
+      ).finished;
+
+      // 잠깐 머물렀다 사라진다.
+      await drop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, delay: 700, fill: 'forwards' }).finished;
+      for (const a of drop.getAnimations()) a.cancel();
+      drop.style.opacity = '0';
+
+      // 다음 바퀴까지 조금 쉰다.
+      delay = Math.random() * 1500;
+    }
+  } catch (_) {
+    // cancel() 로 멈추면 finished 가 거부된다. 그대로 끝낸다.
+  }
 }
 
 // 번인 방지. 가운데를 기준으로 ±DRIFT_PX 안에서 옮긴다. 꺼져 있으면 가운데에 둔다.

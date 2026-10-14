@@ -1144,6 +1144,8 @@
 
   <!-- 시계 모드. 빈 곳을 누르면 도구 막대(설정 · 닫기)가 잠깐 나온다. -->
   <div id="frame" class="frame" hidden role="dialog" aria-modal="true" aria-label="시계 모드">
+    <!-- 핀 비. 시계 · 카드 뒤에 깔리고 터치는 통과한다. 핀은 js/frame.js 가 만든다. -->
+    <div id="frame-rain" class="frame__rain" aria-hidden="true"></div>
     <div id="frame-stage" class="frame__stage">
       <div class="frame__clock">
         <p id="frame-time" class="frame__time">--:--</p>
@@ -1210,6 +1212,18 @@
           <button type="button" class="frame-switch" role="switch" data-toggle="burnin" aria-label="번인 방지"><i></i></button>
         </div>
         <p id="frame-warn" class="frame-sheet__warn" hidden>OLED 화면은 자국이 남을 수 있어요</p>
+        <div class="frame-sheet__row">
+          <p class="frame-sheet__label">핀 비 <span id="frame-rain-sub" class="frame-sheet__sub">로고 속 핀이 비처럼 내려와요</span></p>
+          <button type="button" class="frame-switch" role="switch" data-toggle="rain" aria-label="핀 비"><i></i></button>
+        </div>
+        <div id="frame-rain-amount" class="frame-sheet__row" hidden>
+          <p class="frame-sheet__label">양</p>
+          <div class="frame-seg">
+            <button type="button" data-opt="rainAmount" data-val="few">적게</button>
+            <button type="button" data-opt="rainAmount" data-val="some">보통</button>
+            <button type="button" data-opt="rainAmount" data-val="many">많이</button>
+          </div>
+        </div>
       </div>
 
       <div class="frame-pane" data-pane="clock" role="tabpanel" hidden>

@@ -2389,6 +2389,58 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 
 .frame__clock { text-align: center; }
 
+/* 핀 비. 시계 · 카드 뒤에 깔리고 터치는 통과한다(js/frame.js 의 runDrop).
+   크기 --s, 진하기 --o, 흔들림 --sway-* 는 핀마다 JS 가 정한다. */
+.frame__rain {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.frame[data-bg="night"] .frame__rain { opacity: .6; }
+
+.frame-drop {
+  position: absolute; top: 0; left: 0;
+  width: calc(12px * var(--s, 1));
+  height: calc(24px * var(--s, 1));
+  margin-left: calc(-6px * var(--s, 1));
+  margin-top: calc(-24px * var(--s, 1));
+  color: var(--pin-c);
+  will-change: transform;
+}
+.frame-drop.is-visited { --pin-c: var(--brand-500); }
+.frame-drop.is-wish    { --pin-c: var(--wish-500); }
+.frame-drop.is-fav     { --pin-c: var(--fav-500); }
+/* 같은 색 배경에 묻히는 핀만 밝게 바꾼다. */
+.frame[data-bg="sea"]  .frame-drop.is-visited { --pin-c: var(--brand-200); }
+.frame[data-bg="pink"] .frame-drop.is-wish    { --pin-c: var(--wish-100); }
+
+.frame-drop__sway {
+  position: relative;
+  width: 100%; height: 100%;
+  opacity: var(--o, .8);
+  animation: frame-sway var(--sway-ms, 3s) ease-in-out infinite alternate;
+}
+.frame-drop.is-landed .frame-drop__sway { animation-play-state: paused; }
+@keyframes frame-sway {
+  from { transform: translateX(calc(var(--sway-x, 10px) * -1)) rotate(-7deg); }
+  to   { transform: translateX(var(--sway-x, 10px)) rotate(7deg); }
+}
+
+.frame-drop__pin {
+  display: block;
+  width: 100%; height: 100%;
+  transform-origin: 50% 100%;
+}
+.frame-drop__ring {
+  position: absolute;
+  left: 50%; bottom: -3px;
+  width: calc(20px * var(--s, 1)); height: calc(6px * var(--s, 1));
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
 /* 배치. 아래쪽은 로고 · 태그라인 자리만큼 띄운다. */
 .frame[data-align="top"] .frame__stage {
   justify-content: flex-start;
