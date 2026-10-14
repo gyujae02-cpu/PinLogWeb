@@ -600,7 +600,7 @@ const RAIN_COUNT = { few: 10, some: 18, many: 28 };
 const RAIN_LOW_H = 460;
 
 // 사용자가 고르는 핀 크기 배율. 핀마다 다른 원근 크기(--s) 위에 곱한다.
-const RAIN_SIZE = { small: 0.75, normal: 1, large: 1.4 };
+const RAIN_SIZE = { small: 0.75, normal: 1, large: 1.5 };
 
 // 앱의 핀 색. 가본 곳(파랑) · 가볼 곳(핑크) · 즐겨찾기(노랑) 비율.
 const RAIN_COLORS = [['visited', 0.45], ['wish', 0.40], ['fav', 0.15]];
@@ -715,8 +715,8 @@ async function runDrop(drop, gen, delay = 0) {
 
   try {
     while (gen === rainGen) {
-      // 작을수록 멀리 있는 것처럼 느리고 옅게.
-      const scale = 0.55 + Math.random() * 0.6;
+      // 작을수록 멀리 있는 것처럼 느리고 옅게. 너무 작은 핀은 잘 안 보여서 0.7 부터.
+      const scale = 0.7 + Math.random() * 0.45;
       // 레이어가 아직 그려지기 전이면 0 이 나온다. 그때는 화면 높이를 쓴다.
       const h = el.rain.clientHeight || window.innerHeight;
       const landY = h * (0.86 + Math.random() * 0.11);

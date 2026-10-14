@@ -2407,10 +2407,10 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   position: absolute; top: 0; left: 0;
   /* 크기 = 핀마다 다른 원근 크기(--s) × 사용자가 고른 배율(--rain-k) */
   --ps: calc(var(--s, 1) * var(--rain-k, 1));
-  width: calc(12px * var(--ps));
-  height: calc(24px * var(--ps));
-  margin-left: calc(-6px * var(--ps));
-  margin-top: calc(-24px * var(--ps));
+  width: calc(20px * var(--ps));
+  height: calc(40px * var(--ps));
+  margin-left: calc(-10px * var(--ps));
+  margin-top: calc(-40px * var(--ps));
   color: var(--pin-c);
 }
 .frame-drop.is-visited { --pin-c: var(--brand-500); }
@@ -2469,9 +2469,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 }
 .frame-drop__ring {
   position: absolute;
-  left: 50%; bottom: -3px;
-  width: calc(20px * var(--ps, 1)); height: calc(6px * var(--ps, 1));
-  border: 1.5px solid currentColor;
+  left: 50%; bottom: -4px;
+  width: calc(33px * var(--ps, 1)); height: calc(10px * var(--ps, 1));
+  border: 2px solid currentColor;
   border-radius: 50%;
   opacity: 0;
   transform: translateX(-50%);
