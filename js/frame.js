@@ -189,14 +189,18 @@ export function openFrame({ facts = null } = {}) {
   lastChoice = -1;
   stopFacts();
 
+  // 화면부터 보이게 한 뒤 설정을 입힌다. 숨겨진 채로 핀 비를 시작하면
+  // 높이가 0 으로 재져서 첫 바퀴의 핀이 모두 화면 위쪽에 '착지'해 버린다.
+  // (.is-on 전까지는 opacity 0 이라 깜빡이지 않는다.)
+  el.sheet.hidden = true;
+  el.root.classList.remove('is-ui');
+  el.root.hidden = false;
+
   opts = loadOpts();
   applyOpts();
   tick();
   drift(true);
 
-  el.sheet.hidden = true;
-  el.root.classList.remove('is-ui');
-  el.root.hidden = false;
   requestAnimationFrame(() => el.root.classList.add('is-on'));
 
   const themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -326,6 +330,7 @@ function applyOpts() {
   r.dataset.weight = opts.weight;
   r.dataset.size   = opts.size;
   r.dataset.align  = opts.align;
+  r.dataset.rain   = String(opts.rain && !reducedMotion());
   r.dataset.hour12 = String(opts.hour12);
   r.dataset.tone   = toneOf(opts);
   r.style.setProperty('--frame-custom', opts.custom);
@@ -612,7 +617,7 @@ function stopRain() {
 function makeDrop() {
   const drop = document.createElement('div');
   drop.className = 'frame-drop';
-  drop.innerHTML = `<div class="frame-drop__sway">${PIN_SVG}<i class="frame-drop__ring"></i></div>`;
+  drop.innerHTML = `<div class="frame-drop__body">${PIN_SVG}<i class="frame-drop__ring"></i></div>`;
   return drop;
 }
 
@@ -622,17 +627,35 @@ function pickColor() {
   return RAIN_COLORS[0][0];
 }
 
+// 떨어지기와 좌우 흔들림을 한 애니메이션에 담는다. 핀 하나에 애니메이션이 하나만 돈다.
+// 세로는 처음부터 끝까지 고르게 나누고(전체 easing 이 가속을 준다),
+// 가로 · 기울기는 사인파로 흔든다. 마지막 기울기 그대로 바닥에 박힌다.
+function fallFrames(landY, fallMs) {
+  const swayX = 6 + Math.random() * 10;
+  const cycles = fallMs / (5200 + Math.random() * 4800);
+  const phase = Math.random() * Math.PI * 2;
+  const steps = Math.max(8, Math.ceil(cycles * 8));
+  const frames = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const k = Math.sin(phase + t * cycles * Math.PI * 2);
+    const y = -48 + (landY + 48) * t;
+    frames.push({ transform: `translate3d(${(k * swayX).toFixed(1)}px, ${y.toFixed(1)}px, 0) rotate(${(k * 7).toFixed(1)}deg)` });
+  }
+  return frames;
+}
+
 // 핀 하나가 떨어지고 → 꽂히고 → 사라지는 한 바퀴. 끝나면 새로 꾸며 다시 돈다.
 async function runDrop(drop, gen, delay = 0) {
   const pin  = drop.querySelector('.frame-drop__pin');
   const ring = drop.querySelector('.frame-drop__ring');
-  const sway = drop.querySelector('.frame-drop__sway');
 
   try {
     while (gen === rainGen) {
       // 작을수록 멀리 있는 것처럼 느리고 옅게.
       const scale = 0.55 + Math.random() * 0.6;
-      const h = el.rain.clientHeight;
+      // 레이어가 아직 그려지기 전이면 0 이 나온다. 그때는 화면 높이를 쓴다.
+      const h = el.rain.clientHeight || window.innerHeight;
       const landY = h * (0.86 + Math.random() * 0.11);
       const fallMs = (7000 + Math.random() * 5000) * (1.25 - scale * 0.4);
 
@@ -640,21 +663,15 @@ async function runDrop(drop, gen, delay = 0) {
       drop.style.left = `${2 + Math.random() * 96}%`;
       drop.style.setProperty('--s', scale.toFixed(2));
       drop.style.setProperty('--o', (0.55 + scale * 0.35).toFixed(2));
-      sway.style.setProperty('--sway-ms', `${2600 + Math.random() * 2400}ms`);
-      sway.style.setProperty('--sway-x', `${6 + Math.random() * 10}px`);
 
       // 떨어지기
       drop.style.opacity = '';
-      await drop.animate(
-        [{ transform: 'translate3d(0, -48px, 0)' }, { transform: `translate3d(0, ${landY}px, 0)` }],
+      await drop.animate(fallFrames(landY, fallMs),
         // both — 기다리는 동안에도 화면 위쪽 바깥에 숨어 있게 한다.
         { duration: fallMs, delay, easing: 'cubic-bezier(.45, 0, .85, .6)', fill: 'both' }
       ).finished;
       delay = 0;
       if (gen !== rainGen) return;
-
-      // 꽂힌 핀은 흔들림을 멈춘다. 기울어진 채로 박혀 있는 게 더 자연스럽다.
-      drop.classList.add('is-landed');
 
       // 꽂히기 — 살짝 눌렸다 튕기고, 발밑에 작은 원이 퍼진다.
       ring.animate(

@@ -2390,7 +2390,9 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .frame__clock { text-align: center; }
 
 /* 핀 비. 시계 · 카드 뒤에 깔리고 터치는 통과한다(js/frame.js 의 runDrop).
-   크기 --s, 진하기 --o, 흔들림 --sway-* 는 핀마다 JS 가 정한다. */
+   크기 --s, 진하기 --o 는 핀마다 JS 가 정한다. 떨어지기 · 흔들림은 핀 하나에
+   애니메이션 하나로 JS 가 돌린다. 레이어는 애니메이션이 도는 동안 브라우저가
+   알아서 잡으니 will-change 는 두지 않는다. */
 .frame__rain {
   position: absolute; inset: 0;
   overflow: hidden;
@@ -2405,7 +2407,6 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
   margin-left: calc(-6px * var(--s, 1));
   margin-top: calc(-24px * var(--s, 1));
   color: var(--pin-c);
-  will-change: transform;
 }
 .frame-drop.is-visited { --pin-c: var(--brand-500); }
 .frame-drop.is-wish    { --pin-c: var(--wish-500); }
@@ -2414,16 +2415,17 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 .frame[data-bg="sea"]  .frame-drop.is-visited { --pin-c: var(--brand-200); }
 .frame[data-bg="pink"] .frame-drop.is-wish    { --pin-c: var(--wish-100); }
 
-.frame-drop__sway {
+.frame-drop__body {
   position: relative;
   width: 100%; height: 100%;
   opacity: var(--o, .8);
-  animation: frame-sway var(--sway-ms, 3s) ease-in-out infinite alternate;
 }
-.frame-drop.is-landed .frame-drop__sway { animation-play-state: paused; }
-@keyframes frame-sway {
-  from { transform: translateX(calc(var(--sway-x, 10px) * -1)) rotate(-7deg); }
-  to   { transform: translateX(var(--sway-x, 10px)) rotate(7deg); }
+
+/* 핀이 카드 뒤를 지나가면 카드 흐림을 매 프레임 다시 계산한다.
+   핀 비가 켜져 있는 동안은 흐림 없이 반투명 배경만 둔다. */
+.frame[data-rain="true"] .frame-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .frame-drop__pin {
